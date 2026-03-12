@@ -1,0 +1,11 @@
+[package]
+name = "machin-signal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Signal processing: FFT, wavelets, filters, spectral analysis, Kalman"
+
+[dependencies]
+machin-math = { workspace = true }
+ndarray = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,12 @@
+[package]
+name = "machin-unsupervised"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Unsupervised learning: clustering, dimensionality reduction"
+
+[dependencies]
+machin-math = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }

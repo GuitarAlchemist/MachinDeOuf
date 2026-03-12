@@ -1,0 +1,16 @@
+[package]
+name = "machin-math"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core math primitives: linear algebra, statistics, distances, activations"
+
+[dependencies]
+ndarray = { workspace = true }
+ndarray-rand = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = "0.5"

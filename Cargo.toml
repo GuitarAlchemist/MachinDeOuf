@@ -1,0 +1,68 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/machin-math",
+    "crates/machin-optimize",
+    "crates/machin-supervised",
+    "crates/machin-unsupervised",
+    "crates/machin-ensemble",
+    "crates/machin-nn",
+    "crates/machin-rl",
+    "crates/machin-evolution",
+    "crates/machin-graph",
+    "crates/machin-probabilistic",
+    "crates/machin-io",
+    "crates/machin-signal",
+    "crates/machin-chaos",
+    "crates/machin-game",
+    "crates/machin-search",
+    "crates/machin-gpu",
+    "crates/machin-cache",
+    "crates/machin-pipeline",
+    "crates/machin-adversarial",
+    "crates/machin-skill",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+ndarray = "0.17"
+ndarray-rand = "0.16"
+rand = "0.9"
+rand_distr = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+notify = "8"
+csv = "1.4"
+reqwest = { version = "0.12", features = ["json"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+bytes = "1"
+
+# Internal crates
+machin-math = { path = "crates/machin-math", version = "0.1.0" }
+machin-optimize = { path = "crates/machin-optimize", version = "0.1.0" }
+machin-supervised = { path = "crates/machin-supervised", version = "0.1.0" }
+machin-unsupervised = { path = "crates/machin-unsupervised", version = "0.1.0" }
+machin-ensemble = { path = "crates/machin-ensemble", version = "0.1.0" }
+machin-nn = { path = "crates/machin-nn", version = "0.1.0" }
+machin-rl = { path = "crates/machin-rl", version = "0.1.0" }
+machin-evolution = { path = "crates/machin-evolution", version = "0.1.0" }
+machin-graph = { path = "crates/machin-graph", version = "0.1.0" }
+machin-probabilistic = { path = "crates/machin-probabilistic", version = "0.1.0" }
+machin-io = { path = "crates/machin-io", version = "0.1.0" }
+machin-signal = { path = "crates/machin-signal", version = "0.1.0" }
+machin-chaos = { path = "crates/machin-chaos", version = "0.1.0" }
+machin-game = { path = "crates/machin-game", version = "0.1.0" }
+machin-search = { path = "crates/machin-search", version = "0.1.0" }
+machin-gpu = { path = "crates/machin-gpu", version = "0.1.0" }
+machin-cache = { path = "crates/machin-cache", version = "0.1.0" }
+machin-pipeline = { path = "crates/machin-pipeline", version = "0.1.0" }
+machin-adversarial = { path = "crates/machin-adversarial", version = "0.1.0" }
+parking_lot = "0.12"

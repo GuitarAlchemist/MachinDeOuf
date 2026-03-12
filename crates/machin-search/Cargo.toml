@@ -1,0 +1,11 @@
+[package]
+name = "machin-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Search algorithms: Q*, A*, MCTS, minimax, heuristic and data structure search"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }

@@ -1,0 +1,13 @@
+[package]
+name = "machin-rl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Reinforcement learning: Q-learning, bandits, policy gradient"
+
+[dependencies]
+machin-math = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
