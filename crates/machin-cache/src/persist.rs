@@ -3,9 +3,8 @@
 //! Similar to Redis RDB snapshots: serialize all entries to a file
 //! and reload on startup.
 
-use std::collections::HashMap;
 use std::fs;
-use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -36,7 +35,7 @@ struct Snapshot {
 /// Serializes all non-expired entries with their remaining TTL.
 pub fn save_snapshot(cache: &Cache, path: &Path) -> io::Result<usize> {
     let keys = cache.keys("*");
-    let now = Instant::now();
+    let _now = Instant::now();
     let mut entries = Vec::new();
 
     for key in &keys {

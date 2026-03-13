@@ -127,7 +127,7 @@ impl MarkovChain {
     /// Check if the chain is ergodic (irreducible + aperiodic).
     /// Simple check: after many steps, all states have positive probability.
     pub fn is_ergodic(&self, steps: usize) -> bool {
-        let n = self.n_states();
+        let _n = self.n_states();
         // Compute P^steps
         let mut power = self.transition.clone();
         for _ in 1..steps {

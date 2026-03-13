@@ -81,7 +81,7 @@ pub fn lyapunov_spectrum(
         let mut new_q = vec![0.0; n * n];
         for col in 0..n {
             for row in 0..n {
-                let mut val = q[col * n + row];
+                let val = q[col * n + row];
                 let mut dq = 0.0;
                 for k in 0..n {
                     dq += jac[row * n + k] * q[col * n + k];

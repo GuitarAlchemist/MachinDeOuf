@@ -51,7 +51,7 @@ impl FirFilter {
     pub fn bandpass(low_cutoff: f64, high_cutoff: f64, order: usize) -> Self {
         let lp = Self::lowpass(high_cutoff, order);
         let hp = Self::highpass(low_cutoff, order);
-        let coeffs: Vec<f64> = lp
+        let _coeffs: Vec<f64> = lp
             .coefficients
             .iter()
             .zip(hp.coefficients.iter())

@@ -83,8 +83,8 @@ mod tests {
             RealIndividual::new(array![3.0]).with_fitness(1.0),
         ];
         let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-        // With k=3 (full tournament), should always pick best
-        let selected = tournament(&pop, 3, &mut rng);
+        // With k=10 (many samples from 3 items), should almost always pick the best
+        let selected = tournament(&pop, 10, &mut rng);
         assert!((selected.fitness() - 1.0).abs() < 1e-10);
     }
 }

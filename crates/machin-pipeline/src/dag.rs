@@ -212,11 +212,13 @@ impl<N> Dag<N> {
             }
         }
 
-        // Map back to NodeId references from self.order
-        let sorted_set: HashSet<&str> = sorted.into_iter().collect();
-        self.order.iter()
-            .filter(|id| sorted_set.contains(id.as_str()))
-            .collect()
+        // Map back to NodeId references from self.order, preserving topological order
+        let pos_map: HashMap<&str, usize> = sorted.iter().enumerate().map(|(i, &s)| (s, i)).collect();
+        let mut result: Vec<&NodeId> = self.order.iter()
+            .filter(|id| pos_map.contains_key(id.as_str()))
+            .collect();
+        result.sort_by_key(|id| pos_map.get(id.as_str()).copied().unwrap_or(usize::MAX));
+        result
     }
 
     /// Group nodes into execution levels (for parallel execution).

@@ -1,7 +1,6 @@
 //! Uninformed (blind) search algorithms: BFS, DFS, iterative deepening.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::Hash;
 
 use crate::astar::{SearchResult, SearchState};
 

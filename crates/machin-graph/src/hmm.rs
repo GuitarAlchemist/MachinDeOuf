@@ -696,10 +696,10 @@ mod tests {
         // Observations strongly correlated: state 0 -> obs 0, state 1 -> obs 1, alternating.
         let obs: Vec<usize> = (0..100).map(|i| i % 2).collect();
 
-        // Start with uniform guesses.
-        let initial = array![0.5, 0.5];
-        let transition = array![[0.5, 0.5], [0.5, 0.5]];
-        let emission = array![[0.5, 0.5], [0.5, 0.5]];
+        // Start with slightly asymmetric guesses to break EM symmetry.
+        let initial = array![0.6, 0.4];
+        let transition = array![[0.4, 0.6], [0.6, 0.4]];
+        let emission = array![[0.6, 0.4], [0.4, 0.6]];
         let hmm = HiddenMarkovModel::new(initial, transition, emission).unwrap();
 
         let trained = hmm.baum_welch(&obs, 100, 1e-10).unwrap();

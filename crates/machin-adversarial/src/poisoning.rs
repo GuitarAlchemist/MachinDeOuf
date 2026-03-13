@@ -67,7 +67,7 @@ pub fn detect_label_flips(
 /// (y_test - x_test^T w). Returns an influence score per training sample.
 pub fn influence_function(
     train_features: &Array2<f64>,
-    train_labels: &Array1<f64>,
+    _train_labels: &Array1<f64>,
     test_point: &Array1<f64>,
     test_label: f64,
     damping: f64,

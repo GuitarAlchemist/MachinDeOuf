@@ -1,6 +1,6 @@
 //! Loss functions for neural networks.
 
-use ndarray::{Array2, Axis};
+use ndarray::Array2;
 
 /// Mean Squared Error loss.
 pub fn mse_loss(predicted: &Array2<f64>, target: &Array2<f64>) -> f64 {

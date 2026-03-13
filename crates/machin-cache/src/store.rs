@@ -178,14 +178,19 @@ impl Cache {
         };
 
         let idx = self.shard_index(key);
+
+        // Check capacity before acquiring write lock to avoid deadlock
+        let needs_eviction = if self.config.max_capacity > 0 {
+            let total = self.total_entries_approx();
+            total >= self.config.max_capacity
+        } else {
+            false
+        };
+
         let mut shard = self.shards[idx].write();
 
-        // Evict if at capacity
-        if self.config.max_capacity > 0 {
-            let total = self.total_entries_approx();
-            if total >= self.config.max_capacity && !shard.entries.contains_key(key) {
-                self.evict_one(&mut shard);
-            }
+        if needs_eviction && !shard.entries.contains_key(key) {
+            self.evict_one(&mut shard);
         }
 
         shard.lru.touch(key);

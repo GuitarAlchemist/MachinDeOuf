@@ -6,7 +6,7 @@ use ndarray::Array1;
 ///
 /// Perturbs `input` in the direction of the gradient sign scaled by `epsilon`.
 pub fn fgsm(input: &Array1<f64>, gradient: &Array1<f64>, epsilon: f64) -> Array1<f64> {
-    input + &(gradient.mapv(|g| g.signum()) * epsilon)
+    input + &(gradient.mapv(|g| if g == 0.0 { 0.0 } else { g.signum() }) * epsilon)
 }
 
 /// Projected Gradient Descent (Madry et al., 2018).

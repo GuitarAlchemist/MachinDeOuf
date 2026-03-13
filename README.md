@@ -113,6 +113,37 @@ Claude can then call tools like `machin_kmeans`, `machin_viterbi`, `machin_optim
 - `/machin-signal` — Signal processing
 - `/machin-benchmark` — Performance profiling
 
+## Examples
+
+16 runnable examples organized by domain:
+
+| # | Example | Domain | Source |
+|---|---------|--------|--------|
+| 1 | **PSO Rosenbrock** — Minimize a 10D cost function | Optimization | [`examples/optimization/pso_rosenbrock.rs`](examples/optimization/pso_rosenbrock.rs) |
+| 2 | **Decision Tree** — CART classification with probabilities | Supervised | [`examples/supervised/decision_tree.rs`](examples/supervised/decision_tree.rs) |
+| 3 | **K-Means Clustering** — Segment data into k groups | Unsupervised | [`examples/unsupervised/kmeans_clustering.rs`](examples/unsupervised/kmeans_clustering.rs) |
+| 4 | **DBSCAN Anomaly** — Density-based clustering + noise detection | Unsupervised | [`examples/unsupervised/dbscan_anomaly.rs`](examples/unsupervised/dbscan_anomaly.rs) |
+| 5 | **Viterbi HMM** — Decode hidden states, Baum-Welch training | Sequence | [`examples/sequence/viterbi_hmm.rs`](examples/sequence/viterbi_hmm.rs) |
+| 6 | **Nash Equilibrium** — Prisoner's Dilemma analysis | Game Theory | [`examples/game-theory/nash_equilibrium.rs`](examples/game-theory/nash_equilibrium.rs) |
+| 7 | **A\* & Q\* Search** — Hand-crafted vs learned heuristics | Search | [`examples/search/astar_qstar.rs`](examples/search/astar_qstar.rs) |
+| 8 | **Logistic Map** — Lyapunov exponents and chaos detection | Chaos | [`examples/chaos/logistic_map.rs`](examples/chaos/logistic_map.rs) |
+| 9 | **DAG Pipeline** — Parallel data flow with memoization | Pipeline | [`examples/pipeline/dag_pipeline.rs`](examples/pipeline/dag_pipeline.rs) |
+| 10 | **Robustness Test** — FGSM/PGD attacks and defenses | Adversarial | [`examples/adversarial/robustness_test.rs`](examples/adversarial/robustness_test.rs) |
+| 11 | **FFT Analysis** — Frequency decomposition of signals | Signal | [`examples/signal/fft_analysis.rs`](examples/signal/fft_analysis.rs) |
+| 12 | **Auctions** — First-price, second-price, English, Dutch | Game Theory | [`examples/game-theory/auctions.rs`](examples/game-theory/auctions.rs) |
+| 13 | **Bandits** — Thompson sampling for A/B testing | RL | [`examples/reinforcement-learning/bandits.rs`](examples/reinforcement-learning/bandits.rs) |
+| 14 | **Bloom Filter** — Probabilistic membership + HyperLogLog | Probabilistic | [`examples/probabilistic/bloom_filter.rs`](examples/probabilistic/bloom_filter.rs) |
+| 15 | **GPU Similarity** — WGPU cosine similarity search | GPU | [`examples/gpu/similarity_search.rs`](examples/gpu/similarity_search.rs) |
+| 16 | **Embedded Cache** — TTL, LRU, pub/sub, Redis-style ops | Cache | [`examples/cache/embedded_cache.rs`](examples/cache/embedded_cache.rs) |
+
+Run any example:
+```bash
+cargo run --example pso_rosenbrock
+cargo run --example viterbi_hmm
+cargo run --example bloom_filter
+# etc.
+```
+
 ## Architecture
 
 ```

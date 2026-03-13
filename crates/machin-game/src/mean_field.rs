@@ -83,13 +83,15 @@ impl MeanFieldGame {
         let n = self.num_actions;
         let mut dist = Array1::from_vec(vec![1.0 / n as f64; n]);
 
+        let lr = 0.1; // Damped update to avoid oscillation
         for _ in 0..max_iterations {
             let payoffs = self.payoffs(&dist);
             let max_p = payoffs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             let exp_payoffs: Array1<f64> = payoffs.mapv(|p| (beta * (p - max_p)).exp());
             let sum_exp = exp_payoffs.sum();
-            let new_dist = &exp_payoffs / sum_exp;
+            let target = &exp_payoffs / sum_exp;
 
+            let new_dist = (1.0 - lr) * &dist + lr * &target;
             let diff: f64 = (&new_dist - &dist).mapv(|x| x.abs()).sum();
             dist = new_dist;
 

@@ -41,7 +41,6 @@ impl Individual for RealIndividual {
     }
 
     fn crossover(&self, other: &Self, rng: &mut impl rand::Rng) -> Self {
-        use rand::Rng;
         // BLX-alpha crossover
         let alpha = 0.5;
         let genes = Array1::from_iter(
@@ -55,7 +54,6 @@ impl Individual for RealIndividual {
     }
 
     fn mutate(&mut self, rate: f64, rng: &mut impl rand::Rng) {
-        use rand::Rng;
         use rand_distr::{Distribution, Normal};
         let normal = Normal::new(0.0, rate).unwrap();
         for g in self.genes.iter_mut() {

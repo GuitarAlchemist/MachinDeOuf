@@ -19,6 +19,7 @@ pub trait SearchState: Clone + Eq + Hash {
 }
 
 /// Node in the search frontier.
+#[allow(dead_code)]
 struct SearchNode<S: SearchState> {
     state: S,
     g_cost: f64,   // Path cost from start

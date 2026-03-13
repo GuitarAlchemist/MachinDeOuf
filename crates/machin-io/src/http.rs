@@ -1,7 +1,7 @@
 //! HTTP client for fetching data from REST APIs.
 
 use crate::error::IoError;
-use crate::protocol::{DataBatch, DataRecord};
+use crate::protocol::DataBatch;
 
 /// Fetch JSON data from a URL and parse into DataBatch.
 pub async fn fetch_json(url: &str) -> Result<DataBatch, IoError> {

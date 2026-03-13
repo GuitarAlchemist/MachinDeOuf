@@ -6,7 +6,6 @@
 //! Use case: connect machin to external processes (Python scripts, other tools)
 //! for real-time data exchange without network overhead.
 
-use std::path::Path;
 
 use crate::error::IoError;
 use crate::protocol::{DataBatch, DataRecord};

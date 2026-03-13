@@ -57,7 +57,7 @@ impl PipelineResult {
     /// Get the final outputs (leaf nodes).
     pub fn final_outputs(&self) -> HashMap<&NodeId, &Value> {
         // Find nodes that aren't inputs to any other node
-        let all_inputs: std::collections::HashSet<&str> = self.node_results.values()
+        let _all_inputs: std::collections::HashSet<&str> = self.node_results.values()
             .flat_map(|_| std::iter::empty::<&str>()) // Can't easily determine without the DAG
             .collect();
 

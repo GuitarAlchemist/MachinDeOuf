@@ -3,7 +3,7 @@
 //! Used for agent decision-making: explore a space of possible actions/states
 //! to find optimal paths (e.g., which skill to invoke, in what order).
 
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
 use std::hash::Hash;
 

@@ -1,6 +1,6 @@
 //! K-Means clustering with K-Means++ initialization.
 
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2};
 use rand::Rng;
 use rand::rngs::StdRng;
 use rand::SeedableRng;

@@ -123,7 +123,7 @@ fn write_response(stdout: &mut io::Stdout, response: &JsonRpcResponse) {
 
 fn handle_initialize(id: Value, registry: &ToolRegistry) -> JsonRpcResponse {
     let tool_list = registry.list();
-    let tools_arr = tool_list.get("tools").cloned().unwrap_or(Value::Array(vec![]));
+    let _tools_arr = tool_list.get("tools").cloned().unwrap_or(Value::Array(vec![]));
 
     JsonRpcResponse {
         jsonrpc: "2.0".into(),
