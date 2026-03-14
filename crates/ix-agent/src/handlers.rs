@@ -63,6 +63,11 @@ fn parse_usize(val: &Value, field: &str) -> Result<usize, String> {
         .ok_or_else(|| format!("Missing or invalid field '{}'", field))
 }
 
+fn parse_f64_matrix_to_ndarray(val: &Value, field: &str) -> Result<Array2<f64>, String> {
+    let rows = parse_f64_matrix(val, field)?;
+    vecs_to_array2(&rows)
+}
+
 fn parse_str<'a>(val: &'a Value, field: &str) -> Result<&'a str, String> {
     val.get(field)
         .and_then(|v| v.as_str())
@@ -1167,6 +1172,333 @@ pub fn random_forest(params: Value) -> Result<Value, String> {
         "n_trees": n_trees,
         "max_depth": max_depth,
     }))
+}
+
+// ── ix_supervised ──────────────────────────────────────────
+
+pub fn supervised(params: Value) -> Result<Value, String> {
+    use ix_supervised::linear_regression::LinearRegression;
+    use ix_supervised::logistic_regression::LogisticRegression;
+    use ix_supervised::svm::LinearSVM;
+    use ix_supervised::knn::KNN;
+    use ix_supervised::naive_bayes::GaussianNaiveBayes;
+    use ix_supervised::decision_tree::DecisionTree;
+    use ix_supervised::traits::{Classifier, Regressor};
+    use ix_supervised::metrics;
+
+    let operation = parse_str(&params, "operation")?;
+
+    match operation {
+        "linear_regression" | "logistic_regression" | "svm" | "knn" | "naive_bayes"
+        | "decision_tree" => {
+            let x_train = parse_f64_matrix_to_ndarray(&params, "x_train")?;
+            let y_train_raw = parse_f64_array(&params, "y_train")?;
+            let x_test = parse_f64_matrix_to_ndarray(&params, "x_test")?;
+
+            match operation {
+                "linear_regression" => {
+                    let mut model = LinearRegression::new();
+                    let y = Array1::from_vec(y_train_raw);
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    Ok(json!({ "predictions": preds.to_vec(), "algorithm": "linear_regression" }))
+                }
+                "logistic_regression" => {
+                    let mut model = LogisticRegression::new();
+                    let y: Array1<usize> = Array1::from_vec(
+                        y_train_raw.iter().map(|v| *v as usize).collect(),
+                    );
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    let probs = model.predict_proba(&x_test);
+                    Ok(json!({
+                        "predictions": preds.to_vec(),
+                        "probabilities": probs.rows().into_iter().map(|r| r.to_vec()).collect::<Vec<_>>(),
+                        "algorithm": "logistic_regression"
+                    }))
+                }
+                "svm" => {
+                    let c = params.get("c").and_then(|v| v.as_f64()).unwrap_or(1.0);
+                    let mut model = LinearSVM::new(c);
+                    let y: Array1<usize> = Array1::from_vec(
+                        y_train_raw.iter().map(|v| *v as usize).collect(),
+                    );
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    Ok(json!({ "predictions": preds.to_vec(), "algorithm": "svm", "c": c }))
+                }
+                "knn" => {
+                    let k = params.get("k").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+                    let mut model = KNN::new(k);
+                    let y: Array1<usize> = Array1::from_vec(
+                        y_train_raw.iter().map(|v| *v as usize).collect(),
+                    );
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    let probs = model.predict_proba(&x_test);
+                    Ok(json!({
+                        "predictions": preds.to_vec(),
+                        "probabilities": probs.rows().into_iter().map(|r| r.to_vec()).collect::<Vec<_>>(),
+                        "algorithm": "knn", "k": k
+                    }))
+                }
+                "naive_bayes" => {
+                    let mut model = GaussianNaiveBayes::new();
+                    let y: Array1<usize> = Array1::from_vec(
+                        y_train_raw.iter().map(|v| *v as usize).collect(),
+                    );
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    Ok(json!({ "predictions": preds.to_vec(), "algorithm": "naive_bayes" }))
+                }
+                "decision_tree" => {
+                    let max_depth = params.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+                    let mut model = DecisionTree::new(max_depth);
+                    let y: Array1<usize> = Array1::from_vec(
+                        y_train_raw.iter().map(|v| *v as usize).collect(),
+                    );
+                    model.fit(&x_train, &y);
+                    let preds = model.predict(&x_test);
+                    let probs = model.predict_proba(&x_test);
+                    Ok(json!({
+                        "predictions": preds.to_vec(),
+                        "probabilities": probs.rows().into_iter().map(|r| r.to_vec()).collect::<Vec<_>>(),
+                        "algorithm": "decision_tree", "max_depth": max_depth
+                    }))
+                }
+                _ => unreachable!(),
+            }
+        }
+        "metrics" => {
+            let y_true_raw = parse_f64_array(&params, "y_true")?;
+            let y_pred_raw = parse_f64_array(&params, "y_pred")?;
+            let metric_type = parse_str(&params, "metric_type")?;
+
+            match metric_type {
+                "mse" => {
+                    let yt = Array1::from_vec(y_true_raw);
+                    let yp = Array1::from_vec(y_pred_raw);
+                    Ok(json!({ "mse": metrics::mse(&yt, &yp), "rmse": metrics::rmse(&yt, &yp), "r_squared": metrics::r_squared(&yt, &yp) }))
+                }
+                "accuracy" => {
+                    let yt: Array1<usize> = Array1::from_vec(y_true_raw.iter().map(|v| *v as usize).collect());
+                    let yp: Array1<usize> = Array1::from_vec(y_pred_raw.iter().map(|v| *v as usize).collect());
+                    let class = params.get("class").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+                    Ok(json!({
+                        "accuracy": metrics::accuracy(&yt, &yp),
+                        "precision": metrics::precision(&yt, &yp, class),
+                        "recall": metrics::recall(&yt, &yp, class),
+                        "f1": metrics::f1_score(&yt, &yp, class)
+                    }))
+                }
+                _ => Err(format!("Unknown metric_type: {metric_type}. Use 'mse' or 'accuracy'")),
+            }
+        }
+        _ => Err(format!("Unknown supervised operation: {operation}")),
+    }
+}
+
+// ── ix_graph_ops ───────────────────────────────────────────
+
+pub fn graph_ops(params: Value) -> Result<Value, String> {
+    use ix_graph::graph::Graph;
+
+    let operation = parse_str(&params, "operation")?;
+
+    match operation {
+        "dijkstra" | "shortest_path" | "pagerank" | "bfs" | "dfs" | "topological_sort" => {
+            // Build graph from edges
+            let edges = params.get("edges").and_then(|v| v.as_array())
+                .ok_or_else(|| "Missing 'edges' array".to_string())?;
+            let n = params.get("n_nodes").and_then(|v| v.as_u64())
+                .ok_or_else(|| "Missing 'n_nodes'".to_string())? as usize;
+            let directed = params.get("directed").and_then(|v| v.as_bool()).unwrap_or(true);
+
+            let mut g = Graph::with_nodes(n);
+            for e in edges {
+                let arr = e.as_array().ok_or("Each edge must be [from, to, weight]")?;
+                let from = arr.first().and_then(|v| v.as_u64()).ok_or("Invalid 'from'")? as usize;
+                let to = arr.get(1).and_then(|v| v.as_u64()).ok_or("Invalid 'to'")? as usize;
+                let w = arr.get(2).and_then(|v| v.as_f64()).unwrap_or(1.0);
+                if directed {
+                    g.add_edge(from, to, w);
+                } else {
+                    g.add_undirected_edge(from, to, w);
+                }
+            }
+
+            match operation {
+                "dijkstra" => {
+                    let source = params.get("source").and_then(|v| v.as_u64())
+                        .ok_or("Missing 'source'")? as usize;
+                    let (dists, _preds) = g.dijkstra(source);
+                    let dist_map: serde_json::Map<String, Value> = dists.iter()
+                        .map(|(k, v)| (k.to_string(), json!(*v)))
+                        .collect();
+                    Ok(json!({ "distances": dist_map, "source": source }))
+                }
+                "shortest_path" => {
+                    let source = params.get("source").and_then(|v| v.as_u64())
+                        .ok_or("Missing 'source'")? as usize;
+                    let target = params.get("target").and_then(|v| v.as_u64())
+                        .ok_or("Missing 'target'")? as usize;
+                    match g.shortest_path(source, target) {
+                        Some(path) => Ok(json!({ "path": path, "found": true })),
+                        None => Ok(json!({ "path": [], "found": false })),
+                    }
+                }
+                "pagerank" => {
+                    let damping = params.get("damping").and_then(|v| v.as_f64()).unwrap_or(0.85);
+                    let iters = params.get("iterations").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
+                    let ranks = g.pagerank(damping, iters);
+                    let rank_map: serde_json::Map<String, Value> = ranks.iter()
+                        .map(|(k, v)| (k.to_string(), json!(*v)))
+                        .collect();
+                    Ok(json!({ "pagerank": rank_map, "damping": damping, "iterations": iters }))
+                }
+                "bfs" => {
+                    let source = params.get("source").and_then(|v| v.as_u64())
+                        .ok_or("Missing 'source'")? as usize;
+                    let dists = g.bfs(source);
+                    let dist_map: serde_json::Map<String, Value> = dists.iter()
+                        .map(|(k, v)| (k.to_string(), json!(*v)))
+                        .collect();
+                    Ok(json!({ "distances": dist_map, "source": source }))
+                }
+                "dfs" => {
+                    let source = params.get("source").and_then(|v| v.as_u64())
+                        .ok_or("Missing 'source'")? as usize;
+                    let order = g.dfs(source);
+                    Ok(json!({ "visit_order": order, "source": source }))
+                }
+                "topological_sort" => {
+                    match g.topological_sort() {
+                        Some(order) => Ok(json!({ "order": order, "is_dag": true })),
+                        None => Ok(json!({ "order": [], "is_dag": false })),
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+        _ => Err(format!("Unknown graph operation: {operation}")),
+    }
+}
+
+// ── ix_hyperloglog ─────────────────────────────────────────
+
+pub fn hyperloglog(params: Value) -> Result<Value, String> {
+    use ix_probabilistic::hyperloglog::HyperLogLog;
+
+    let operation = parse_str(&params, "operation")?;
+
+    match operation {
+        "estimate" => {
+            let precision = params.get("precision").and_then(|v| v.as_u64()).unwrap_or(14) as usize;
+            let items = params.get("items").and_then(|v| v.as_array())
+                .ok_or_else(|| "Missing 'items' array".to_string())?;
+
+            let mut hll = HyperLogLog::new(precision);
+            for item in items {
+                if let Some(s) = item.as_str() {
+                    hll.add(&s);
+                } else if let Some(n) = item.as_i64() {
+                    hll.add(&n);
+                } else if let Some(n) = item.as_f64() {
+                    hll.add(&n.to_bits());
+                }
+            }
+
+            Ok(json!({
+                "estimated_cardinality": hll.count(),
+                "actual_items": items.len(),
+                "precision": precision,
+                "error_rate": hll.error_rate(),
+                "memory_bytes": hll.memory_bytes()
+            }))
+        }
+        "merge" => {
+            let precision = params.get("precision").and_then(|v| v.as_u64()).unwrap_or(14) as usize;
+            let sets = params.get("sets").and_then(|v| v.as_array())
+                .ok_or_else(|| "Missing 'sets' array of arrays".to_string())?;
+
+            let mut merged = HyperLogLog::new(precision);
+            let mut per_set = Vec::new();
+
+            for set in sets {
+                let items = set.as_array().ok_or("Each set must be an array")?;
+                let mut hll = HyperLogLog::new(precision);
+                for item in items {
+                    if let Some(s) = item.as_str() {
+                        hll.add(&s);
+                    } else if let Some(n) = item.as_i64() {
+                        hll.add(&n);
+                    }
+                }
+                per_set.push(hll.count());
+                merged.merge(&hll).map_err(|e| e.to_string())?;
+            }
+
+            Ok(json!({
+                "merged_cardinality": merged.count(),
+                "per_set_cardinality": per_set,
+                "n_sets": sets.len(),
+                "precision": precision
+            }))
+        }
+        _ => Err(format!("Unknown hyperloglog operation: {operation}. Use 'estimate' or 'merge'")),
+    }
+}
+
+// ── ix_pipeline_exec ───────────────────────────────────────
+
+pub fn pipeline_exec(params: Value) -> Result<Value, String> {
+    use ix_pipeline::dag::Dag;
+
+    let operation = parse_str(&params, "operation")?;
+
+    match operation {
+        "info" => {
+            // Build a DAG from step definitions and return structure info
+            let steps = params.get("steps").and_then(|v| v.as_array())
+                .ok_or_else(|| "Missing 'steps' array".to_string())?;
+
+            let mut dag: Dag<String> = Dag::new();
+            for step in steps {
+                let id = step.get("id").and_then(|v| v.as_str())
+                    .ok_or("Each step needs an 'id'")?;
+                let desc = step.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                dag.add_node(id, desc.to_string()).map_err(|e| e.to_string())?;
+            }
+
+            // Add edges from dependencies
+            for step in steps {
+                let id = step.get("id").and_then(|v| v.as_str()).unwrap();
+                if let Some(deps) = step.get("depends_on").and_then(|v| v.as_array()) {
+                    for dep in deps {
+                        if let Some(dep_id) = dep.as_str() {
+                            dag.add_edge(dep_id, id).map_err(|e| e.to_string())?;
+                        }
+                    }
+                }
+            }
+
+            let levels = dag.parallel_levels();
+            let level_ids: Vec<Vec<&str>> = levels.iter()
+                .map(|level| level.iter().map(|id| id.as_str()).collect())
+                .collect();
+
+            Ok(json!({
+                "node_count": dag.node_count(),
+                "edge_count": dag.edge_count(),
+                "roots": dag.roots(),
+                "leaves": dag.leaves(),
+                "topological_order": dag.topological_sort(),
+                "parallel_levels": level_ids,
+                "max_parallelism": levels.iter().map(|l| l.len()).max().unwrap_or(0)
+            }))
+        }
+        _ => Err(format!("Unknown pipeline operation: {operation}. Use 'info'")),
+    }
 }
 
 // ── ix_cache ───────────────────────────────────────────────

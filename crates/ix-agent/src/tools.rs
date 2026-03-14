@@ -757,6 +757,129 @@ impl ToolRegistry {
         });
 
         self.tools.push(Tool {
+            name: "ix_supervised",
+            description: "Supervised learning: train and predict with linear/logistic regression, SVM, KNN, naive Bayes, decision tree. Also compute classification/regression metrics.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["linear_regression", "logistic_regression", "svm", "knn", "naive_bayes", "decision_tree", "metrics"],
+                        "description": "Algorithm or 'metrics' for evaluation"
+                    },
+                    "x_train": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Training features matrix"
+                    },
+                    "y_train": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Training labels (class indices for classification, values for regression)"
+                    },
+                    "x_test": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Test features matrix"
+                    },
+                    "k": { "type": "integer", "description": "K for KNN (default 3)" },
+                    "c": { "type": "number", "description": "Regularization for SVM (default 1.0)" },
+                    "max_depth": { "type": "integer", "description": "Max depth for decision tree (default 5)" },
+                    "y_true": { "type": "array", "items": { "type": "number" }, "description": "True labels (for metrics)" },
+                    "y_pred": { "type": "array", "items": { "type": "number" }, "description": "Predicted labels (for metrics)" },
+                    "metric_type": { "type": "string", "enum": ["mse", "accuracy"], "description": "Metric type: 'mse' for regression, 'accuracy' for classification" }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::supervised,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_graph",
+            description: "Graph algorithms: Dijkstra shortest path, BFS, DFS, PageRank, topological sort on weighted directed/undirected graphs.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["dijkstra", "shortest_path", "pagerank", "bfs", "dfs", "topological_sort"],
+                        "description": "Graph algorithm"
+                    },
+                    "n_nodes": { "type": "integer", "description": "Number of nodes in the graph" },
+                    "edges": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Edges as [from, to, weight] triples"
+                    },
+                    "directed": { "type": "boolean", "description": "Whether graph is directed (default true)" },
+                    "source": { "type": "integer", "description": "Source node for path/traversal algorithms" },
+                    "target": { "type": "integer", "description": "Target node for shortest_path" },
+                    "damping": { "type": "number", "description": "Damping factor for PageRank (default 0.85)" },
+                    "iterations": { "type": "integer", "description": "Iterations for PageRank (default 100)" }
+                },
+                "required": ["operation", "n_nodes", "edges"]
+            }),
+            handler: handlers::graph_ops,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_hyperloglog",
+            description: "HyperLogLog cardinality estimation: estimate unique item count with configurable precision, or merge multiple sketches.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["estimate", "merge"],
+                        "description": "'estimate' for single set, 'merge' for union of multiple sets"
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "Items to count (strings or numbers) — for 'estimate'"
+                    },
+                    "sets": {
+                        "type": "array",
+                        "items": { "type": "array" },
+                        "description": "Array of item arrays — for 'merge'"
+                    },
+                    "precision": { "type": "integer", "description": "HLL precision 4-18 (default 14, ~0.81% error)", "minimum": 4, "maximum": 18 }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::hyperloglog,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_pipeline",
+            description: "DAG pipeline analysis: define steps with dependencies, get topological order, parallel execution levels, and critical path info.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["info"],
+                        "description": "Pipeline operation"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": { "type": "string", "description": "Step identifier" },
+                                "description": { "type": "string", "description": "Step description" },
+                                "depends_on": { "type": "array", "items": { "type": "string" }, "description": "IDs of prerequisite steps" }
+                            },
+                            "required": ["id"]
+                        },
+                        "description": "Pipeline step definitions"
+                    }
+                },
+                "required": ["operation", "steps"]
+            }),
+            handler: handlers::pipeline_exec,
+        });
+
+        self.tools.push(Tool {
             name: "ix_cache",
             description: "In-memory cache operations: set, get, delete, or list keys.",
             input_schema: json!({
