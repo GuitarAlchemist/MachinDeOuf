@@ -6,3 +6,4 @@
 pub mod simplex;
 pub mod persistence;
 pub mod error;
+pub mod pointcloud;

@@ -1,0 +1,13 @@
+[package]
+name = "machin-sedenion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Hypercomplex algebras: sedenions, octonions, Cayley-Dickson construction, BSP trees"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

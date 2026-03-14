@@ -5,3 +5,4 @@
 
 pub mod core;
 pub mod instances;
+pub mod monad;

@@ -1,0 +1,11 @@
+[package]
+name = "machin-number-theory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Number theory: prime sieves, primality testing, modular arithmetic, CRT, totient, elliptic curves"
+
+[dependencies]
+
+[dev-dependencies]
+proptest = { workspace = true }

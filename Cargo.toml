@@ -26,6 +26,10 @@ members = [
     "crates/machin-ktheory",
     "crates/machin-topo",
     "crates/machin-category",
+    "crates/machin-sedenion",
+    "crates/machin-rotation",
+    "crates/machin-fractal",
+    "crates/machin-number-theory",
     "crates/machin-skill",
     "crates/machin-demo",
 ]
