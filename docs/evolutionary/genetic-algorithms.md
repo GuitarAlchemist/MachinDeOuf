@@ -64,7 +64,7 @@ P(select i) = rank(i) / sum(all ranks)
 
 ### Crossover (BLX-alpha)
 
-For continuous optimization, MachinDeOuf uses Blend Crossover (BLX-alpha):
+For continuous optimization, ix uses Blend Crossover (BLX-alpha):
 
 ```
 For each gene dimension d:
@@ -88,7 +88,7 @@ For each gene with probability 0.3:
 
 ### Fitness (Lower is Better)
 
-MachinDeOuf uses minimization. The fitness function takes a candidate solution (a vector of f64) and returns a score. Lower scores are better.
+ix uses minimization. The fitness function takes a candidate solution (a vector of f64) and returns a score. Lower scores are better.
 
 ```
 fitness(x) = your_objective_function(x)  // e.g., sum of squared errors
@@ -97,7 +97,7 @@ fitness(x) = your_objective_function(x)  // e.g., sum of squared errors
 ## In Rust
 
 ```rust
-use machin_evolution::genetic::GeneticAlgorithm;
+use ix_evolution::genetic::GeneticAlgorithm;
 use ndarray::Array1;
 
 // Minimize the Sphere function: f(x) = sum(x_i^2)
@@ -127,7 +127,7 @@ println!("Fitness curve: first={:.4}, last={:.4}",
 The Rastrigin function has many local optima, making it a standard test for global optimization:
 
 ```rust
-use machin_evolution::genetic::GeneticAlgorithm;
+use ix_evolution::genetic::GeneticAlgorithm;
 use ndarray::Array1;
 use std::f64::consts::PI;
 
@@ -154,8 +154,8 @@ println!("Best fitness: {:.4} (global optimum is 0.0)", result.best_fitness);
 The GA internally uses `RealIndividual` which implements the `Individual` trait:
 
 ```rust
-use machin_evolution::traits::{Individual, RealIndividual};
-use machin_evolution::selection;
+use ix_evolution::traits::{Individual, RealIndividual};
+use ix_evolution::selection;
 use ndarray::array;
 use rand::SeedableRng;
 
@@ -233,18 +233,18 @@ mutated.mutate(0.1, &mut rng);
 
 2. **Mutation rate too high = random search.** If mutation_rate is larger than the scale of the search space, offspring are essentially random. Keep it at 5-20% of the bound range.
 
-3. **Elitism is critical.** Without elitism (keeping the best individuals unchanged), the best solution can be lost due to crossover and mutation. MachinDeOuf keeps the top 2 by default.
+3. **Elitism is critical.** Without elitism (keeping the best individuals unchanged), the best solution can be lost due to crossover and mutation. ix keeps the top 2 by default.
 
 4. **Bounds must match the problem.** If the global optimum is at x = 100 but your bounds are [-10, 10], the GA will never find it. Always set bounds to cover the feasible region.
 
-5. **Fitness evaluation dominates runtime.** The GA itself is fast. If your fitness function takes 1 second, each generation of 100 individuals takes 100 seconds. Consider parallelizing fitness evaluation (not built into MachinDeOuf's GA, but you can pre-evaluate and use `with_fitness()`).
+5. **Fitness evaluation dominates runtime.** The GA itself is fast. If your fitness function takes 1 second, each generation of 100 individuals takes 100 seconds. Consider parallelizing fitness evaluation (not built into ix's GA, but you can pre-evaluate and use `with_fitness()`).
 
 6. **Not good for constrained optimization.** The GA has no built-in constraint handling. If your problem has constraints like "x1 + x2 <= 10," you must encode penalties into the fitness function.
 
 ## Going Further
 
 - **Differential evolution:** A simpler evolutionary algorithm that often outperforms GAs on continuous optimization. See [differential-evolution.md](./differential-evolution.md).
-- **Simulated annealing and PSO:** Available in `machin-optimize` for alternative global optimization strategies.
+- **Simulated annealing and PSO:** Available in `ix-optimize` for alternative global optimization strategies.
 - **Custom Individual types:** Implement the `Individual` trait for non-continuous representations (permutations, bit strings, trees).
 - **Adaptive mutation:** Decrease mutation rate over generations: `ga.with_mutation_rate(0.3 / (gen as f64 + 1.0).sqrt())`. Requires running the GA manually in a loop.
 - **Island model:** Run multiple GA populations in parallel and occasionally migrate individuals between them for better diversity.

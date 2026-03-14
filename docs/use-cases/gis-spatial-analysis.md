@@ -18,7 +18,7 @@ You're building a logistics platform that manages a fleet of 500 delivery vehicl
 Raw GPS readings scatter ±10 meters due to atmospheric interference, multipath reflection, and sensor noise. The Kalman filter fuses noisy position readings with a motion model to produce smooth, accurate tracks.
 
 ```rust
-use machin_signal::kalman::KalmanFilter;
+use ix_signal::kalman::KalmanFilter;
 use ndarray::array;
 
 // Constant-velocity model: state = [x, vx, y, vy]
@@ -76,7 +76,7 @@ for (i, state) in smoothed.iter().enumerate() {
 Find delivery hotspots — areas where vehicles frequently stop. DBSCAN is perfect because hotspots have irregular shapes (they follow buildings, loading docks, intersections) and you need to identify noise (one-off stops).
 
 ```rust
-use machin_unsupervised::{DBSCAN, Clusterer};
+use ix_unsupervised::{DBSCAN, Clusterer};
 use ndarray::array;
 
 // Stop locations from fleet: [latitude, longitude]
@@ -121,7 +121,7 @@ for cluster_id in 1..=n_clusters {
 Find the shortest path between delivery stops on a road network. A* uses a heuristic (straight-line distance) to focus the search toward the goal.
 
 ```rust
-use machin_search::astar::{SearchState, astar, SearchResult};
+use ix_search::astar::{SearchState, astar, SearchResult};
 
 #[derive(Clone, Hash, Eq, PartialEq)]
 struct RoadNode {
@@ -171,7 +171,7 @@ if let Some(result) = astar(&start, &heuristic) {
 Analyze road elevation profiles to detect periodic patterns — potholes at regular intervals, speed bumps, or road surface quality.
 
 ```rust
-use machin_signal::fft::{rfft, magnitude_spectrum, frequency_bins};
+use ix_signal::fft::{rfft, magnitude_spectrum, frequency_bins};
 
 // Elevation readings every 1 meter along a road (sampled via lidar/GPS)
 let elevation: Vec<f64> = load_elevation_profile("route_42.csv");
@@ -204,7 +204,7 @@ for (freq, mag) in peaks.iter().take(5) {
 Snap noisy GPS points to the most likely road segments. Hidden states = road segments, observations = GPS zones, transitions = road connectivity.
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::{Array1, Array2};
 
 // Build HMM from road network
@@ -234,7 +234,7 @@ println!("Confidence: {:.2}", log_prob);
 Track which route patterns are "normal" using a Bloom filter. When a vehicle's route hash isn't in the filter, flag it for review.
 
 ```rust
-use machin_probabilistic::BloomFilter;
+use ix_probabilistic::BloomFilter;
 
 // Train: insert all normal route patterns
 let mut normal_routes = BloomFilter::new(10_000, 0.01); // 1% false positive rate

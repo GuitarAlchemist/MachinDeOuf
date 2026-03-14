@@ -3,17 +3,17 @@ date: 2026-03-13
 topic: tars-math-concepts
 ---
 
-# TARS Mathematical Concepts for MachinDeOuf
+# TARS Mathematical Concepts for ix
 
 ## What We're Building
 
-Implement 9 mathematical domains from TARS v1/v2 explorations into MachinDeOuf, organized as 4 new crates + 2 crate extensions. These add algebraic types (quaternions, dual quaternions, sedenions, Plucker coordinates), number theory (prime patterns), fractal curves (Takagi, de Rham), topological data analysis, continuous dynamics (Neural ODEs, Lie groups), algebraic K-theory, and category theory primitives.
+Implement 9 mathematical domains from TARS v1/v2 explorations into ix, organized as 4 new crates + 2 crate extensions. These add algebraic types (quaternions, dual quaternions, sedenions, Plucker coordinates), number theory (prime patterns), fractal curves (Takagi, de Rham), topological data analysis, continuous dynamics (Neural ODEs, Lie groups), algebraic K-theory, and category theory primitives.
 
 Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats\` and `C:\Users\spare\source\repos\tars\v2\docs\4_Research\Conversations\`.
 
 ## Organization: 4 New Crates + 2 Extensions
 
-### Extend `machin-math` — Algebraic Types + Number Theory
+### Extend `ix-math` — Algebraic Types + Number Theory
 
 **Quaternions** (`math/quaternion.rs`):
 - `Quaternion { w, x, y, z }` — unit quaternion for 3D rotation
@@ -54,7 +54,7 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 - `prime_memory_hash(value, modulus) -> usize` — prime-based sparse hashing
 - `nth_prime(n) -> u64`
 
-### Extend `machin-chaos` — Fractal Curves
+### Extend `ix-chaos` — Fractal Curves
 
 **Takagi Curve** (`chaos/takagi.rs`):
 - `takagi(t: f64, terms: usize) -> f64` — Blancmange function
@@ -68,7 +68,7 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 - Roughness decays 0.5x per recursion level
 - Seeded RNG for reproducibility (workspace convention)
 
-### New: `machin-topo` — Topological Data Analysis
+### New: `ix-topo` — Topological Data Analysis
 
 **Simplicial Complexes** (`topo/simplex.rs`):
 - `Simplex(Vec<usize>)` — k-simplex as sorted vertex set
@@ -83,7 +83,7 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 - `bottleneck_distance(pd1, pd2) -> f64` — compare persistence diagrams
 - `wasserstein_distance(pd1, pd2, p) -> f64`
 
-### New: `machin-dynamics` — Continuous Dynamics
+### New: `ix-dynamics` — Continuous Dynamics
 
 **Lie Groups / Lie Algebras** (`dynamics/lie.rs`):
 - `so3_bracket(a, b) -> Array2<f64>` — Lie bracket [A,B] = AB - BA
@@ -101,7 +101,7 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 - `adjoint_solve(...)` — backward pass for gradient computation (later)
 - Models dy/dt = f_theta(y, t) — continuous-depth neural network layer
 
-### New: `machin-ktheory` — Algebraic K-Theory
+### New: `ix-ktheory` — Algebraic K-Theory
 
 **K-Groups from Graphs** (`ktheory/graph_k.rs`):
 - `k0_from_adjacency(A) -> (rank, generators)` — coker(I - A^T) via Smith normal form
@@ -113,7 +113,7 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 - `consistency_check(shard_a, shard_b, overlap) -> bool` — distributed data verification
 - K0(A) + K0(B) - K0(A intersect B) = K0(A union B)
 
-### New: `machin-category` — Category Theory Primitives
+### New: `ix-category` — Category Theory Primitives
 
 **Core Abstractions** (`category/core.rs`):
 - `trait Category { type Obj; type Mor; fn compose(...); fn id(...); }`
@@ -140,24 +140,24 @@ Source material: `C:\Users\spare\source\repos\tars\v1\docs\Explorations\v1\Chats
 ## Scope per Phase
 
 **Phase 1 (highest value, smallest scope):**
-- Quaternions + dual quaternions + SLERP + Plucker coordinates (machin-math)
-- Prime utilities (machin-math)
-- Takagi + de Rham curves (machin-chaos)
+- Quaternions + dual quaternions + SLERP + Plucker coordinates (ix-math)
+- Prime utilities (ix-math)
+- Takagi + de Rham curves (ix-chaos)
 
 **Phase 2 (medium scope):**
-- Sedenions + BSP (machin-math)
-- Lie groups/algebras (machin-dynamics)
-- K-theory for graphs (machin-ktheory)
+- Sedenions + BSP (ix-math)
+- Lie groups/algebras (ix-dynamics)
+- K-theory for graphs (ix-ktheory)
 
 **Phase 3 (largest scope):**
-- TDA / persistent homology (machin-topo)
-- Neural ODEs (machin-dynamics)
-- Category theory (machin-category)
+- TDA / persistent homology (ix-topo)
+- Neural ODEs (ix-dynamics)
+- Category theory (ix-category)
 
 ## Open Questions
 
 - Should quaternion ops be generic over `f32`/`f64` or stick with `f64` per convention? (Recommendation: `f64` only, consistent with workspace)
-- Should `machin-dynamics` depend on `machin-math` quaternions for Lie group <-> quaternion conversion? (Recommendation: yes, small directed dependency)
+- Should `ix-dynamics` depend on `ix-math` quaternions for Lie group <-> quaternion conversion? (Recommendation: yes, small directed dependency)
 - Should TDA persistence computation support coefficients beyond Z/2? (Recommendation: Z/2 only for now, Z/p later if needed)
 
 ## Next Steps

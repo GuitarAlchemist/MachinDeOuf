@@ -93,8 +93,8 @@ Threads whose `(row, col)` falls outside the matrix bounds early-return without 
 ### Basic matrix multiply
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::matmul::{matmul_gpu, matmul_cpu};
+use ix_gpu::context::GpuContext;
+use ix_gpu::matmul::{matmul_gpu, matmul_cpu};
 
 let ctx = GpuContext::new().unwrap();
 
@@ -130,8 +130,8 @@ for (g, c) in c_gpu.iter().zip(c_cpu.iter()) {
 ### Batch neural network inference
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::matmul::matmul_gpu;
+use ix_gpu::context::GpuContext;
+use ix_gpu::matmul::matmul_gpu;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -157,8 +157,8 @@ println!("Batch inference complete: {} outputs", output.len());
 ### Using CPU fallback when no GPU is available
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::matmul::{matmul_gpu, matmul_cpu};
+use ix_gpu::context::GpuContext;
+use ix_gpu::matmul::{matmul_gpu, matmul_cpu};
 
 let a = vec![1.0_f32, 0.0, 0.0, 1.0]; // 2x2 identity
 let b = vec![5.0_f32, 6.0, 7.0, 8.0]; // 2x2 matrix
@@ -226,5 +226,5 @@ println!("Result: {:?}", result);  // [5.0, 6.0, 7.0, 8.0]
 - **Tiled matrix multiply with shared memory** divides the computation into tiles that fit in the GPU's fast workgroup-local memory, dramatically improving cache locality. The current shader uses a simple per-element approach; tiling is a natural next optimization.
 - **Fused operations** (e.g., matmul + bias + ReLU) reduce the number of GPU dispatches and memory round-trips. Common in neural network inference engines.
 - **Half-precision (f16)** support would double throughput on GPUs with tensor cores (NVIDIA Ampere and later). WGPU's f16 support is evolving.
-- The `machin-nn` crate uses matrix operations for neural network forward and backward passes. Integrating `matmul_gpu` as the backend would accelerate training and inference.
+- The `ix-nn` crate uses matrix operations for neural network forward and backward passes. Integrating `matmul_gpu` as the backend would accelerate training and inference.
 - **[Similarity Search](./similarity-search.md)** builds on `matmul_gpu` to compute batch similarity matrices in a single GPU pass.

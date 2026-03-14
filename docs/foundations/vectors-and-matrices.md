@@ -114,11 +114,11 @@ If M × M⁻¹ = I (identity matrix), then M⁻¹ is the inverse of M. Not every
 
 ## In Rust
 
-MachinDeOuf uses `ndarray` for all vector and matrix operations. The `machin-math` crate adds higher-level functions.
+ix uses `ndarray` for all vector and matrix operations. The `ix-math` crate adds higher-level functions.
 
 ```rust
 use ndarray::{array, Array1, Array2};
-use machin_math::linalg;
+use ix_math::linalg;
 
 // Vectors
 let a: Array1<f64> = array![1.0, 2.0, 3.0];
@@ -186,7 +186,7 @@ You don't choose to use vectors and matrices — they're the default representat
 ## Pitfalls
 
 - **Dimension mismatches** are the #1 source of errors. Always check your array shapes with `.dim()` or `.shape()`.
-- **Row vs. column conventions**: In MachinDeOuf, datasets are always rows=samples, columns=features. Some textbooks use the transpose convention.
+- **Row vs. column conventions**: In ix, datasets are always rows=samples, columns=features. Some textbooks use the transpose convention.
 - **Singular matrices**: If you get a "matrix is singular" error, your data probably has linearly dependent features (one feature is a multiple of another). Try removing redundant features or using regularization.
 - **Numerical precision**: `f64` gives ~15 decimal digits. For most ML, this is plenty. But if you're inverting large matrices, small errors can accumulate — prefer algorithms that avoid explicit matrix inversion when possible.
 

@@ -6,7 +6,7 @@
 //! cargo run --example embedded_cache
 //! ```
 
-use machin_cache::store::{Cache, CacheConfig};
+use ix_cache::store::{Cache, CacheConfig};
 use serde_json::json;
 use std::time::Duration;
 

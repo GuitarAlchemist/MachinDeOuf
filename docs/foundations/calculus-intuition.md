@@ -57,7 +57,7 @@ You don't always have a formula for the derivative. The simplest approach is to 
 
 In plain English: nudge x slightly in both directions, see how much f changes, and divide by the nudge size. The smaller ε is, the more accurate (but too small causes floating-point issues).
 
-This is called the **central difference** method. It's what MachinDeOuf uses when you don't provide an analytical gradient.
+This is called the **central difference** method. It's what ix uses when you don't provide an analytical gradient.
 
 ### Numerical Gradient (Multi-dimensional)
 
@@ -83,11 +83,11 @@ In plain English: the Hessian tells you whether the minimum is a sharp valley (s
 
 ## In Rust
 
-MachinDeOuf provides numerical differentiation in `machin-math`:
+ix provides numerical differentiation in `ix-math`:
 
 ```rust
 use ndarray::array;
-use machin_math::calculus;
+use ix_math::calculus;
 
 // Scalar derivative
 // f(x) = x² → f'(x) = 2x
@@ -113,9 +113,9 @@ Here's how gradients connect to optimization — the core loop of training any m
 
 ```rust
 use ndarray::array;
-use machin_optimize::{SGD, Optimizer, ClosureObjective, ObjectiveFunction};
-use machin_optimize::gradient::minimize;
-use machin_optimize::ConvergenceCriteria;
+use ix_optimize::{SGD, Optimizer, ClosureObjective, ObjectiveFunction};
+use ix_optimize::gradient::minimize;
+use ix_optimize::ConvergenceCriteria;
 
 // Minimize f(x, y) = (x-3)² + (y-7)²
 // The minimum is at (3, 7)

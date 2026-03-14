@@ -4,9 +4,9 @@
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
     },
-    "machin": {
+    "ix": {
       "command": "cargo",
-      "args": ["run", "--release", "-p", "machin-agent"]
+      "args": ["run", "--release", "-p", "ix-agent"]
     }
   }
 }

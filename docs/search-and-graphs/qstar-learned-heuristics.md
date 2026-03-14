@@ -67,11 +67,11 @@ This is more accurate but requires calling the Q-function for each successor (lo
 
 ## In Rust
 
-The `machin-search` crate provides Q* through the `QFunction` trait:
+The `ix-search` crate provides Q* through the `QFunction` trait:
 
 ```rust
-use machin_search::astar::SearchState;
-use machin_search::qstar::{
+use ix_search::astar::SearchState;
+use ix_search::qstar::{
     QFunction, TabularQ, qstar_search, qstar_weighted,
     qstar_two_head, compare_qstar_vs_astar, QStarResult,
 };
@@ -127,7 +127,7 @@ fn main() {
 For real applications, replace `TabularQ` with a neural network or any learned model:
 
 ```rust
-use machin_search::qstar::QFunction;
+use ix_search::qstar::QFunction;
 
 struct MyNeuralQ {
     // Your model weights, ONNX runtime, etc.

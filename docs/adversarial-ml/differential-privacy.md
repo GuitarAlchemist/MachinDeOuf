@@ -57,7 +57,7 @@ removed. Delta is the probability that the guarantee fails.
 ## In Rust
 
 ```rust
-use machin_adversarial::privacy::{
+use ix_adversarial::privacy::{
     differential_privacy_noise,
     model_confidence_masking,
     prediction_purification,
@@ -119,7 +119,7 @@ let risk = membership_inference_score(
 
 - Implement DP-SGD by clipping per-sample gradients to a fixed norm, then adding
   `differential_privacy_noise` before the optimiser step. Use
-  `machin_optimize` for the underlying SGD/Adam optimiser.
+  `ix_optimize` for the underlying SGD/Adam optimiser.
 - Combine temperature scaling with prediction purification for layered defense.
 - Use `membership_inference_score` as a pre-deployment audit: if many training samples
   have scores above a threshold, the model is leaking too much information.

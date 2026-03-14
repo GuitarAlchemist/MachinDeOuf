@@ -1,0 +1,12 @@
+[package]
+name = "ix-unsupervised"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Unsupervised learning: clustering, dimensionality reduction"
+
+[dependencies]
+ix-math = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }

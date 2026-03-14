@@ -91,7 +91,7 @@ Compare this to brute force: O(N^T) -- exponential in sequence length.
 ### Basic Usage
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::array;
 
 // States: Sunny=0, Rainy=1
@@ -126,7 +126,7 @@ assert_eq!(path, vec![1]);  // Sunny
 ### Deterministic HMM (Verifying Correctness)
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::array;
 
 // Nearly deterministic mapping: state 0 -> obs 0, state 1 -> obs 1
@@ -163,7 +163,7 @@ println!("MAP:     {:?}", map_path);
 ### GPS Map Matching (Conceptual)
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::{array, Array1, Array2};
 
 // Simplified GPS map matching:
@@ -249,5 +249,5 @@ Viterbi itself has no tuning parameters. It takes an HMM and an observation sequ
 - **Markov chains:** The observable-state foundation. See [markov-chains.md](./markov-chains.md).
 - **Conditional Random Fields (CRFs):** A discriminative alternative to HMMs that often performs better for sequence labeling when you have labeled training data.
 - **Viterbi for convolutional codes:** In communications, the same algorithm decodes error-correcting codes. The "states" are encoder states and "observations" are received bits.
-- **Lazy Viterbi:** For very large state spaces, expand only promising states. Related to A\* search -- see Q\* in `machin-search` for learned heuristic search.
+- **Lazy Viterbi:** For very large state spaces, expand only promising states. Related to A\* search -- see Q\* in `ix-search` for learned heuristic search.
 - **Online Viterbi:** Process observations one at a time, emitting decoded states with a fixed delay. Useful for real-time applications like live speech recognition.

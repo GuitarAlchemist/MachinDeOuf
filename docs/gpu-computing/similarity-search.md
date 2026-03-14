@@ -70,8 +70,8 @@ similarity[i][j] = dot_matrix[i][j] / (||query_i|| * ||corpus_j||)
 ### Pairwise cosine similarity
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::similarity::{cosine_similarity_gpu, cosine_similarity_cpu};
+use ix_gpu::context::GpuContext;
+use ix_gpu::similarity::{cosine_similarity_gpu, cosine_similarity_cpu};
 
 let ctx = GpuContext::new().expect("Need GPU");
 
@@ -90,8 +90,8 @@ println!("CPU similarity: {:.4}", sim_cpu);
 ### Dot product
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::similarity::dot_product_gpu;
+use ix_gpu::context::GpuContext;
+use ix_gpu::similarity::dot_product_gpu;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -105,8 +105,8 @@ println!("Dot product: {}", dot);  // 1*4 + 2*5 + 3*6 = 32
 ### Full similarity matrix
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::batch::similarity_matrix;
+use ix_gpu::context::GpuContext;
+use ix_gpu::batch::similarity_matrix;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -129,7 +129,7 @@ for (i, row) in matrix.iter().enumerate() {
 ### Top-k search (recommendation engine)
 
 ```rust
-use machin_gpu::batch::top_k_similar;
+use ix_gpu::batch::top_k_similar;
 
 let query  = vec![0.1_f32, 0.5, 0.3, 0.8];
 let corpus = vec![
@@ -151,8 +151,8 @@ for (index, similarity) in &results {
 ### Batch top-k (multiple queries at once)
 
 ```rust
-use machin_gpu::context::GpuContext;
-use machin_gpu::batch::batch_top_k;
+use ix_gpu::context::GpuContext;
+use ix_gpu::batch::batch_top_k;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -212,7 +212,7 @@ for (qi, recs) in results.iter().enumerate() {
 
 ## Pitfalls
 
-1. **GPU uses f32, CPU math crate uses f64.** If you are comparing GPU similarity results against values computed by `machin-math` (which uses `f64`), expect small discrepancies on the order of 1e-4 to 1e-6. This is fine for ranking but be cautious with exact-match thresholds.
+1. **GPU uses f32, CPU math crate uses f64.** If you are comparing GPU similarity results against values computed by `ix-math` (which uses `f64`), expect small discrepancies on the order of 1e-4 to 1e-6. This is fine for ranking but be cautious with exact-match thresholds.
 
 2. **Short vectors do not benefit from GPU.** For vectors shorter than ~64 dimensions, the parallel reduction has more overhead than sequential summation. The CPU fallback will often be faster.
 

@@ -63,7 +63,7 @@ anything below the threshold becomes exactly zero.
 ## In Rust
 
 ```rust
-use machin_signal::wavelet::{
+use ix_signal::wavelet::{
     haar_forward, haar_inverse,
     haar_dwt, haar_idwt,
     wavelet_denoise,
@@ -135,10 +135,10 @@ assert_eq!(clean.len(), noisy.len());
 
 ## Going Further
 
-- Combine wavelets with `machin_signal::fft::rfft` for a two-stage analysis: wavelets
+- Combine wavelets with `ix_signal::fft::rfft` for a two-stage analysis: wavelets
   for time localisation, FFT for precise frequency identification within each window.
-- Use `machin_signal::filter::FirFilter::bandpass()` to pre-filter before wavelet analysis
+- Use `ix_signal::filter::FirFilter::bandpass()` to pre-filter before wavelet analysis
   when you know the frequency band of interest.
 - For image compression, apply `haar_forward` along rows, then along columns (2D DWT).
-- Explore the `machin_signal::spectral` module for STFT-based time-frequency analysis
+- Explore the `ix_signal::spectral` module for STFT-based time-frequency analysis
   as an alternative to wavelets.

@@ -12,7 +12,7 @@ You're building [Guitar Alchemist](../../) — an AI music learning platform. Gi
 4. **Find the optimal fingering path** across a fretboard (Viterbi/HMM)
 5. **Search for similar progressions** in a database (cosine similarity + GPU)
 
-This is a cross-cutting use case that demonstrates how MachinDeOuf's algorithms combine for a real creative AI application.
+This is a cross-cutting use case that demonstrates how ix's algorithms combine for a real creative AI application.
 
 ## The Pipeline
 
@@ -40,7 +40,7 @@ GPU Similarity ──────── Find similar progressions in database
 Given a melody, explore the space of possible chord progressions using Monte Carlo Tree Search. Each node represents a partial progression; children are possible next chords.
 
 ```rust
-use machin_search::mcts::{MctsState, mcts_search};
+use ix_search::mcts::{MctsState, mcts_search};
 
 #[derive(Clone)]
 struct ProgressionState {
@@ -99,7 +99,7 @@ let best_action = mcts_search(&initial, 1000, 1.41, 42);
 Each chord can be played in many positions on a guitar. A genetic algorithm finds voicings that minimize total finger movement across the progression.
 
 ```rust
-use machin_evolution::{GeneticAlgorithm, EvolutionResult};
+use ix_evolution::{GeneticAlgorithm, EvolutionResult};
 use ndarray::Array1;
 
 // Each gene = fret position for each string (-1 = muted, 0-22 = fret)
@@ -142,7 +142,7 @@ println!("Best voice leading cost: {:.2}", -result.best_fitness);
 Convert a chord progression into a signal (root notes over time) and decompose with wavelets to extract harmonic features for style classification.
 
 ```rust
-use machin_signal::wavelet::{haar_dwt, wavelet_denoise};
+use ix_signal::wavelet::{haar_dwt, wavelet_denoise};
 
 // Convert chord roots to a pitch signal (MIDI note numbers)
 let progression_signal: Vec<f64> = chord_roots.iter()
@@ -174,7 +174,7 @@ println!("Harmonic complexity: {:.2}", features.total_detail_energy());
 Model the fretboard as an HMM: hidden states are hand positions, observations are the desired notes. Viterbi finds the path that minimizes physical cost.
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::{array, Array1, Array2};
 
 // Simplified: 5 fret positions (states), 7 notes (observations)
@@ -206,7 +206,7 @@ println!("Path confidence: {:.4}", log_prob);
 Find progressions in a database that are harmonically similar, using GPU-accelerated cosine similarity.
 
 ```rust
-use machin_gpu::{GpuContext, similarity};
+use ix_gpu::{GpuContext, similarity};
 
 // Each progression encoded as a feature vector (from wavelet features)
 let query_embedding: Vec<f32> = encode_progression(&my_progression);
@@ -228,33 +228,33 @@ for (idx, score) in &top_5 {
 
 > See [`examples/gpu/similarity_search.rs`](../../examples/gpu/similarity_search.rs) for GPU similarity patterns.
 
-## How Guitar Alchemist's C# Maps to MachinDeOuf
+## How Guitar Alchemist's C# Maps to ix
 
-| Guitar Alchemist (C#/.NET) | MachinDeOuf (Rust) | Advantage |
+| Guitar Alchemist (C#/.NET) | ix (Rust) | Advantage |
 |----------------------------|-------------------|-----------|
-| Custom MCTS in `GuitarChordProgressionMCTS/` | `machin-search::mcts_search` | Generic trait-based, reusable |
-| Embedded GA (50 pop, 100 gens) | `machin-evolution::GeneticAlgorithm` | Configurable, parallel-ready |
-| Custom DWT in `WaveletTransformService` | `machin-signal::haar_dwt` | Multi-level, with denoising |
-| Manual ILGPU kernels | `machin-gpu::similarity_matrix` | Cross-platform (Vulkan/DX12/Metal) |
-| Qdrant vector search | `machin-gpu::batch_vector_search` | Self-contained, no external DB needed |
-| Viterbi in `AdvancedTabSolver` | `machin-graph::HiddenMarkovModel::viterbi` | Full HMM with forward-backward + Baum-Welch |
+| Custom MCTS in `GuitarChordProgressionMCTS/` | `ix-search::mcts_search` | Generic trait-based, reusable |
+| Embedded GA (50 pop, 100 gens) | `ix-evolution::GeneticAlgorithm` | Configurable, parallel-ready |
+| Custom DWT in `WaveletTransformService` | `ix-signal::haar_dwt` | Multi-level, with denoising |
+| Manual ILGPU kernels | `ix-gpu::similarity_matrix` | Cross-platform (Vulkan/DX12/Metal) |
+| Qdrant vector search | `ix-gpu::batch_vector_search` | Self-contained, no external DB needed |
+| Viterbi in `AdvancedTabSolver` | `ix-graph::HiddenMarkovModel::viterbi` | Full HMM with forward-backward + Baum-Welch |
 
 ## Integration Architecture
 
 ```
 Guitar Alchemist (.NET)
     │
-    ├─ calls via subprocess ─→ machin-skill CLI (Rust)
+    ├─ calls via subprocess ─→ ix-skill CLI (Rust)
     │                            ├── mcts_search
     │                            ├── genetic_algorithm
     │                            ├── wavelet_analysis
     │                            ├── viterbi_decode
     │                            └── gpu_similarity
     │
-    └─ or via MCP server ────→ MachinDeOuf MCP tools
+    └─ or via MCP server ────→ ix MCP tools
 ```
 
-TARS's `MachinBridge.fs` already supports calling `cargo run -p machin-skill` with JSON I/O, providing a ready bridge between the .NET and Rust worlds.
+TARS's `MachinBridge.fs` already supports calling `cargo run -p ix-skill` with JSON I/O, providing a ready bridge between the .NET and Rust worlds.
 
 ## Algorithms Used
 

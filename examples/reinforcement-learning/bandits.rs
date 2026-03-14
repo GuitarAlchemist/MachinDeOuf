@@ -6,7 +6,7 @@
 //! cargo run --example bandits
 //! ```
 
-use machin_rl::bandit::ThompsonSampling;
+use ix_rl::bandit::ThompsonSampling;
 
 fn main() {
     // 3 variants: A, B, C with true click-through rates

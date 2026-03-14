@@ -86,12 +86,12 @@ The ⊙ symbol means element-wise multiplication. `relu'(h)` is 1 where h > 0, 0
 
 ## In Rust
 
-MachinDeOuf's `Dense` layer handles forward and backward passes:
+ix's `Dense` layer handles forward and backward passes:
 
 ```rust
 use ndarray::array;
-use machin_nn::layer::{Dense, Layer};
-use machin_nn::loss::{mse_loss, mse_gradient, binary_cross_entropy, binary_cross_entropy_gradient};
+use ix_nn::layer::{Dense, Layer};
+use ix_nn::loss::{mse_loss, mse_gradient, binary_cross_entropy, binary_cross_entropy_gradient};
 
 // Network: 2 inputs → 4 hidden (ReLU) → 1 output (sigmoid)
 let mut hidden = Dense::new(2, 4);

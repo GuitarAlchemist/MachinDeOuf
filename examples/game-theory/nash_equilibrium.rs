@@ -6,7 +6,7 @@
 //! cargo run --example nash_equilibrium
 //! ```
 
-use machin_game::nash::{support_enumeration, BimatrixGame};
+use ix_game::nash::{support_enumeration, BimatrixGame};
 use ndarray::array;
 
 fn main() {

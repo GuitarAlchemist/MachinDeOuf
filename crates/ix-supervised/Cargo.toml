@@ -1,0 +1,13 @@
+[package]
+name = "ix-supervised"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Supervised learning: regression, classification, metrics"
+
+[dependencies]
+ix-math = { workspace = true }
+ix-optimize = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }

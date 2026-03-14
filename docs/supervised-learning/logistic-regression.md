@@ -68,9 +68,9 @@ In plain English, this means: if the model thinks the email is more likely spam 
 
 ```rust
 use ndarray::array;
-use machin_supervised::logistic_regression::LogisticRegression;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_supervised::logistic_regression::LogisticRegression;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     // Features: [word_free_count, has_known_sender (0/1), link_ratio, suspicious_headers]
@@ -113,7 +113,7 @@ fn main() {
 | Binary classification, linear decision boundary | Yes | -- | Fast, interpretable, probabilistic |
 | Need probability outputs, not just labels | Yes | -- | Sigmoid naturally outputs calibrated probabilities |
 | Non-linear decision boundaries | No | Decision tree, SVM with kernel, neural net | Logistic regression can only draw straight lines |
-| Multi-class (3+ classes) | Limited | Naive Bayes, KNN, decision tree | MachinDeOuf's implementation is binary only |
+| Multi-class (3+ classes) | Limited | Naive Bayes, KNN, decision tree | ix's implementation is binary only |
 | Very high-dimensional sparse data (NLP) | Yes | Naive Bayes | Logistic regression handles sparse features well |
 | Need to understand feature importance | Yes | -- | Weight magnitude and sign are directly interpretable |
 
@@ -141,11 +141,11 @@ LogisticRegression::new()
 
 **Class imbalance.** If 99% of emails are legitimate and 1% are spam, the model may learn to always predict "not spam" and still achieve 99% accuracy. Use precision, recall, and F1 (see [evaluation-metrics.md](./evaluation-metrics.md)) instead of accuracy, and consider adjusting the decision threshold away from 0.5.
 
-**Binary only.** The MachinDeOuf implementation supports two classes (0 and 1). For multi-class problems, use one-vs-rest with multiple logistic regression models, or choose a different classifier.
+**Binary only.** The ix implementation supports two classes (0 and 1). For multi-class problems, use one-vs-rest with multiple logistic regression models, or choose a different classifier.
 
 ## Going Further
 
 - **Feature engineering:** Add interaction terms (e.g., `word_free_count * link_ratio`) to capture non-linear patterns within a linear framework.
-- **Regularization:** Combine with `machin_optimize` to add L2 (Ridge) or L1 (Lasso) penalty terms to prevent overfitting.
+- **Regularization:** Combine with `ix_optimize` to add L2 (Ridge) or L1 (Lasso) penalty terms to prevent overfitting.
 - **Threshold tuning:** Instead of the default 0.5, pick a threshold that optimizes the F1 score or minimizes false negatives, depending on your application.
 - **Evaluation deep dive:** See [evaluation-metrics.md](./evaluation-metrics.md) for when to prefer precision over recall.

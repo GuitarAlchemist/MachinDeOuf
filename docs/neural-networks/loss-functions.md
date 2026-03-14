@@ -62,7 +62,7 @@ In plain English: for multi-class problems. y is one-hot encoded (e.g., [0, 0, 1
 
 ```rust
 use ndarray::array;
-use machin_nn::loss;
+use ix_nn::loss;
 
 // --- Regression: MSE ---
 let predicted = array![[2.5], [0.0], [2.1], [7.8]];
@@ -97,8 +97,8 @@ println!("Confident wrong: {:.4}", bad_loss);  // Very high!
 
 ```rust
 use ndarray::array;
-use machin_nn::layer::{Dense, Layer};
-use machin_nn::loss;
+use ix_nn::layer::{Dense, Layer};
+use ix_nn::loss;
 
 let mut layer = Dense::new(3, 1);
 let x = array![[1.0, 2.0, 3.0]];
@@ -139,15 +139,15 @@ Loss functions themselves have no hyperparameters — they're fixed formulas. Bu
 
 | Concern | What To Watch |
 |---------|---------------|
-| Numerical stability | Cross-entropy with log(0) = -infinity. MachinDeOuf clamps predictions to avoid this. |
+| Numerical stability | Cross-entropy with log(0) = -infinity. ix clamps predictions to avoid this. |
 | Scale | MSE is in squared units. RMSE (√MSE) is in original units and often more interpretable. |
-| Outlier sensitivity | MSE is very sensitive to outliers. Consider Huber loss (not yet in MachinDeOuf) for robust regression. |
+| Outlier sensitivity | MSE is very sensitive to outliers. Consider Huber loss (not yet in ix) for robust regression. |
 
 ## Pitfalls
 
 - **Don't use MSE for classification.** MSE treats the difference between 0.4 and 0.6 the same as between 0.0 and 0.2. Cross-entropy correctly penalizes confident wrong predictions much more, producing better gradients.
 - **Don't use cross-entropy for regression.** Cross-entropy expects probabilities (0 to 1). Raw regression outputs can be any number.
-- **Watch for log(0).** If your model predicts exactly 0 or 1, log(0) = -infinity. MachinDeOuf clamps predictions to a small epsilon range to prevent this, but if you implement custom loss, be careful.
+- **Watch for log(0).** If your model predicts exactly 0 or 1, log(0) = -infinity. ix clamps predictions to a small epsilon range to prevent this, but if you implement custom loss, be careful.
 - **Check output activation.** Binary cross-entropy assumes predictions are probabilities (sigmoid output). If your output layer has no activation, the predictions might be negative or > 1, making the loss meaningless.
 - **Loss going to NaN?** Usually means: learning rate too high, log(0) somewhere, or exploding gradients. Lower the learning rate first.
 

@@ -6,8 +6,8 @@
 //! cargo run --example fft_analysis
 //! ```
 
-use machin_signal::fft::{fft, power_spectrum};
-use machin_signal::window::hamming;
+use ix_signal::fft::{fft, power_spectrum};
+use ix_signal::window::hamming;
 
 fn main() {
     // Generate a signal: 10Hz + 50Hz components

@@ -47,7 +47,7 @@ In plain English: start at a dense point, grow the cluster outward through densi
 
 ```rust
 use ndarray::array;
-use machin_unsupervised::{DBSCAN, Clusterer};
+use ix_unsupervised::{DBSCAN, Clusterer};
 
 // GPS coordinates of truck stops [latitude, longitude]
 let stops = array![
@@ -106,9 +106,9 @@ println!("{} clusters found, {} noise points", n_clusters, n_noise);
 ## Pitfalls
 
 - **Sensitive to eps and min_points.** Unlike K-Means where K is intuitive, tuning eps requires understanding your data's scale. Standardize features first.
-- **Can't handle varying density.** If one cluster is dense (points 1cm apart) and another is sparse (points 1m apart), no single eps works for both. Consider HDBSCAN (not yet in MachinDeOuf) or running DBSCAN at multiple scales.
-- **Noise label is 0.** In MachinDeOuf, cluster labels start at 1. Points labeled 0 are noise/outliers. Don't confuse 0 with "cluster 0."
-- **O(n²) without spatial indexing.** For large datasets, the pairwise distance computation is expensive. MachinDeOuf uses brute-force, which is fine for up to ~10K points.
+- **Can't handle varying density.** If one cluster is dense (points 1cm apart) and another is sparse (points 1m apart), no single eps works for both. Consider HDBSCAN (not yet in ix) or running DBSCAN at multiple scales.
+- **Noise label is 0.** In ix, cluster labels start at 1. Points labeled 0 are noise/outliers. Don't confuse 0 with "cluster 0."
+- **O(n²) without spatial indexing.** For large datasets, the pairwise distance computation is expensive. ix uses brute-force, which is fine for up to ~10K points.
 - **Border points are non-deterministic.** A border point reachable from two clusters is assigned to whichever cluster discovers it first. This rarely matters in practice.
 
 ## Going Further

@@ -70,7 +70,7 @@ Euler integration.
 ## In Rust
 
 ```rust
-use machin_chaos::attractors::{
+use ix_chaos::attractors::{
     State3D, LorenzParams, RosslerParams, ChenParams, HenonParams,
     lorenz, rossler, chen, henon, logistic_map,
     integrate, rk4_step,
@@ -166,10 +166,10 @@ let next = rk4_step(State3D::new(1.0, 0.0, 1.0), 0.01, &custom_deriv);
 ## Going Further
 
 - Compute the Lyapunov exponent of each attractor with
-  `machin_chaos::lyapunov::lyapunov_spectrum` to quantify how chaotic it is.
+  `ix_chaos::lyapunov::lyapunov_spectrum` to quantify how chaotic it is.
 - Measure the fractal dimension of the attractor with
-  `machin_chaos::fractal::box_counting_dimension_2d` or `correlation_dimension`.
-- Use `machin_chaos::bifurcation::bifurcation_diagram` to visualise how the logistic
+  `ix_chaos::fractal::box_counting_dimension_2d` or `correlation_dimension`.
+- Use `ix_chaos::bifurcation::bifurcation_diagram` to visualise how the logistic
   map transitions from fixed point to period-doubling to chaos.
-- Feed attractor trajectories into `machin_chaos::control::ogy_control` to stabilise
+- Feed attractor trajectories into `ix_chaos::control::ogy_control` to stabilise
   unstable periodic orbits embedded in the chaotic attractor.

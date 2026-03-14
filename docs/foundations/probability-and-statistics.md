@@ -100,11 +100,11 @@ A distribution describes what values a random variable can take and how likely e
 
 ## In Rust
 
-MachinDeOuf provides all these in `machin-math`:
+ix provides all these in `ix-math`:
 
 ```rust
 use ndarray::array;
-use machin_math::stats;
+use ix_math::stats;
 
 // Basic statistics
 let data = array![2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
@@ -137,7 +137,7 @@ let cor = stats::correlation_matrix(&dataset).unwrap();
 Many ML algorithms work better when features are on the same scale. Standardization transforms each feature to have mean 0 and standard deviation 1:
 
 ```rust
-use machin_math::linalg;
+use ix_math::linalg;
 
 let data = array![
     [100.0, 0.1],   // Feature 1 is large, feature 2 is tiny
@@ -159,7 +159,7 @@ let (standardized, means, stds) = linalg::standardize(&data);
 | Normalize features before training | Standardize (zero-mean, unit-variance) |
 | Build a probabilistic classifier | Bayes' theorem (Naive Bayes) |
 | Evaluate model uncertainty | Probability distributions, confidence intervals |
-| Compare two models' performance | Statistical tests (not yet in MachinDeOuf) |
+| Compare two models' performance | Statistical tests (not yet in ix) |
 
 ## Key Parameters
 

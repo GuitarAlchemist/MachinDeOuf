@@ -1,0 +1,14 @@
+[package]
+name = "ix-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Graph algorithms, Markov chains, state spaces, and agent routing"
+
+[dependencies]
+ix-math = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }

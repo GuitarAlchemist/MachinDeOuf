@@ -1,0 +1,40 @@
+[package]
+name = "ix-demo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Interactive demo UI for MachinDeOuf ML algorithms"
+
+[[bin]]
+name = "ix-demo"
+path = "src/main.rs"
+
+[dependencies]
+eframe = "0.31"
+egui_plot = "0.31"
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Internal crates
+ix-math = { workspace = true }
+ix-optimize = { workspace = true }
+ix-supervised = { workspace = true }
+ix-unsupervised = { workspace = true }
+ix-nn = { workspace = true }
+ix-rl = { workspace = true }
+ix-evolution = { workspace = true }
+ix-signal = { workspace = true }
+ix-chaos = { workspace = true }
+ix-dynamics = { workspace = true }
+ix-graph = { workspace = true }
+ix-gpu = { workspace = true }
+ix-probabilistic = { workspace = true }
+ix-search = { workspace = true }
+ix-game = { workspace = true }
+ix-rotation = { workspace = true }
+ix-sedenion = { workspace = true }
+ix-fractal = { workspace = true }
+ix-number-theory = { workspace = true }
+ix-topo = { workspace = true }
+ix-category = { workspace = true }

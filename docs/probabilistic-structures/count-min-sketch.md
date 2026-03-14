@@ -65,7 +65,7 @@ estimate(x) <= true_count(x) + epsilon * total_count
 ### Basic frequency tracking
 
 ```rust
-use machin_probabilistic::count_min::CountMinSketch;
+use ix_probabilistic::count_min::CountMinSketch;
 
 // 100 columns, 5 hash functions
 let mut sketch = CountMinSketch::new(100, 5);
@@ -84,7 +84,7 @@ println!("total:        {}", sketch.total_count());                   // 1053
 ### Sizing from error requirements
 
 ```rust
-use machin_probabilistic::count_min::CountMinSketch;
+use ix_probabilistic::count_min::CountMinSketch;
 
 // "I want estimates within 1% of total count, 99% of the time"
 let mut sketch = CountMinSketch::with_error(0.01, 0.01);
@@ -99,7 +99,7 @@ let est = sketch.estimate(&"frequent");
 ### Adding specific counts and merging
 
 ```rust
-use machin_probabilistic::count_min::CountMinSketch;
+use ix_probabilistic::count_min::CountMinSketch;
 
 let mut sketch = CountMinSketch::new(200, 5);
 sketch.add_count(&"batch-event", 500);  // Add 500 at once
@@ -161,5 +161,5 @@ assert!(node_a.estimate(&"error-503") >= 3);
 
 - **Heavy-hitter detection with Count-Min + heap:** maintain a min-heap of the top-k items. On each insertion, query the sketch and promote the item into the heap if its estimated count exceeds the current k-th largest.
 - **Sliding-window sketches** maintain multiple sketches for time windows and expire old ones, giving you "requests in the last 5 minutes" estimates.
-- **Conservative update** only increments the minimum counter(s) among the `d` rows, reducing overcounting at no extra memory cost. A potential future enhancement to `machin-probabilistic`.
-- Pair with the [`machin-cache`](../../crates/machin-cache) embedded cache: use the sketch to implement a TinyLFU admission policy --- only admit items to cache whose estimated frequency exceeds a threshold.
+- **Conservative update** only increments the minimum counter(s) among the `d` rows, reducing overcounting at no extra memory cost. A potential future enhancement to `ix-probabilistic`.
+- Pair with the [`ix-cache`](../../crates/ix-cache) embedded cache: use the sketch to implement a TinyLFU admission policy --- only admit items to cache whose estimated frequency exceeds a threshold.

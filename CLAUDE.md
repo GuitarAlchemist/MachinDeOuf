@@ -1,52 +1,52 @@
-# MachinDeOuf - ML Algorithms for Claude Code Skills
+# ix - ML Algorithms for Claude Code Skills
 
 ## Project Overview
-Rust workspace (27 crates) implementing foundational ML/math algorithms as composable crates, exposed as Claude Code skills via MCP server (`machin-agent`) and CLI (`machin-skill`).
+Rust workspace (27 crates) implementing foundational ML/math algorithms as composable crates, exposed as Claude Code skills via MCP server (`ix-agent`) and CLI (`ix-skill`).
 
 ## Architecture
 
 ### Core Math & Optimization
-- `crates/machin-math` - Core math: linalg, stats, distance, activation, calculus, random, hyperbolic (Poincaré)
-- `crates/machin-optimize` - Optimization: SGD, Adam, simulated annealing, PSO
+- `crates/ix-math` - Core math: linalg, stats, distance, activation, calculus, random, hyperbolic (Poincaré)
+- `crates/ix-optimize` - Optimization: SGD, Adam, simulated annealing, PSO
 
 ### Supervised & Unsupervised Learning
-- `crates/machin-supervised` - Regression, classification, metrics
-- `crates/machin-unsupervised` - Clustering (K-Means, DBSCAN), PCA
-- `crates/machin-ensemble` - Random forest, boosting (stub)
+- `crates/ix-supervised` - Regression, classification, metrics
+- `crates/ix-unsupervised` - Clustering (K-Means, DBSCAN), PCA
+- `crates/ix-ensemble` - Random forest, boosting (stub)
 
 ### Deep Learning, RL & Evolution
-- `crates/machin-nn` - Neural network layers, loss functions, backprop
-- `crates/machin-rl` - Bandits (epsilon-greedy, UCB1, Thompson), Q-learning
-- `crates/machin-evolution` - Genetic algorithms, differential evolution
+- `crates/ix-nn` - Neural network layers, loss functions, backprop
+- `crates/ix-rl` - Bandits (epsilon-greedy, UCB1, Thompson), Q-learning
+- `crates/ix-evolution` - Genetic algorithms, differential evolution
 
 ### Search, Graphs & Game Theory
-- `crates/machin-graph` - Graph algorithms, Markov chains, HMM/Viterbi, state spaces, agent routing
-- `crates/machin-search` - Search: A*, Q*, MCTS, minimax, alpha-beta, BFS/DFS, data structure search
-- `crates/machin-game` - Game theory: Nash equilibria, Shapley value, auctions, evolutionary, mean field
+- `crates/ix-graph` - Graph algorithms, Markov chains, HMM/Viterbi, state spaces, agent routing
+- `crates/ix-search` - Search: A*, Q*, MCTS, minimax, alpha-beta, BFS/DFS, data structure search
+- `crates/ix-game` - Game theory: Nash equilibria, Shapley value, auctions, evolutionary, mean field
 
 ### Signal, Chaos & Adversarial
-- `crates/machin-signal` - Signal processing: FFT, wavelets, filters, Kalman, spectral analysis
-- `crates/machin-chaos` - Chaos theory: Lyapunov exponents, bifurcation, attractors, fractals, embedding
-- `crates/machin-adversarial` - Adversarial ML: evasion (FGSM, PGD, C&W), defense, poisoning detection, privacy
+- `crates/ix-signal` - Signal processing: FFT, wavelets, filters, Kalman, spectral analysis
+- `crates/ix-chaos` - Chaos theory: Lyapunov exponents, bifurcation, attractors, fractals, embedding
+- `crates/ix-adversarial` - Adversarial ML: evasion (FGSM, PGD, C&W), defense, poisoning detection, privacy
 
 ### Advanced Math
-- `crates/machin-dynamics` - Inverse kinematics, Lie groups/algebras, neural ODEs
-- `crates/machin-topo` - Persistent homology, simplicial complexes, Betti numbers
-- `crates/machin-ktheory` - Graph K-theory, Mayer-Vietoris sequences
-- `crates/machin-category` - Functors, natural transformations, monads
-- `crates/machin-grammar` - Formal grammars: CFG, Earley parser, CYK, Chomsky normal form
+- `crates/ix-dynamics` - Inverse kinematics, Lie groups/algebras, neural ODEs
+- `crates/ix-topo` - Persistent homology, simplicial complexes, Betti numbers
+- `crates/ix-ktheory` - Graph K-theory, Mayer-Vietoris sequences
+- `crates/ix-category` - Functors, natural transformations, monads
+- `crates/ix-grammar` - Formal grammars: CFG, Earley parser, CYK, Chomsky normal form
 
 ### Probabilistic & Infrastructure
-- `crates/machin-probabilistic` - Bloom filters, Count-Min sketch, HyperLogLog, Cuckoo filter
-- `crates/machin-io` - Data I/O: CSV, JSON, file watcher, named pipes, TCP, HTTP, WebSocket
-- `crates/machin-gpu` - GPU compute via WGPU: cosine similarity, matrix multiply, batch vector search, quaternions, sedenions
-- `crates/machin-cache` - Embedded Redis-like cache: concurrent sharded store, TTL, LRU, pub/sub, RESP server
-- `crates/machin-pipeline` - DAG pipeline executor: skill orchestration, parallel branches, memoized data flow
+- `crates/ix-probabilistic` - Bloom filters, Count-Min sketch, HyperLogLog, Cuckoo filter
+- `crates/ix-io` - Data I/O: CSV, JSON, file watcher, named pipes, TCP, HTTP, WebSocket
+- `crates/ix-gpu` - GPU compute via WGPU: cosine similarity, matrix multiply, batch vector search, quaternions, sedenions
+- `crates/ix-cache` - Embedded Redis-like cache: concurrent sharded store, TTL, LRU, pub/sub, RESP server
+- `crates/ix-pipeline` - DAG pipeline executor: skill orchestration, parallel branches, memoized data flow
 
 ### Integration
-- `crates/machin-agent` - MCP server exposing algorithms as Claude Code tools via JSON-RPC over stdio
-- `crates/machin-skill` - CLI binary (`machin`) for direct command-line access
-- `crates/machin-demo` - egui desktop app with 16 interactive demo tabs
+- `crates/ix-agent` - MCP server exposing algorithms as Claude Code tools via JSON-RPC over stdio
+- `crates/ix-skill` - CLI binary (`machin`) for direct command-line access
+- `crates/ix-demo` - egui desktop app with 16 interactive demo tabs
 
 ## Build
 ```bash

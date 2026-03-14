@@ -67,7 +67,7 @@ is D = 2 - H.
 ## In Rust
 
 ```rust
-use machin_chaos::fractal::{
+use ix_chaos::fractal::{
     box_counting_dimension_2d,
     correlation_dimension,
     hurst_exponent,
@@ -94,7 +94,7 @@ let dim = box_counting_dimension_2d(&square, 6);
 println!("Square dimension: {:.2}", dim);  // ~2.0
 
 // --- Box-counting: Henon attractor ---
-use machin_chaos::attractors::{henon, HenonParams};
+use ix_chaos::attractors::{henon, HenonParams};
 let traj = henon(0.1, 0.1, &HenonParams::default(), 50_000);
 let points: Vec<(f64, f64)> = traj[1000..].to_vec(); // discard transient
 let dim = box_counting_dimension_2d(&points, 10);
@@ -161,9 +161,9 @@ println!("Hurst exponent: {:.2}", h);  // > 0.5 for trending data
 
 - Compute the dimension of Lorenz attractor trajectories by projecting 3D points to 2D
   (e.g., x-z plane) and calling `box_counting_dimension_2d`.
-- Use `machin_chaos::lyapunov::lyapunov_spectrum` alongside fractal dimension to validate
+- Use `ix_chaos::lyapunov::lyapunov_spectrum` alongside fractal dimension to validate
   the Kaplan-Yorke conjecture: D_KY = j + sum(lambda_1..lambda_j) / |lambda_{j+1}|.
-- For time series, use `machin_chaos::embedding` to reconstruct a phase-space attractor
+- For time series, use `ix_chaos::embedding` to reconstruct a phase-space attractor
   via delay embedding, then measure its correlation dimension.
 - Compare the Hurst exponent of financial returns across different time windows to detect
   regime changes.

@@ -58,10 +58,10 @@ The algorithm:
 
 ## In Rust
 
-The `machin-search` crate models search problems through the `SearchState` trait:
+The `ix-search` crate models search problems through the `SearchState` trait:
 
 ```rust
-use machin_search::astar::{SearchState, astar, weighted_astar, greedy_best_first, SearchResult};
+use ix_search::astar::{SearchState, astar, weighted_astar, greedy_best_first, SearchResult};
 
 // Define your state by implementing SearchState.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -178,5 +178,5 @@ See the full working example: [examples/search/astar_qstar.rs](../../examples/se
 - **Bidirectional A*:** `bidirectional_astar(start, goal, fwd_h, rev_h)` searches from both ends simultaneously, meeting in the middle. Can cut search time roughly in half on symmetric graphs.
 - **Q* Search:** Replace the hand-crafted heuristic with a learned Q-function for domains where good heuristics are hard to design. See [Q* Learned Heuristics](./qstar-learned-heuristics.md).
 - **MCTS:** For game trees where the branching factor is too large for A*, use Monte Carlo Tree Search. See [MCTS](./mcts.md).
-- **IDA*:** Not yet in machin-search, but easy to build on top of `SearchState` using iterative deepening with an f-cost threshold.
+- **IDA*:** Not yet in ix-search, but easy to build on top of `SearchState` using iterative deepening with an f-cost threshold.
 - Read the original paper: Hart, Nilsson, Raphael, "A Formal Basis for the Heuristic Determination of Minimum Cost Paths" (1968).

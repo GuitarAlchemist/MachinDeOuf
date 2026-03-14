@@ -71,7 +71,7 @@ Repeat until convergence
 ### Creating an HMM
 
 ```rust
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::{array, Array2};
 
 // Weather HMM:
@@ -215,7 +215,7 @@ N = number of hidden states, M = number of observation symbols.
 
 3. **Label switching.** After Baum-Welch training, "state 0" and "state 1" may swap meaning compared to your initial model. The algorithm does not know which state is "Rainy" -- it just finds the best parameters. Inspect the emission matrix to interpret states.
 
-4. **Underflow with long sequences.** The forward algorithm multiplies many small probabilities together. MachinDeOuf uses scaling (normalizing at each step) to prevent underflow, but extremely long sequences (>10,000 observations) may still lose precision.
+4. **Underflow with long sequences.** The forward algorithm multiplies many small probabilities together. ix uses scaling (normalizing at each step) to prevent underflow, but extremely long sequences (>10,000 observations) may still lose precision.
 
 5. **Zero probabilities block learning.** If `emission[i][k] = 0`, state i can never emit symbol k. Baum-Welch cannot recover from this. Initialize with small positive values everywhere (e.g., add 0.01 and re-normalize).
 
@@ -225,7 +225,7 @@ N = number of hidden states, M = number of observation symbols.
 
 - **Markov chains:** The observable foundation. See [markov-chains.md](./markov-chains.md).
 - **Viterbi algorithm:** Deep dive into the dynamic programming approach. See [viterbi-algorithm.md](./viterbi-algorithm.md).
-- **Gaussian HMMs:** Replace discrete emissions with continuous Gaussian distributions. Requires modifying the emission model (not yet in MachinDeOuf).
+- **Gaussian HMMs:** Replace discrete emissions with continuous Gaussian distributions. Requires modifying the emission model (not yet in ix).
 - **Higher-order HMMs:** The hidden state depends on the last k states, not just the last one. Increases model capacity at the cost of O(N^k) state space.
 - **Input-Output HMMs:** Transition and emission probabilities depend on an external input signal. Useful for control applications.
 - **Hierarchical HMMs:** States can themselves be HMMs, allowing multi-scale temporal modeling.

@@ -73,11 +73,11 @@ The cooling schedule determines how quickly the temperature drops. This is the m
 
 ### Defining the Objective
 
-Like all optimizers in MachinDeOuf, simulated annealing works with anything that implements `ObjectiveFunction`. For the warehouse layout problem, each parameter could represent a coordinate offset for a zone:
+Like all optimizers in ix, simulated annealing works with anything that implements `ObjectiveFunction`. For the warehouse layout problem, each parameter could represent a coordinate offset for a zone:
 
 ```rust
-use machin_optimize::traits::{ClosureObjective, ObjectiveFunction};
-use machin_optimize::annealing::{SimulatedAnnealing, CoolingSchedule};
+use ix_optimize::traits::{ClosureObjective, ObjectiveFunction};
+use ix_optimize::annealing::{SimulatedAnnealing, CoolingSchedule};
 use ndarray::{array, Array1};
 
 // Simplified warehouse cost: total distance between zone pairs weighted by traffic.
@@ -217,7 +217,7 @@ Note that `best_params` tracks the global best, not just the current position. E
 
 **Running only once.** SA is stochastic. A single run might land in a mediocre local minimum. Best practice: run 5-10 independent runs with different seeds and take the best result.
 
-**Not tracking the global best.** MachinDeOuf's implementation already does this -- `best_params` is the best ever seen, not the last visited. But if you implement your own SA loop, make sure to keep a separate `best_ever` variable.
+**Not tracking the global best.** ix's implementation already does this -- `best_params` is the best ever seen, not the last visited. But if you implement your own SA loop, make sure to keep a separate `best_ever` variable.
 
 ---
 

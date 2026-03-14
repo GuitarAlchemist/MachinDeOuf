@@ -49,7 +49,7 @@ adversarial noise is averaged away.
 ## In Rust
 
 ```rust
-use machin_adversarial::defense::{
+use ix_adversarial::defense::{
     adversarial_training_augment,
     input_gradient_regularization,
     detect_adversarial,
@@ -107,7 +107,7 @@ let smoothed = clip_and_smooth(&array![0.0, 1.0, 0.0], 0.0, 1.0, 3);
 ## Going Further
 
 - Combine multiple defenses: squeeze first, then randomise, then classify.
-- Use `machin_adversarial::evasion::pgd` to generate strong adversarial examples for
+- Use `ix_adversarial::evasion::pgd` to generate strong adversarial examples for
   training augmentation instead of FGSM.
 - See [data-poisoning.md](data-poisoning.md) for defenses against training-time attacks.
 - See [differential-privacy.md](differential-privacy.md) for protecting model outputs

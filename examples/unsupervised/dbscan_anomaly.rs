@@ -6,7 +6,7 @@
 //! cargo run --example dbscan_anomaly
 //! ```
 
-use machin_unsupervised::dbscan::DBSCAN;
+use ix_unsupervised::dbscan::DBSCAN;
 use ndarray::Array2;
 
 fn main() {

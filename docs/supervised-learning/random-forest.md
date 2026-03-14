@@ -58,9 +58,9 @@ In plain English, this means: ask every tree "is this transaction fraud?" and go
 
 ```rust
 use ndarray::array;
-use machin_ensemble::random_forest::RandomForest;
-use machin_ensemble::traits::EnsembleClassifier;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_ensemble::random_forest::RandomForest;
+use ix_ensemble::traits::EnsembleClassifier;
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     // Features: [amount, merchant_cat, hour, distance_km, card_present]
@@ -146,7 +146,7 @@ Error typically drops steeply with the first 20-30 trees, then flattens. You can
 
 **Not interpretable.** Unlike a single decision tree, you cannot trace a random forest's reasoning as a simple flowchart. If regulatory explainability is mandatory, use a single decision tree or logistic regression instead.
 
-**Slow on large datasets.** Training 100 trees on a million rows with 50 features takes time. Each tree is independent, so this is embarrassingly parallelizable -- but the current MachinDeOuf implementation is single-threaded.
+**Slow on large datasets.** Training 100 trees on a million rows with 50 features takes time. Each tree is independent, so this is embarrassingly parallelizable -- but the current ix implementation is single-threaded.
 
 **Overfitting with deep trees.** While forests are more resistant to overfitting than single trees, setting `max_depth` too high on small datasets can still cause problems. Start with `max_depth = 10` and tune from there.
 
@@ -158,5 +158,5 @@ Error typically drops steeply with the first 20-30 trees, then flattens. You can
 
 - **Out-of-bag (OOB) estimation:** The ~37% of samples not used to train each tree can serve as a built-in validation set. This lets you estimate generalization error without a separate test split.
 - **Feature importance:** Count how often each feature is used across all splits, weighted by the impurity decrease. Features that appear near the root of many trees are the most important.
-- **Gradient boosting:** Instead of training trees in parallel on bootstrapped data, train them sequentially where each tree corrects the errors of the previous one. The `machin-ensemble` crate has a boosting stub for future development.
-- **Individual tree analysis:** Since each tree is a `DecisionTree` from `machin-supervised`, you can inspect individual trees for debugging.
+- **Gradient boosting:** Instead of training trees in parallel on bootstrapped data, train them sequentially where each tree corrects the errors of the previous one. The `ix-ensemble` crate has a boosting stub for future development.
+- **Individual tree analysis:** Since each tree is a `DecisionTree` from `ix-supervised`, you can inspect individual trees for debugging.

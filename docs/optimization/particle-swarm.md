@@ -76,8 +76,8 @@ After moving, each particle evaluates the objective at its new position. If the 
 ### Defining the Hyperparameter Search
 
 ```rust
-use machin_optimize::pso::ParticleSwarm;
-use machin_optimize::traits::{ClosureObjective, ObjectiveFunction};
+use ix_optimize::pso::ParticleSwarm;
+use ix_optimize::traits::{ClosureObjective, ObjectiveFunction};
 use ndarray::Array1;
 
 // Simulate cross-validation error as a function of 4 hyperparameters:

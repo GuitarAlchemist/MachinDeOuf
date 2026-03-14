@@ -64,9 +64,9 @@ In plain English, this means: if 3 of 5 neighbors are "liked," the probability e
 
 ```rust
 use ndarray::array;
-use machin_supervised::knn::KNN;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall};
+use ix_supervised::knn::KNN;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall};
 
 fn main() {
     // Features: [tempo_bpm, energy, danceability, acousticness, valence]
@@ -140,7 +140,7 @@ fn main() {
 
 **Feature scaling is critical.** KNN uses raw Euclidean distances. If tempo ranges from 50-200 and valence ranges from 0-1, tempo will completely dominate the distance calculation. Always normalize features to the same scale before using KNN.
 
-**Slow prediction.** The MachinDeOuf implementation uses brute-force distance computation -- it calculates the distance to every training point for every query. This is O(n * p) per prediction. For large datasets, approximate methods (KD-trees, ball trees) are needed.
+**Slow prediction.** The ix implementation uses brute-force distance computation -- it calculates the distance to every training point for every query. This is O(n * p) per prediction. For large datasets, approximate methods (KD-trees, ball trees) are needed.
 
 **Sensitive to irrelevant features.** If you include features that don't relate to the task (e.g., track number in the album), they add noise to the distance calculation and degrade performance. Only include features that matter.
 
@@ -148,7 +148,7 @@ fn main() {
 
 ## Going Further
 
-- **Distance metrics:** The MachinDeOuf `machin_math::distance` module provides `euclidean`, `manhattan`, `cosine_distance`, `chebyshev`, and `minkowski` functions. Different metrics suit different data types.
+- **Distance metrics:** The ix `ix_math::distance` module provides `euclidean`, `manhattan`, `cosine_distance`, `chebyshev`, and `minkowski` functions. Different metrics suit different data types.
 - **Weighted voting:** Instead of equal votes, weight each neighbor's vote by the inverse of its distance. Closer neighbors have more influence.
-- **Approximate nearest neighbors:** For large-scale similarity search, the `machin-gpu` crate offers batch vector search on the GPU, which can dramatically speed up the neighbor-finding step.
-- **Dimensionality reduction:** Use `machin-unsupervised` for PCA or other dimensionality reduction to combat the curse of dimensionality before applying KNN.
+- **Approximate nearest neighbors:** For large-scale similarity search, the `ix-gpu` crate offers batch vector search on the GPU, which can dramatically speed up the neighbor-finding step.
+- **Dimensionality reduction:** Use `ix-unsupervised` for PCA or other dimensionality reduction to combat the curse of dimensionality before applying KNN.

@@ -6,8 +6,8 @@
 //! cargo run --example decision_tree
 //! ```
 
-use machin_supervised::decision_tree::DecisionTree;
-use machin_supervised::traits::Classifier;
+use ix_supervised::decision_tree::DecisionTree;
+use ix_supervised::traits::Classifier;
 use ndarray::{array, Array2};
 
 fn main() {

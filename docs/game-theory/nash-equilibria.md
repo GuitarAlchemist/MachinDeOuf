@@ -65,10 +65,10 @@ payoff_a[0,0] * q + payoff_a[0,1] * (1-q) = payoff_a[1,0] * q + payoff_a[1,1] * 
 
 ## In Rust
 
-The `machin-game` crate provides bimatrix game analysis using `ndarray`:
+The `ix-game` crate provides bimatrix game analysis using `ndarray`:
 
 ```rust
-use machin_game::nash::{
+use ix_game::nash::{
     BimatrixGame, StrategyProfile, fictitious_play, dominant_strategy_equilibrium,
 };
 use ndarray::{array, Array1};

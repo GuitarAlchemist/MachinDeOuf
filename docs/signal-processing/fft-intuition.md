@@ -61,7 +61,7 @@ something went wrong.
 ## In Rust
 
 ```rust
-use machin_signal::fft::{
+use ix_signal::fft::{
     Complex, fft, ifft, rfft, irfft,
     magnitude_spectrum, power_spectrum, frequency_bins,
 };
@@ -146,9 +146,9 @@ assert!((c.phase() - (4.0_f64).atan2(3.0)).abs() < 1e-10);
 ## Going Further
 
 - Apply a **Hamming window** before the FFT to reduce leakage:
-  `machin_signal::window::hamming(n)`.
-- Use `machin_signal::spectral` for **Short-Time FFT** (spectrograms) when your signal's
+  `ix_signal::window::hamming(n)`.
+- Use `ix_signal::spectral` for **Short-Time FFT** (spectrograms) when your signal's
   frequency content changes over time.
-- Combine with `machin_signal::filter::FirFilter::lowpass()` to pre-filter before
+- Combine with `ix_signal::filter::FirFilter::lowpass()` to pre-filter before
   analysis, isolating a frequency band of interest.
 - For non-stationary signals (e.g., seismic data, speech), see [wavelets.md](wavelets.md).

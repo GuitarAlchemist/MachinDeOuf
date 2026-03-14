@@ -79,10 +79,10 @@ The classic example with resource value `V` and fighting cost `C`:
 
 ## In Rust
 
-The `machin-game` crate provides evolutionary dynamics using `ndarray`:
+The `ix-game` crate provides evolutionary dynamics using `ndarray`:
 
 ```rust
-use machin_game::evolutionary::{
+use ix_game::evolutionary::{
     replicator_dynamics, is_ess, find_ess,
     hawk_dove_matrix, rps_matrix,
     two_population_replicator,
@@ -222,5 +222,5 @@ The replicator equation is integrated with forward Euler. If `dt` is too large, 
 - **Hawk-Dove-Bourgeois:** Add a third strategy ("if I got here first, fight like a hawk; otherwise, retreat like a dove"). This is often the unique ESS.
 - **Stochastic replicator dynamics:** Add noise to model finite populations where random drift matters. Important for small populations.
 - **Nash equilibria:** The non-evolutionary theory of strategic interaction. See [Nash Equilibria](./nash-equilibria.md). Every ESS is a Nash equilibrium, but not conversely.
-- **Mean-field games:** The `machin-game` crate also includes mean-field game theory for large populations with continuous strategy spaces. See `machin_game::mean_field`.
+- **Mean-field games:** The `ix-game` crate also includes mean-field game theory for large populations with continuous strategy spaces. See `ix_game::mean_field`.
 - Read: Hofbauer and Sigmund, *Evolutionary Games and Population Dynamics* (1998) -- the definitive textbook.

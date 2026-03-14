@@ -1,0 +1,15 @@
+[package]
+name = "ix-nn"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Neural network primitives: layers, backprop, loss functions"
+
+[dependencies]
+ix-math = { workspace = true }
+ix-optimize = { workspace = true }
+ndarray = { workspace = true }
+ndarray-rand = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }

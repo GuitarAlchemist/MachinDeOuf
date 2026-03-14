@@ -3,11 +3,11 @@ date: 2026-03-14
 topic: machineouf-full-vision
 ---
 
-# MachinDeOuf Full Vision: Algorithms + Demo + MCP + Infrastructure
+# ix Full Vision: Algorithms + Demo + MCP + Infrastructure
 
 ## What We're Building
 
-A comprehensive expansion of the MachinDeOuf workspace across four parallel workstreams:
+A comprehensive expansion of the ix workspace across four parallel workstreams:
 
 1. **New Math Crates** — All 9 TARS math domains as pure-Rust crates
 2. **Demo App Evolution** — More tabs + richer interactions + better UX + potential web version
@@ -21,8 +21,8 @@ The goal is a polished, deeply integrated workspace where every algorithm is imp
 | Metric | Count | Notes |
 |--------|-------|-------|
 | Crates | 27 | CLAUDE.md lists 22; 5 newer (grammar, dynamics, ktheory, topo, category) |
-| MCP tools | 17 | In machin-agent (stats, distance, kmeans, fft, lyapunov, fgsm, grammar, cache, etc.) |
-| Claude Code skills | 10 | In .claude/skills/machin-*/ |
+| MCP tools | 17 | In ix-agent (stats, distance, kmeans, fft, lyapunov, fgsm, grammar, cache, etc.) |
+| Claude Code skills | 10 | In .claude/skills/ix-*/ |
 | Demo tabs | 15 | egui app: stats through transformer |
 | TODO/stubs | 10 | t-SNE, GMM, network.rs, RL env, CLI data loading |
 | CI pipelines | 0 | No GitHub Actions or other CI |
@@ -34,37 +34,37 @@ The goal is a polished, deeply integrated workspace where every algorithm is imp
 
 | Existing file | Domain | Proposed crate | Action needed |
 |--------------|--------|----------------|---------------|
-| `machin-gpu/src/quaternion.rs` | Batch quaternion rotation + WGSL shader | machin-rotation | Extract CPU math to machin-rotation; machin-gpu keeps GPU kernel, depends on machin-rotation |
-| `machin-gpu/src/sedenion.rs` | Batch sedenion multiply + Cayley-Dickson | machin-sedenion | Extract algebra to machin-sedenion; machin-gpu keeps GPU kernel |
-| `machin-chaos/src/takagi.rs` | Takagi/Blancmange curve | machin-fractal | Migrate to machin-fractal, re-export from machin-chaos for compat |
-| `machin-chaos/src/de_rham.rs` | de Rham fractal interpolation | machin-fractal | Migrate to machin-fractal |
-| `machin-chaos/src/fractal.rs` | Box-counting, correlation dimension | machin-fractal | Keep in machin-chaos (these are chaos measures, not curve generators) |
+| `ix-gpu/src/quaternion.rs` | Batch quaternion rotation + WGSL shader | ix-rotation | Extract CPU math to ix-rotation; ix-gpu keeps GPU kernel, depends on ix-rotation |
+| `ix-gpu/src/sedenion.rs` | Batch sedenion multiply + Cayley-Dickson | ix-sedenion | Extract algebra to ix-sedenion; ix-gpu keeps GPU kernel |
+| `ix-chaos/src/takagi.rs` | Takagi/Blancmange curve | ix-fractal | Migrate to ix-fractal, re-export from ix-chaos for compat |
+| `ix-chaos/src/de_rham.rs` | de Rham fractal interpolation | ix-fractal | Migrate to ix-fractal |
+| `ix-chaos/src/fractal.rs` | Box-counting, correlation dimension | ix-fractal | Keep in ix-chaos (these are chaos measures, not curve generators) |
 
 ## Workstream 1: New Math Crates (9 TARS Domains)
 
 ### Already Implemented (deepen these)
-- **machin-topo** — Persistent homology, simplicial complexes. Expand: filtrations, Betti numbers visualization, Vietoris-Rips from point clouds.
-- **machin-dynamics** — IK chains, Lie groups/algebras, neural ODEs. Expand: Neural PDE solvers, more Lie group instances (SO(3), SE(3)), symplectic integrators.
-- **machin-ktheory** — Graph K-theory, Mayer-Vietoris. Expand: Grothendieck K0/K1 computation, spectral sequences.
-- **machin-category** — Functors, natural transformations. Expand: Monads, adjunctions, Kan extensions, Free/Forgetful functor pairs.
+- **ix-topo** — Persistent homology, simplicial complexes. Expand: filtrations, Betti numbers visualization, Vietoris-Rips from point clouds.
+- **ix-dynamics** — IK chains, Lie groups/algebras, neural ODEs. Expand: Neural PDE solvers, more Lie group instances (SO(3), SE(3)), symplectic integrators.
+- **ix-ktheory** — Graph K-theory, Mayer-Vietoris. Expand: Grothendieck K0/K1 computation, spectral sequences.
+- **ix-category** — Functors, natural transformations. Expand: Monads, adjunctions, Kan extensions, Free/Forgetful functor pairs.
 
 ### New Crates (Extract + Expand)
 
 #### Phase 1: Geometric & Number Theory
-- **machin-rotation** — Extract quaternion CPU math from machin-gpu. Add: dual quaternions, SLERP, Plucker coordinates, Euler angles, rotation matrices, axis-angle, rigid body transforms, screw theory. machin-gpu retains GPU kernel, depends on machin-rotation for types.
-- **machin-number-theory** — Net-new. Prime sieve (Eratosthenes, Atkin), primality tests (Miller-Rabin), prime triplets/constellations, prime gaps, totient, modular arithmetic, Chinese Remainder Theorem, elliptic curves (note: elliptic curves may need a big-integer dependency).
+- **ix-rotation** — Extract quaternion CPU math from ix-gpu. Add: dual quaternions, SLERP, Plucker coordinates, Euler angles, rotation matrices, axis-angle, rigid body transforms, screw theory. ix-gpu retains GPU kernel, depends on ix-rotation for types.
+- **ix-number-theory** — Net-new. Prime sieve (Eratosthenes, Atkin), primality tests (Miller-Rabin), prime triplets/constellations, prime gaps, totient, modular arithmetic, Chinese Remainder Theorem, elliptic curves (note: elliptic curves may need a big-integer dependency).
 
 #### Phase 2: Fractals & Higher Algebra
-- **machin-fractal** — Extract Takagi + de Rham from machin-chaos. Add: IFS (iterated function systems), L-systems, space-filling curves (Hilbert, Peano). machin-chaos keeps box-counting/correlation dimension (chaos measures).
-- **machin-sedenion** — Extract sedenion algebra from machin-gpu. Add: full Cayley-Dickson construction chain, BSP partitioning for spatial queries. machin-gpu retains GPU kernel.
+- **ix-fractal** — Extract Takagi + de Rham from ix-chaos. Add: IFS (iterated function systems), L-systems, space-filling curves (Hilbert, Peano). ix-chaos keeps box-counting/correlation dimension (chaos measures).
+- **ix-sedenion** — Extract sedenion algebra from ix-gpu. Add: full Cayley-Dickson construction chain, BSP partitioning for spatial queries. ix-gpu retains GPU kernel.
 
 ### Crate Dependency Graph (new crates)
 ```
-machin-math ← machin-rotation (linalg primitives)
-machin-rotation ← machin-gpu (GPU kernels for batch rotation)
-machin-math ← machin-number-theory (no external deps unless elliptic curves need bigint)
-machin-chaos ← machin-fractal (share types, re-exports for compat)
-machin-sedenion ← machin-gpu (GPU kernels for batch sedenion ops)
+ix-math ← ix-rotation (linalg primitives)
+ix-rotation ← ix-gpu (GPU kernels for batch rotation)
+ix-math ← ix-number-theory (no external deps unless elliptic curves need bigint)
+ix-chaos ← ix-fractal (share types, re-exports for compat)
+ix-sedenion ← ix-gpu (GPU kernels for batch sedenion ops)
 ```
 
 ### Phasing Strategy
@@ -101,49 +101,49 @@ Stats, Regression, Clustering, Neural Net, Optimization, Chaos, Signal, IK Chain
 
 ### Web Version (Future)
 - Use eframe's built-in WASM support first (minimal effort) — egui already compiles to WASM
-- Crates are pure Rust and WASM-compatible (except machin-gpu, machin-io, machin-cache)
+- Crates are pure Rust and WASM-compatible (except ix-gpu, ix-io, ix-cache)
 - Consider Leptos/Yew only if eframe WASM proves insufficient
 
 ## Workstream 3: MCP & Skill Integration
 
-### MCP Server (machin-agent)
+### MCP Server (ix-agent)
 - **Already has 17 tools** — stats, distance, kmeans, fft, lyapunov, fgsm, grammar (3 tools), cache, bloom, etc.
-- **Action**: Register machin-agent in `.mcp.json` (currently only has context7)
+- **Action**: Register ix-agent in `.mcp.json` (currently only has context7)
 - Ensure all tool schemas are complete with parameter descriptions and examples
-- Test end-to-end: Claude Code invokes skill -> MCP -> machin-agent -> result
+- Test end-to-end: Claude Code invokes skill -> MCP -> ix-agent -> result
 
 ### Coverage Gap Analysis
 
 | Crate | MCP tool? | Claude Code skill? | Demo tab? |
 |-------|-----------|-------------------|-----------|
-| machin-math | Yes (stats, distance) | No | Yes (Stats) |
-| machin-optimize | Yes | Yes | Yes |
-| machin-supervised | No | No | Yes (Regression) |
-| machin-unsupervised | Yes (kmeans) | Yes (cluster) | Yes |
-| machin-nn | No | No | Yes (Neural Net, Transformer) |
-| machin-rl | No | No | Yes (RL Bandits) |
-| machin-evolution | No | No | Yes |
-| machin-graph | No | Yes (hmm) | No |
-| machin-search | No | Yes | Yes |
-| machin-signal | Yes (fft) | Yes | Yes |
-| machin-chaos | Yes (lyapunov) | Yes | Yes |
-| machin-game | No | Yes | Yes |
-| machin-probabilistic | Yes (bloom) | No | Yes |
-| machin-gpu | No | No | Yes |
-| machin-cache | Yes (cache) | No | No |
-| machin-adversarial | Yes (fgsm) | Yes | No |
-| machin-grammar | Yes (3 tools) | No | No |
-| machin-pipeline | No | Yes | No |
-| machin-ensemble | No | No | No |
-| machin-dynamics | No | No | Yes (IK Chain) |
-| machin-topo | No | No | No |
-| machin-ktheory | No | No | No |
-| machin-category | No | No | No |
-| machin-io | No | No | No |
-| machin-rotation | — | — | — |
-| machin-number-theory | — | — | — |
-| machin-fractal | — | — | — |
-| machin-sedenion | — | — | — |
+| ix-math | Yes (stats, distance) | No | Yes (Stats) |
+| ix-optimize | Yes | Yes | Yes |
+| ix-supervised | No | No | Yes (Regression) |
+| ix-unsupervised | Yes (kmeans) | Yes (cluster) | Yes |
+| ix-nn | No | No | Yes (Neural Net, Transformer) |
+| ix-rl | No | No | Yes (RL Bandits) |
+| ix-evolution | No | No | Yes |
+| ix-graph | No | Yes (hmm) | No |
+| ix-search | No | Yes | Yes |
+| ix-signal | Yes (fft) | Yes | Yes |
+| ix-chaos | Yes (lyapunov) | Yes | Yes |
+| ix-game | No | Yes | Yes |
+| ix-probabilistic | Yes (bloom) | No | Yes |
+| ix-gpu | No | No | Yes |
+| ix-cache | Yes (cache) | No | No |
+| ix-adversarial | Yes (fgsm) | Yes | No |
+| ix-grammar | Yes (3 tools) | No | No |
+| ix-pipeline | No | Yes | No |
+| ix-ensemble | No | No | No |
+| ix-dynamics | No | No | Yes (IK Chain) |
+| ix-topo | No | No | No |
+| ix-ktheory | No | No | No |
+| ix-category | No | No | No |
+| ix-io | No | No | No |
+| ix-rotation | — | — | — |
+| ix-number-theory | — | — | — |
+| ix-fractal | — | — | — |
+| ix-sedenion | — | — | — |
 
 **Target**: Every crate has at least one MCP tool, one Claude Code skill, and one demo tab.
 
@@ -167,12 +167,12 @@ Stats, Regression, Clustering, Neural Net, Optimization, Chaos, Signal, IK Chain
 - **Benchmarks**: `criterion` for performance-critical paths (FFT, matrix ops, GPU kernels)
 
 ### Stub Completion (10 items)
-- `machin-unsupervised`: t-SNE, GMM
-- `machin-nn/network.rs`: Composable network (TODO)
-- `machin-rl/q_learning.rs`: Implement after Environment trait (TODO)
-- `machin-rl/env.rs`: GridWorld environment (TODO)
-- `machin-skill/src/main.rs:140,144`: Data loading for Train/Cluster commands (TODO)
-- `machin-skill/src/main.rs:350-356`: Wire up decision-tree, SVM, DBSCAN, PCA (TODO)
+- `ix-unsupervised`: t-SNE, GMM
+- `ix-nn/network.rs`: Composable network (TODO)
+- `ix-rl/q_learning.rs`: Implement after Environment trait (TODO)
+- `ix-rl/env.rs`: GridWorld environment (TODO)
+- `ix-skill/src/main.rs:140,144`: Data loading for Train/Cluster commands (TODO)
+- `ix-skill/src/main.rs:350-356`: Wire up decision-tree, SVM, DBSCAN, PCA (TODO)
 
 ### README & Docs
 - Update to reflect all 27+ crates (currently documents 22)
@@ -186,31 +186,31 @@ Stats, Regression, Clustering, Neural Net, Optimization, Chaos, Signal, IK Chain
 
 | WASM-safe | Needs feature gate | Not WASM-compatible |
 |-----------|--------------------|---------------------|
-| machin-math | machin-gpu (no WGPU in WASM yet) | machin-io (TCP, named pipes) |
-| machin-optimize | | machin-cache (tokio, networking) |
-| machin-supervised | | |
-| machin-unsupervised | | |
-| machin-nn | | |
-| machin-rotation | | |
-| machin-number-theory | | |
-| machin-fractal | | |
-| machin-sedenion | | |
-| machin-chaos | | |
-| machin-signal | | |
-| machin-game | | |
-| machin-search | | |
-| machin-graph | | |
-| machin-probabilistic | | |
+| ix-math | ix-gpu (no WGPU in WASM yet) | ix-io (TCP, named pipes) |
+| ix-optimize | | ix-cache (tokio, networking) |
+| ix-supervised | | |
+| ix-unsupervised | | |
+| ix-nn | | |
+| ix-rotation | | |
+| ix-number-theory | | |
+| ix-fractal | | |
+| ix-sedenion | | |
+| ix-chaos | | |
+| ix-signal | | |
+| ix-game | | |
+| ix-search | | |
+| ix-graph | | |
+| ix-probabilistic | | |
 
 ## Key Decisions
 
-1. **Fractal placement**: New machin-fractal crate. Extract Takagi/de Rham from machin-chaos. Keep box-counting in machin-chaos (it's a chaos measure).
+1. **Fractal placement**: New ix-fractal crate. Extract Takagi/de Rham from ix-chaos. Keep box-counting in ix-chaos (it's a chaos measure).
 2. **Demo architecture**: Keep single binary with tabs. It's the showcase.
 3. **Web version approach**: Use eframe's built-in WASM support first (minimal effort).
 4. **Phasing**: Infrastructure hardening runs in parallel with new crate development.
 5. **Sedenion scope**: Start with sedenions + Cayley-Dickson, generalize later if useful.
-6. **Crate naming**: `machin-rotation` (broad rotation math) over `machin-quaternion`.
-7. **Number theory scope**: Full `machin-number-theory` (primes + modular arithmetic + elliptic curves).
+6. **Crate naming**: `ix-rotation` (broad rotation math) over `ix-quaternion`.
+7. **Number theory scope**: Full `ix-number-theory` (primes + modular arithmetic + elliptic curves).
 8. **GPU from day one**: Rotation and sedenion get WGPU kernels alongside CPU implementations.
 9. **crates.io publishing**: Plan for it now. Clean APIs, semver, CI-driven publish on git tag.
 10. **Test framework**: All three — `#[test]` + `proptest` + `criterion`.
@@ -225,9 +225,9 @@ Stats, Regression, Clustering, Neural Net, Optimization, Chaos, Signal, IK Chain
 |------|--------|------------|
 | GPU tests need hardware/software renderer in CI | CI failures on GPU crates | Use `wgpu` software adapter or skip GPU tests in CI with feature flag |
 | Elliptic curves in number theory is a rabbit hole | Scope creep, delays Phase 1 | Start with primes + modular arithmetic; elliptic curves as a follow-up module |
-| machin-gpu is a bottleneck (8+ kernel files) | Extraction complexity | Extract one crate at a time; keep GPU kernels in machin-gpu, move CPU algebra out |
+| ix-gpu is a bottleneck (8+ kernel files) | Extraction complexity | Extract one crate at a time; keep GPU kernels in ix-gpu, move CPU algebra out |
 | Breaking changes during extraction | Downstream crates break | All crates at 0.1.0, semver allows breaking changes. Add deprecation re-exports in old locations |
-| WASM feature gates add complexity | Build matrix grows | Only gate machin-gpu and machin-io; most crates are naturally WASM-safe |
+| WASM feature gates add complexity | Build matrix grows | Only gate ix-gpu and ix-io; most crates are naturally WASM-safe |
 
 ## Success Criteria
 

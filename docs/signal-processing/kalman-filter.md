@@ -67,7 +67,7 @@ them. The uncertainty shrinks because we incorporated new information.
 ## In Rust
 
 ```rust
-use machin_signal::kalman::{KalmanFilter, constant_velocity_1d};
+use ix_signal::kalman::{KalmanFilter, constant_velocity_1d};
 use ndarray::{array, Array1};
 
 // --- Quick start: track an object moving at constant velocity ---
@@ -154,7 +154,7 @@ let estimated = kf.step(&array![5.1], None);
 - Combine multiple sensors (GPS + IMU + compass) by stacking their observations into a
   single H matrix and R block-diagonal.
 - For time-varying models, update `kf.transition` at each step before calling `predict`.
-- Use `machin_signal::filter::IirFilter::first_order_lowpass()` as a simpler alternative
+- Use `ix_signal::filter::IirFilter::first_order_lowpass()` as a simpler alternative
   when you do not need a physical model -- just smoothing.
-- Feed Kalman-filtered state estimates into `machin_chaos::lyapunov::lyapunov_spectrum`
+- Feed Kalman-filtered state estimates into `ix_chaos::lyapunov::lyapunov_spectrum`
   to detect chaotic dynamics in cleaned-up sensor data.

@@ -6,8 +6,8 @@
 //! cargo run --example astar_qstar
 //! ```
 
-use machin_search::astar::{astar, SearchState};
-use machin_search::qstar::{compare_qstar_vs_astar, qstar_search, TabularQ};
+use ix_search::astar::{astar, SearchState};
+use ix_search::qstar::{compare_qstar_vs_astar, qstar_search, TabularQ};
 
 // A simple grid state for demonstration
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

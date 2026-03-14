@@ -39,8 +39,8 @@ Some features are redundant (e.g., "transaction amount" and "log amount" contain
 
 ```rust
 use ndarray::{Array2, Array1};
-use machin_math::linalg;
-use machin_unsupervised::{PCA, DimensionReducer};
+use ix_math::linalg;
+use ix_unsupervised::{PCA, DimensionReducer};
 
 // Load and standardize (critical for PCA)
 let (standardized, means, stds) = linalg::standardize(&raw_features);
@@ -68,12 +68,12 @@ Random Forest is ideal for fraud detection:
 - Fast inference for real-time scoring
 
 ```rust
-use machin_supervised::{DecisionTree, Classifier};
-use machin_supervised::metrics;
+use ix_supervised::{DecisionTree, Classifier};
+use ix_supervised::metrics;
 use ndarray::Array1;
 
 // Build individual trees (Random Forest = many trees voting)
-// MachinDeOuf's ensemble crate builds on DecisionTree
+// ix's ensemble crate builds on DecisionTree
 let mut tree = DecisionTree::new(10)     // max depth 10
     .with_min_samples_split(5);
 
@@ -113,7 +113,7 @@ For fraud detection, the metrics that matter are:
 - **F1 Score**: Harmonic mean of precision and recall. Balances both.
 
 ```rust
-use machin_supervised::metrics;
+use ix_supervised::metrics;
 use ndarray::array;
 
 // Example: model predictions vs actual labels

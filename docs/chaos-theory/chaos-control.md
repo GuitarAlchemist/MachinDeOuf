@@ -74,7 +74,7 @@ coupling strength, the response locks onto the driver's trajectory.
 ## In Rust
 
 ```rust
-use machin_chaos::control::{
+use ix_chaos::control::{
     ogy_control, pyragas_control, drive_response_sync,
 };
 
@@ -172,16 +172,16 @@ println!("Final sync error:   {:.4}", errors.last().unwrap());
 
 4. **Euler integration.** The Pyragas implementation uses Euler integration for
    simplicity. For stiff systems, this may require very small dt. Consider wrapping
-   the dynamics in an RK4 integrator from `machin_chaos::attractors::rk4_step` for
+   the dynamics in an RK4 integrator from `ix_chaos::attractors::rk4_step` for
    better accuracy.
 
 ## Going Further
 
-- Combine OGY with `machin_chaos::lyapunov::mle_1d` to verify that the controlled orbit
+- Combine OGY with `ix_chaos::lyapunov::mle_1d` to verify that the controlled orbit
   has a negative Lyapunov exponent (confirming stabilisation).
-- Use `machin_chaos::bifurcation::bifurcation_diagram` to identify all available unstable
+- Use `ix_chaos::bifurcation::bifurcation_diagram` to identify all available unstable
   periodic orbits before choosing a target for OGY control.
 - Explore chaos-based communication: encode information in the driver system's parameters,
   then decode by measuring synchronisation error in the response.
-- Combine Pyragas control with `machin_signal::kalman::KalmanFilter` to estimate the
+- Combine Pyragas control with `ix_signal::kalman::KalmanFilter` to estimate the
   system state from noisy observations before applying the feedback.

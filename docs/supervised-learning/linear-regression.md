@@ -54,9 +54,9 @@ In plain English, this means: for a new house, multiply each feature by its weig
 
 ```rust
 use ndarray::array;
-use machin_supervised::linear_regression::LinearRegression;
-use machin_supervised::traits::Regressor;
-use machin_supervised::metrics::{mse, rmse, r_squared};
+use ix_supervised::linear_regression::LinearRegression;
+use ix_supervised::traits::Regressor;
+use ix_supervised::metrics::{mse, rmse, r_squared};
 
 fn main() {
     // Features: [sqft, bedrooms, distance_to_school_miles]
@@ -104,7 +104,7 @@ fn main() {
 | Continuous target, linear relationship | Yes | -- | This is its sweet spot |
 | Need interpretable coefficients | Yes | -- | Each weight has a clear meaning |
 | Non-linear patterns in data | No | Decision tree, neural net | Linear regression will underfit curves |
-| Lots of features, many irrelevant | Careful | Lasso/Ridge (not yet in MachinDeOuf) | OLS can overfit with many collinear features |
+| Lots of features, many irrelevant | Careful | Lasso/Ridge (not yet in ix) | OLS can overfit with many collinear features |
 | Classification task | No | Logistic regression, SVM | Linear regression predicts continuous values, not classes |
 | Very large dataset (millions of rows) | Slow | SGD-based regression | Normal equation inverts an NxN matrix |
 
@@ -132,6 +132,6 @@ fn main() {
 ## Going Further
 
 - **Polynomial features:** Create columns like `sqft^2` or `sqft * bedrooms` and feed them in as extra features. Linear regression on polynomial features can model curves.
-- **Regularization:** Ridge and Lasso regression add a penalty term to prevent large weights. MachinDeOuf's `machin-optimize` crate provides SGD and Adam optimizers that could be used to implement these.
-- **Gradient descent alternative:** For datasets too large for the normal equation, use `machin_optimize::sgd` to iteratively minimize MSE instead of inverting a matrix.
+- **Regularization:** Ridge and Lasso regression add a penalty term to prevent large weights. ix's `ix-optimize` crate provides SGD and Adam optimizers that could be used to implement these.
+- **Gradient descent alternative:** For datasets too large for the normal equation, use `ix_optimize::sgd` to iteratively minimize MSE instead of inverting a matrix.
 - **Evaluation:** See [evaluation-metrics.md](./evaluation-metrics.md) for a deep dive into MSE, RMSE, and R-squared.

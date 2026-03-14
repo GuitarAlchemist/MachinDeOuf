@@ -6,8 +6,8 @@
 //! cargo run --example dag_pipeline
 //! ```
 
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, NoCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, NoCache};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 

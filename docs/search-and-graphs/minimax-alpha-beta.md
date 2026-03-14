@@ -79,10 +79,10 @@ expected_value = sum over outcomes of: probability * minimax(outcome_state, dept
 
 ## In Rust
 
-The `machin-search` crate models adversarial games through the `GameState` trait:
+The `ix-search` crate models adversarial games through the `GameState` trait:
 
 ```rust
-use machin_search::adversarial::{
+use ix_search::adversarial::{
     GameState, AdversarialResult, minimax, alpha_beta, expectiminimax,
     StochasticGameState,
 };
@@ -226,12 +226,12 @@ Alpha-beta pruning roughly squares these: depth 8 with pruning costs about what 
 
 4. **Expectiminimax cannot prune as aggressively.** Chance nodes prevent the clean bounds that alpha-beta relies on. Expect expectiminimax to be significantly slower than alpha-beta at the same depth.
 
-5. **Horizon effect.** At the depth limit, the AI cannot see what happens next. A move that looks good at depth 6 might be terrible at depth 7 (e.g., delaying an inevitable loss). Quiescence search (searching deeper in "unstable" positions) is the standard fix, but is not yet built into machin-search.
+5. **Horizon effect.** At the depth limit, the AI cannot see what happens next. A move that looks good at depth 6 might be terrible at depth 7 (e.g., delaying an inevitable loss). Quiescence search (searching deeper in "unstable" positions) is the standard fix, but is not yet built into ix-search.
 
 ## Going Further
 
 - **Iterative deepening:** Search at depth 1, then 2, then 3, etc., using time as the budget instead of depth. Each iteration reuses move ordering from the previous one.
 - **Transposition table:** Cache evaluated positions (by hash) to avoid re-searching the same position reached via different move orders.
 - **MCTS:** For games where alpha-beta cannot reach useful depth (Go, complex strategy games). See [MCTS](./mcts.md).
-- **Negamax:** The `negamax(&state, depth)` function in machin-search implements alpha-beta using score negation, which is cleaner for two-player zero-sum games.
+- **Negamax:** The `negamax(&state, depth)` function in ix-search implements alpha-beta using score negation, which is cleaner for two-player zero-sum games.
 - Read: Knuth and Moore, "An Analysis of Alpha-Beta Pruning" (1975).
