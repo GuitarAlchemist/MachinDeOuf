@@ -4,6 +4,22 @@
 //! `m = p × l` is the moment. Follows Clifford/Study screw theory convention.
 //!
 //! Uses `[f64; 3]` for stack allocation and `Copy` semantics.
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_math::plucker::PluckerLine;
+//!
+//! // X-axis and Y-axis through origin — they intersect
+//! let l1 = PluckerLine::from_two_points(&[0.0, 0.0, 0.0], &[1.0, 0.0, 0.0]).unwrap();
+//! let l2 = PluckerLine::from_two_points(&[0.0, 0.0, 0.0], &[0.0, 1.0, 0.0]).unwrap();
+//! assert!(l1.intersects(&l2, 1e-10));
+//!
+//! // Skew lines: X-axis and a Y-direction line offset by z=3
+//! let l3 = PluckerLine::from_two_points(&[0.0, 0.0, 3.0], &[0.0, 1.0, 3.0]).unwrap();
+//! assert!(!l1.intersects(&l3, 1e-10));
+//! assert!((l1.distance_between(&l3) - 3.0).abs() < 1e-10);
+//! ```
 
 use crate::error::MathError;
 use crate::quaternion::cross3;

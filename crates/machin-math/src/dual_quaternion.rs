@@ -2,6 +2,29 @@
 //!
 //! A dual quaternion `dq = q_r + ε * q_d` encodes rotation + translation
 //! in 8 elements. Unit constraint: `||q_r|| = 1` AND `q_r · q_d = 0`.
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_math::quaternion::Quaternion;
+//! use machin_math::dual_quaternion::{DualQuaternion, sclerp};
+//! use std::f64::consts::FRAC_PI_2;
+//!
+//! // Rotate 90° around Z, then translate by (0, 0, 5)
+//! let rot = Quaternion::from_axis_angle(&[0.0, 0.0, 1.0], FRAC_PI_2).unwrap();
+//! let dq = DualQuaternion::from_rotation_translation(&rot, &[0.0, 0.0, 5.0]).unwrap();
+//!
+//! // Transform a point: (1,0,0) → rotate → (0,1,0) → translate → (0,1,5)
+//! let p = dq.transform_point(&[1.0, 0.0, 0.0]).unwrap();
+//! assert!((p[0]).abs() < 1e-10);
+//! assert!((p[1] - 1.0).abs() < 1e-10);
+//! assert!((p[2] - 5.0).abs() < 1e-10);
+//!
+//! // Round-trip: extract rotation and translation back
+//! let (r, t) = dq.to_rotation_translation();
+//! assert!(r.is_unit(1e-10));
+//! assert!((t[2] - 5.0).abs() < 1e-10);
+//! ```
 
 use crate::error::MathError;
 use crate::quaternion::{self, Quaternion};
@@ -165,6 +188,25 @@ impl std::ops::Neg for DualQuaternion {
 /// Interpolates both rotation and translation along a screw axis.
 /// Falls back to component-wise SLERP + LERP for pure-translation or
 /// near-identity cases.
+///
+/// # Examples
+///
+/// ```
+/// use machin_math::quaternion::Quaternion;
+/// use machin_math::dual_quaternion::{DualQuaternion, sclerp};
+///
+/// let dq1 = DualQuaternion::from_rotation_translation(
+///     &Quaternion::identity(), &[0.0, 0.0, 0.0],
+/// ).unwrap();
+/// let dq2 = DualQuaternion::from_rotation_translation(
+///     &Quaternion::identity(), &[10.0, 0.0, 0.0],
+/// ).unwrap();
+///
+/// // Halfway interpolation of pure translation
+/// let mid = sclerp(&dq1, &dq2, 0.5).unwrap();
+/// let (_, t) = mid.to_rotation_translation();
+/// assert!((t[0] - 5.0).abs() < 1e-10);
+/// ```
 pub fn sclerp(
     dq1: &DualQuaternion,
     dq2: &DualQuaternion,

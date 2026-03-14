@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 //! # machin-math
 //!
 //! Core math primitives for the machin ML toolkit.

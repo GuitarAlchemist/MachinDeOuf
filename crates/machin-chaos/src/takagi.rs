@@ -4,6 +4,25 @@
 //!
 //! The standard Blancmange curve has fractal dimension 1.5.
 //! Uses periodic extension: `t` is mapped to `[0, 1]` via `t - floor(t)`.
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_chaos::takagi;
+//!
+//! // Known values of the Blancmange function
+//! assert!((takagi::takagi(0.0, 20) - 0.0).abs() < 1e-10);
+//! assert!((takagi::takagi(0.5, 20) - 0.5).abs() < 1e-10);
+//! assert!((takagi::takagi(1.0, 20) - 0.0).abs() < 1e-10); // periodic
+//!
+//! // Symmetry: T(t) = T(1 - t)
+//! let t = 0.37;
+//! assert!((takagi::takagi(t, 20) - takagi::takagi(1.0 - t, 20)).abs() < 1e-10);
+//!
+//! // Sample 101 points for plotting
+//! let curve = takagi::takagi_series(101, 20);
+//! assert_eq!(curve.len(), 101);
+//! ```
 
 use ndarray::Array1;
 

@@ -2,6 +2,27 @@
 //!
 //! Provides sieve-based generation, deterministic primality testing (exact for all `u64`),
 //! prime triplet enumeration, and prime factorization.
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_math::primes;
+//!
+//! // Generate primes up to 30
+//! let ps = primes::sieve_of_eratosthenes(30).unwrap();
+//! assert_eq!(ps, vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
+//!
+//! // Deterministic primality testing (exact for all u64)
+//! assert!(primes::is_prime(1_000_000_007));
+//! assert!(!primes::is_prime(1_000_000_006));
+//!
+//! // Factorize a number
+//! let factors = primes::prime_factors(360);
+//! assert_eq!(factors, vec![(2, 3), (3, 2), (5, 1)]); // 2³ × 3² × 5
+//!
+//! // Find the 100th prime
+//! assert_eq!(primes::nth_prime(100).unwrap(), 541);
+//! ```
 
 use crate::error::MathError;
 

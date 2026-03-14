@@ -2,6 +2,28 @@
 //!
 //! Roughness decays 0.5× per recursion level. Seeded RNG for reproducibility.
 //! Uses iterative implementation (explicit worklist) to avoid stack overflow.
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_chaos::de_rham;
+//! use ndarray::Array1;
+//! use rand::SeedableRng;
+//!
+//! let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+//!
+//! // Generate a fractal path between two 2D points
+//! let p0 = Array1::from_vec(vec![0.0, 0.0]);
+//! let p1 = Array1::from_vec(vec![1.0, 1.0]);
+//! let path = de_rham::de_rham_interpolate(&p0, &p1, 5, 0.3, &mut rng);
+//! assert_eq!(path.len(), 33); // 2^5 + 1
+//! assert_eq!(&path[0], &p0);  // endpoints preserved
+//!
+//! // Generate a 1D fractal signal
+//! let mut rng2 = rand::rngs::StdRng::seed_from_u64(99);
+//! let signal = de_rham::de_rham_curve_1d(6, 0.2, &mut rng2);
+//! assert_eq!(signal.len(), 65); // 2^6 + 1
+//! ```
 
 use ndarray::Array1;
 use rand::Rng;

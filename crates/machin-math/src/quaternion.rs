@@ -3,6 +3,30 @@
 //! Uses **Hamilton convention**: ijk = −1, scalar-first storage `(w, x, y, z)`.
 //! Rotation application: `q * v * q.conjugate()` rotates vector v.
 //! Composition: `q1 * q2` applies q2 first, then q1 (right-to-left, matching matrix convention).
+//!
+//! # Examples
+//!
+//! ```
+//! use machin_math::quaternion::{Quaternion, slerp};
+//! use std::f64::consts::FRAC_PI_2;
+//!
+//! // Create a 90° rotation around the Z axis
+//! let q = Quaternion::from_axis_angle(&[0.0, 0.0, 1.0], FRAC_PI_2).unwrap();
+//!
+//! // Rotate the X-axis unit vector → should become Y-axis
+//! let rotated = q.rotate_vector(&[1.0, 0.0, 0.0]);
+//! assert!((rotated[0]).abs() < 1e-10);
+//! assert!((rotated[1] - 1.0).abs() < 1e-10);
+//!
+//! // Compose rotations: two 90° rotations = 180°
+//! let q180 = q * q;
+//! let r2 = q180.rotate_vector(&[1.0, 0.0, 0.0]);
+//! assert!((r2[0] + 1.0).abs() < 1e-10); // (1,0,0) → (-1,0,0)
+//!
+//! // Interpolate halfway between identity and 90° rotation
+//! let mid = slerp(&Quaternion::identity(), &q, 0.5);
+//! assert!(mid.is_unit(1e-10));
+//! ```
 
 use ndarray::{array, Array1, Array2};
 
@@ -50,6 +74,20 @@ impl Quaternion {
     /// Create a unit quaternion from an axis–angle representation.
     ///
     /// The axis is internally normalized. Returns `Err` if the axis has near-zero length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use machin_math::quaternion::Quaternion;
+    /// use std::f64::consts::PI;
+    ///
+    /// // 180° around X axis — unnormalized axis is fine
+    /// let q = Quaternion::from_axis_angle(&[5.0, 0.0, 0.0], PI).unwrap();
+    /// assert!(q.is_unit(1e-12));
+    ///
+    /// // Zero axis is rejected
+    /// assert!(Quaternion::from_axis_angle(&[0.0, 0.0, 0.0], 1.0).is_err());
+    /// ```
     pub fn from_axis_angle(axis: &[f64; 3], angle: f64) -> Result<Self, MathError> {
         let len = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
         if len < NORM_EPSILON {
@@ -71,6 +109,18 @@ impl Quaternion {
     /// Convert to a 3×3 rotation matrix.
     ///
     /// Re-normalizes the quaternion before building the matrix to guard against drift.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use machin_math::quaternion::Quaternion;
+    /// use std::f64::consts::FRAC_PI_2;
+    ///
+    /// let q = Quaternion::from_axis_angle(&[0.0, 0.0, 1.0], FRAC_PI_2).unwrap();
+    /// let m = q.to_rotation_matrix();
+    /// assert_eq!(m.shape(), &[3, 3]);
+    /// assert!((m[[0, 1]] + 1.0).abs() < 1e-10); // -sin(90°)
+    /// ```
     pub fn to_rotation_matrix(&self) -> Array2<f64> {
         let q = self.normalize().unwrap_or(*self);
         let (w, x, y, z) = (q.w, q.x, q.y, q.z);
@@ -93,6 +143,17 @@ impl Quaternion {
     }
 
     /// Rotate a 3D vector using `q * v * q⁻¹` (optimized, no matrix).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use machin_math::quaternion::Quaternion;
+    /// use std::f64::consts::FRAC_PI_2;
+    ///
+    /// let q = Quaternion::from_axis_angle(&[0.0, 0.0, 1.0], FRAC_PI_2).unwrap();
+    /// let v = q.rotate_vector(&[1.0, 0.0, 0.0]);
+    /// assert!((v[1] - 1.0).abs() < 1e-10); // X → Y
+    /// ```
     pub fn rotate_vector(&self, v: &[f64; 3]) -> [f64; 3] {
         // Rodrigues-like expansion of q*v*q⁻¹ for unit quaternion:
         //   v' = v + 2w(u × v) + 2(u × (u × v))
@@ -364,6 +425,24 @@ impl TryFrom<Array1<f64>> for Quaternion {
 
 /// Spherical linear interpolation. Returns `None` for near-antipodal quaternions
 /// where the rotation path is ambiguous.
+///
+/// # Examples
+///
+/// ```
+/// use machin_math::quaternion::{Quaternion, try_slerp, slerp};
+/// use std::f64::consts::FRAC_PI_2;
+///
+/// let q1 = Quaternion::identity();
+/// let q2 = Quaternion::from_axis_angle(&[0.0, 0.0, 1.0], FRAC_PI_2).unwrap();
+///
+/// // Midpoint of 0° and 90° = 45°
+/// let mid = try_slerp(&q1, &q2, 0.5).unwrap();
+/// assert!(mid.is_unit(1e-10));
+///
+/// // slerp always returns a value (NLERP fallback)
+/// let also_mid = slerp(&q1, &q2, 0.5);
+/// assert!((mid.dot(&also_mid) - 1.0).abs() < 1e-10);
+/// ```
 pub fn try_slerp(q1: &Quaternion, q2: &Quaternion, t: f64) -> Option<Quaternion> {
     let mut d = q1.dot(q2);
     let q2 = if d < 0.0 {
