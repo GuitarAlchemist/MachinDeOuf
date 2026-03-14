@@ -670,6 +670,505 @@ pub fn grammar_search(params: Value) -> Result<Value, String> {
     }))
 }
 
+// ── machin_rotation ────────────────────────────────────────────
+
+pub fn rotation(params: Value) -> Result<Value, String> {
+    use machin_rotation::quaternion::Quaternion;
+
+    let op = parse_str(&params, "operation")?;
+
+    match op {
+        "quaternion" => {
+            let axis = parse_f64_array(&params, "axis")?;
+            let angle = params.get("angle").and_then(|v| v.as_f64())
+                .ok_or("Missing 'angle'")?;
+            if axis.len() != 3 { return Err("axis must have 3 elements".into()); }
+            let q = Quaternion::from_axis_angle([axis[0], axis[1], axis[2]], angle);
+            Ok(json!({ "w": q.w, "x": q.x, "y": q.y, "z": q.z, "norm": q.norm() }))
+        }
+        "slerp" => {
+            use machin_rotation::slerp::slerp;
+            let axis1 = parse_f64_array(&params, "axis")?;
+            let angle1 = params.get("angle").and_then(|v| v.as_f64()).ok_or("Missing 'angle'")?;
+            let axis2 = parse_f64_array(&params, "axis2")?;
+            let angle2 = params.get("angle2").and_then(|v| v.as_f64()).ok_or("Missing 'angle2'")?;
+            let t = params.get("t").and_then(|v| v.as_f64()).ok_or("Missing 't'")?;
+            if axis1.len() != 3 || axis2.len() != 3 { return Err("axes must have 3 elements".into()); }
+            let q0 = Quaternion::from_axis_angle([axis1[0], axis1[1], axis1[2]], angle1);
+            let q1 = Quaternion::from_axis_angle([axis2[0], axis2[1], axis2[2]], angle2);
+            let r = slerp(&q0, &q1, t);
+            Ok(json!({ "w": r.w, "x": r.x, "y": r.y, "z": r.z }))
+        }
+        "euler_to_quat" => {
+            use machin_rotation::euler::{to_quaternion, EulerOrder};
+            let roll = params.get("roll").and_then(|v| v.as_f64()).ok_or("Missing 'roll'")?;
+            let pitch = params.get("pitch").and_then(|v| v.as_f64()).ok_or("Missing 'pitch'")?;
+            let yaw = params.get("yaw").and_then(|v| v.as_f64()).ok_or("Missing 'yaw'")?;
+            let q = to_quaternion(roll, pitch, yaw, EulerOrder::XYZ);
+            Ok(json!({ "w": q.w, "x": q.x, "y": q.y, "z": q.z, "norm": q.norm() }))
+        }
+        "quat_to_euler" => {
+            use machin_rotation::euler::{from_quaternion, EulerOrder, gimbal_lock_check};
+            let qv = parse_f64_array(&params, "quaternion")?;
+            if qv.len() != 4 { return Err("quaternion must have 4 elements [w,x,y,z]".into()); }
+            let q = Quaternion::new(qv[0], qv[1], qv[2], qv[3]);
+            let (roll, pitch, yaw) = from_quaternion(&q, EulerOrder::XYZ);
+            Ok(json!({ "roll": roll, "pitch": pitch, "yaw": yaw, "gimbal_lock": gimbal_lock_check(pitch) }))
+        }
+        "rotate_point" => {
+            let axis = parse_f64_array(&params, "axis")?;
+            let angle = params.get("angle").and_then(|v| v.as_f64()).ok_or("Missing 'angle'")?;
+            let point = parse_f64_array(&params, "point")?;
+            if axis.len() != 3 || point.len() != 3 { return Err("axis and point must have 3 elements".into()); }
+            let q = Quaternion::from_axis_angle([axis[0], axis[1], axis[2]], angle);
+            let rotated = q.rotate_point([point[0], point[1], point[2]]);
+            Ok(json!({ "rotated_point": rotated }))
+        }
+        "rotation_matrix" => {
+            use machin_rotation::rotation_matrix::{from_quaternion, is_rotation_matrix};
+            let axis = parse_f64_array(&params, "axis")?;
+            let angle = params.get("angle").and_then(|v| v.as_f64()).ok_or("Missing 'angle'")?;
+            if axis.len() != 3 { return Err("axis must have 3 elements".into()); }
+            let q = Quaternion::from_axis_angle([axis[0], axis[1], axis[2]], angle);
+            let m = from_quaternion(&q);
+            let valid = is_rotation_matrix(&m, 1e-8);
+            Ok(json!({ "matrix": m, "valid": valid, "quaternion": { "w": q.w, "x": q.x, "y": q.y, "z": q.z } }))
+        }
+        _ => Err(format!("Unknown rotation operation: {}", op)),
+    }
+}
+
+// ── machin_number_theory ──────────────────────────────────────
+
+pub fn number_theory(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+
+    match op {
+        "sieve" => {
+            let limit = parse_usize(&params, "limit")?;
+            let primes = machin_number_theory::sieve::sieve_of_eratosthenes(limit);
+            Ok(json!({ "primes": primes, "count": primes.len(), "limit": limit }))
+        }
+        "is_prime" => {
+            let n = params.get("n").and_then(|v| v.as_u64()).ok_or("Missing 'n'")?;
+            let trial = machin_number_theory::primality::is_prime_trial(n);
+            let miller_rabin = machin_number_theory::primality::is_prime_miller_rabin(n, 10);
+            Ok(json!({ "n": n, "is_prime_trial": trial, "is_prime_miller_rabin": miller_rabin }))
+        }
+        "mod_pow" => {
+            let base = params.get("base").and_then(|v| v.as_u64()).ok_or("Missing 'base'")?;
+            let exp = params.get("exp").and_then(|v| v.as_u64()).ok_or("Missing 'exp'")?;
+            let modulus = params.get("modulus").and_then(|v| v.as_u64()).ok_or("Missing 'modulus'")?;
+            let result = machin_number_theory::modular::mod_pow(base, exp, modulus);
+            Ok(json!({ "result": result, "expression": format!("{}^{} mod {}", base, exp, modulus) }))
+        }
+        "gcd" => {
+            let a = params.get("a").and_then(|v| v.as_u64()).ok_or("Missing 'a'")?;
+            let b = params.get("b").and_then(|v| v.as_u64()).ok_or("Missing 'b'")?;
+            let g = machin_number_theory::modular::gcd(a, b);
+            Ok(json!({ "gcd": g, "a": a, "b": b }))
+        }
+        "lcm" => {
+            let a = params.get("a").and_then(|v| v.as_u64()).ok_or("Missing 'a'")?;
+            let b = params.get("b").and_then(|v| v.as_u64()).ok_or("Missing 'b'")?;
+            let l = machin_number_theory::modular::lcm(a, b);
+            Ok(json!({ "lcm": l, "a": a, "b": b }))
+        }
+        "mod_inverse" => {
+            let a = params.get("a").and_then(|v| v.as_u64()).ok_or("Missing 'a'")?;
+            let modulus = params.get("modulus").and_then(|v| v.as_u64()).ok_or("Missing 'modulus'")?;
+            let inv = machin_number_theory::modular::mod_inverse(a, modulus);
+            Ok(json!({ "inverse": inv, "a": a, "modulus": modulus, "exists": inv.is_some() }))
+        }
+        "prime_gaps" => {
+            let limit = parse_usize(&params, "limit")?;
+            let primes = machin_number_theory::sieve::sieve_of_eratosthenes(limit);
+            let gaps: Vec<usize> = primes.windows(2).map(|w| w[1] - w[0]).collect();
+            let max_gap = gaps.iter().copied().max().unwrap_or(0);
+            let avg_gap = if gaps.is_empty() { 0.0 } else { gaps.iter().sum::<usize>() as f64 / gaps.len() as f64 };
+            Ok(json!({ "prime_count": primes.len(), "max_gap": max_gap, "avg_gap": avg_gap, "first_10_gaps": &gaps[..gaps.len().min(10)] }))
+        }
+        _ => Err(format!("Unknown number theory operation: {}", op)),
+    }
+}
+
+// ── machin_fractal ────────────────────────────────────────────
+
+pub fn fractal(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+
+    match op {
+        "takagi" => {
+            let n_points = parse_usize(&params, "n_points")?;
+            let terms = parse_usize(&params, "terms")?;
+            let curve = machin_fractal::takagi::takagi_series(n_points, terms);
+            let step = 1.0 / (n_points - 1).max(1) as f64;
+            let points: Vec<[f64; 2]> = curve.iter().enumerate()
+                .map(|(i, &y)| [i as f64 * step, y]).collect();
+            Ok(json!({ "points": points, "n_points": n_points, "terms": terms }))
+        }
+        "hilbert" => {
+            let order = params.get("order").and_then(|v| v.as_u64()).ok_or("Missing 'order'")? as u32;
+            let points = machin_fractal::space_filling::hilbert_curve(order);
+            Ok(json!({ "points": points, "order": order, "n_points": points.len() }))
+        }
+        "peano" => {
+            let order = params.get("order").and_then(|v| v.as_u64()).ok_or("Missing 'order'")? as u32;
+            let points = machin_fractal::space_filling::peano_curve(order);
+            Ok(json!({ "points": points, "order": order, "n_points": points.len() }))
+        }
+        "morton_encode" => {
+            let x = params.get("x").and_then(|v| v.as_u64()).ok_or("Missing 'x'")? as u32;
+            let y = params.get("y").and_then(|v| v.as_u64()).ok_or("Missing 'y'")? as u32;
+            let z = machin_fractal::space_filling::morton_encode(x, y);
+            Ok(json!({ "z_order": z, "x": x, "y": y }))
+        }
+        "morton_decode" => {
+            let z = params.get("z").and_then(|v| v.as_u64()).ok_or("Missing 'z'")?;
+            let (x, y) = machin_fractal::space_filling::morton_decode(z);
+            Ok(json!({ "x": x, "y": y, "z_order": z }))
+        }
+        _ => Err(format!("Unknown fractal operation: {}", op)),
+    }
+}
+
+// ── machin_sedenion ───────────────────────────────────────────
+
+pub fn sedenion(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+    let a_vec = parse_f64_array(&params, "a")?;
+
+    match op {
+        "multiply" => {
+            let b_vec = parse_f64_array(&params, "b")?;
+            if a_vec.len() != b_vec.len() { return Err("a and b must have same length".into()); }
+            let product = machin_sedenion::cayley_dickson::double_multiply(&a_vec, &b_vec);
+            Ok(json!({ "product": product, "dimension": a_vec.len() }))
+        }
+        "conjugate" => {
+            let conj = machin_sedenion::cayley_dickson::double_conjugate(&a_vec);
+            Ok(json!({ "conjugate": conj, "dimension": a_vec.len() }))
+        }
+        "norm" => {
+            let n = machin_sedenion::cayley_dickson::double_norm(&a_vec);
+            Ok(json!({ "norm": n, "dimension": a_vec.len() }))
+        }
+        "cayley_dickson_multiply" => {
+            let b_vec = parse_f64_array(&params, "b")?;
+            let product = machin_sedenion::cayley_dickson::double_multiply(&a_vec, &b_vec);
+            Ok(json!({ "product": product, "dimension": a_vec.len() }))
+        }
+        _ => Err(format!("Unknown sedenion operation: {}", op)),
+    }
+}
+
+// ── machin_topo ───────────────────────────────────────────────
+
+pub fn topo(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+    let points_raw = parse_f64_matrix(&params, "points")?;
+
+    let max_dim = params.get("max_dim").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+    let max_radius = params.get("max_radius").and_then(|v| v.as_f64()).unwrap_or(2.0);
+
+    match op {
+        "persistence" => {
+            let diagrams = machin_topo::pointcloud::persistence_from_points(&points_raw, max_dim, max_radius);
+            let diag_json: Vec<Value> = diagrams.iter().enumerate().map(|(dim, d)| {
+                let pairs: Vec<Value> = d.pairs.iter().map(|p| json!({ "birth": p.0, "death": p.1 })).collect();
+                json!({ "dimension": dim, "pairs": pairs })
+            }).collect();
+            Ok(json!({ "diagrams": diag_json, "max_dim": max_dim, "max_radius": max_radius }))
+        }
+        "betti_at_radius" => {
+            let radius = params.get("radius").and_then(|v| v.as_f64()).ok_or("Missing 'radius'")?;
+            let betti = machin_topo::pointcloud::betti_at_radius(&points_raw, max_dim, radius);
+            Ok(json!({ "betti_numbers": betti, "radius": radius }))
+        }
+        "betti_curve" => {
+            let n_steps = params.get("n_steps").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+            let curve = machin_topo::pointcloud::betti_curve(&points_raw, max_dim, n_steps);
+            let curve_json: Vec<Value> = curve.iter().map(|(r, b)| json!({ "radius": r, "betti": b })).collect();
+            Ok(json!({ "curve": curve_json, "n_steps": n_steps }))
+        }
+        _ => Err(format!("Unknown topo operation: {}", op)),
+    }
+}
+
+// ── machin_category ───────────────────────────────────────────
+
+pub fn category(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+
+    match op {
+        "monad_laws" => {
+            use machin_category::monad::{OptionMonad, Monad};
+            let a = params.get("value").and_then(|v| v.as_i64()).unwrap_or(5) as i32;
+            let f = |x: i32| -> Option<i32> { Some(x + 1) };
+            let g = |x: i32| -> Option<i32> { Some(x * 2) };
+
+            // Left unit: bind(unit(a), f) == f(a)
+            let lhs_left: Option<i32> = OptionMonad::bind(OptionMonad::unit(a), f);
+            let rhs_left = f(a);
+            let left_ok = lhs_left == rhs_left;
+
+            // Right unit: bind(m, unit) == m
+            let m = OptionMonad::unit(a);
+            let lhs_right: Option<i32> = OptionMonad::bind(m, OptionMonad::unit);
+            let right_ok = lhs_right == m;
+
+            // Associativity
+            let bind_m_f: Option<i32> = OptionMonad::bind(m, f);
+            let lhs_assoc: Option<i32> = match bind_m_f {
+                Some(v) => OptionMonad::bind(Some(v), g),
+                None => None,
+            };
+            let rhs_assoc: Option<i32> = OptionMonad::bind(m, |x| {
+                match f(x) { Some(v) => OptionMonad::bind(Some(v), g), None => None }
+            });
+            let assoc_ok = lhs_assoc == rhs_assoc;
+
+            Ok(json!({
+                "value": a,
+                "left_unit": { "pass": left_ok, "lhs": format!("{:?}", lhs_left), "rhs": format!("{:?}", rhs_left) },
+                "right_unit": { "pass": right_ok, "lhs": format!("{:?}", lhs_right), "rhs": format!("{:?}", m) },
+                "associativity": { "pass": assoc_ok, "lhs": format!("{:?}", lhs_assoc), "rhs": format!("{:?}", rhs_assoc) },
+                "all_pass": left_ok && right_ok && assoc_ok,
+            }))
+        }
+        "free_forgetful" => {
+            use machin_category::monad::FreeForgetfulAdj;
+            let elements: Vec<i32> = params.get("elements")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_i64().map(|n| n as i32)).collect())
+                .unwrap_or_else(|| vec![1, 2, 3]);
+            let free = FreeForgetfulAdj::free(&elements);
+            let forget = FreeForgetfulAdj::forget(&free);
+            let round_trip_ok = elements == forget;
+            Ok(json!({
+                "input": elements,
+                "free": free,
+                "forget": forget,
+                "round_trip_ok": round_trip_ok,
+            }))
+        }
+        _ => Err(format!("Unknown category operation: {}", op)),
+    }
+}
+
+// ── machin_nn_forward ─────────────────────────────────────────
+
+pub fn nn_forward(params: Value) -> Result<Value, String> {
+    let op = parse_str(&params, "operation")?;
+
+    match op {
+        "dense_forward" => {
+            use machin_nn::layer::Layer;
+            let input_rows = parse_f64_matrix(&params, "input")?;
+            let output_size = parse_usize(&params, "output_size")?;
+            let input = vecs_to_array2(&input_rows)?;
+            let input_size = input.ncols();
+            let mut layer = machin_nn::layer::Dense::new(input_size, output_size);
+            let output = layer.forward(&input);
+            let output_rows: Vec<Vec<f64>> = (0..output.nrows())
+                .map(|i| output.row(i).to_vec()).collect();
+            Ok(json!({ "output": output_rows, "input_size": input_size, "output_size": output_size }))
+        }
+        "mse_loss" => {
+            let pred_rows = parse_f64_matrix(&params, "input")?;
+            let target_rows = parse_f64_matrix(&params, "target")?;
+            let pred = vecs_to_array2(&pred_rows)?;
+            let target = vecs_to_array2(&target_rows)?;
+            let loss = machin_nn::loss::mse_loss(&pred, &target);
+            Ok(json!({ "mse_loss": loss }))
+        }
+        "bce_loss" => {
+            let pred_rows = parse_f64_matrix(&params, "input")?;
+            let target_rows = parse_f64_matrix(&params, "target")?;
+            let pred = vecs_to_array2(&pred_rows)?;
+            let target = vecs_to_array2(&target_rows)?;
+            let loss = machin_nn::loss::binary_cross_entropy(&pred, &target);
+            Ok(json!({ "bce_loss": loss }))
+        }
+        "sinusoidal_encoding" => {
+            let max_len = parse_usize(&params, "max_len")?;
+            let d_model = parse_usize(&params, "d_model")?;
+            let enc = machin_nn::positional::sinusoidal_encoding(max_len, d_model);
+            let rows: Vec<Vec<f64>> = (0..enc.nrows())
+                .map(|i| enc.row(i).to_vec()).collect();
+            Ok(json!({ "encoding": rows, "max_len": max_len, "d_model": d_model }))
+        }
+        _ => Err(format!("Unknown nn operation: {}", op)),
+    }
+}
+
+// ── machin_bandit ─────────────────────────────────────────────
+
+pub fn bandit(params: Value) -> Result<Value, String> {
+    use rand::SeedableRng;
+    use rand_distr::{Normal, Distribution};
+
+    let algo = parse_str(&params, "algorithm")?;
+    let true_means = parse_f64_array(&params, "true_means")?;
+    let rounds = parse_usize(&params, "rounds")?;
+    let n_arms = true_means.len();
+
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    let mut total_reward = 0.0;
+    let mut arm_pulls = vec![0usize; n_arms];
+
+    match algo {
+        "epsilon_greedy" => {
+            let epsilon = params.get("epsilon").and_then(|v| v.as_f64()).unwrap_or(0.1);
+            let mut bandit = machin_rl::bandit::EpsilonGreedy::new(n_arms, epsilon, 42);
+            for _ in 0..rounds {
+                let arm = bandit.select_arm();
+                let normal = Normal::new(true_means[arm], 1.0).unwrap();
+                let reward = normal.sample(&mut rng);
+                bandit.update(arm, reward);
+                total_reward += reward;
+                arm_pulls[arm] += 1;
+            }
+            Ok(json!({
+                "algorithm": "epsilon_greedy",
+                "q_values": bandit.q_values,
+                "arm_pulls": arm_pulls,
+                "total_reward": total_reward,
+                "avg_reward": total_reward / rounds as f64,
+            }))
+        }
+        "ucb1" => {
+            let mut bandit = machin_rl::bandit::UCB1::new(n_arms);
+            for _ in 0..rounds {
+                let arm = bandit.select_arm();
+                let normal = Normal::new(true_means[arm], 1.0).unwrap();
+                let reward = normal.sample(&mut rng);
+                bandit.update(arm, reward);
+                total_reward += reward;
+                arm_pulls[arm] += 1;
+            }
+            Ok(json!({
+                "algorithm": "ucb1",
+                "q_values": bandit.q_values,
+                "arm_pulls": arm_pulls,
+                "total_reward": total_reward,
+                "avg_reward": total_reward / rounds as f64,
+            }))
+        }
+        "thompson" => {
+            let mut bandit = machin_rl::bandit::ThompsonSampling::new(n_arms, 42);
+            for _ in 0..rounds {
+                let arm = bandit.select_arm();
+                let normal = Normal::new(true_means[arm], 1.0).unwrap();
+                let reward = normal.sample(&mut rng);
+                bandit.update(arm, reward);
+                total_reward += reward;
+                arm_pulls[arm] += 1;
+            }
+            Ok(json!({
+                "algorithm": "thompson",
+                "means": bandit.means,
+                "arm_pulls": arm_pulls,
+                "total_reward": total_reward,
+                "avg_reward": total_reward / rounds as f64,
+            }))
+        }
+        _ => Err(format!("Unknown bandit algorithm: {}", algo)),
+    }
+}
+
+// ── machin_evolution ──────────────────────────────────────────
+
+pub fn evolution(params: Value) -> Result<Value, String> {
+    let algo = parse_str(&params, "algorithm")?;
+    let func_name = parse_str(&params, "function")?;
+    let dimensions = parse_usize(&params, "dimensions")?;
+    let generations = parse_usize(&params, "generations")?;
+    let pop_size = params.get("population_size").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+
+    #[allow(clippy::type_complexity)]
+    let fitness_fn: Box<dyn Fn(&Array1<f64>) -> f64> = match func_name {
+        "sphere" => Box::new(|x: &Array1<f64>| x.mapv(|v| v * v).sum()),
+        "rosenbrock" => Box::new(|x: &Array1<f64>| {
+            (0..x.len() - 1)
+                .map(|i| 100.0 * (x[i + 1] - x[i].powi(2)).powi(2) + (1.0 - x[i]).powi(2))
+                .sum()
+        }),
+        "rastrigin" => Box::new(|x: &Array1<f64>| {
+            let n = x.len() as f64;
+            10.0 * n + x.iter().map(|&xi| xi * xi - 10.0 * (2.0 * std::f64::consts::PI * xi).cos()).sum::<f64>()
+        }),
+        _ => return Err(format!("Unknown function: {}", func_name)),
+    };
+
+    let result = match algo {
+        "genetic" => {
+            let mutation_rate = params.get("mutation_rate").and_then(|v| v.as_f64()).unwrap_or(0.1);
+            let ga = machin_evolution::genetic::GeneticAlgorithm::new()
+                .with_population_size(pop_size)
+                .with_generations(generations)
+                .with_mutation_rate(mutation_rate)
+                .with_bounds(-10.0, 10.0)
+                .with_seed(42);
+            ga.minimize(&fitness_fn, dimensions)
+        }
+        "differential" => {
+            let de = machin_evolution::differential::DifferentialEvolution::new()
+                .with_population_size(pop_size)
+                .with_generations(generations)
+                .with_bounds(-10.0, 10.0)
+                .with_seed(42);
+            de.minimize(&fitness_fn, dimensions)
+        }
+        _ => return Err(format!("Unknown evolution algorithm: {}", algo)),
+    };
+
+    Ok(json!({
+        "algorithm": algo,
+        "function": func_name,
+        "best_params": result.best_genes.to_vec(),
+        "best_fitness": result.best_fitness,
+        "generations": result.generations,
+        "fitness_history_len": result.fitness_history.len(),
+    }))
+}
+
+// ── machin_random_forest ──────────────────────────────────────
+
+pub fn random_forest(params: Value) -> Result<Value, String> {
+    use machin_ensemble::traits::EnsembleClassifier;
+
+    let x_train_rows = parse_f64_matrix(&params, "x_train")?;
+    let y_train_raw: Vec<usize> = params.get("y_train")
+        .and_then(|v| v.as_array())
+        .ok_or("Missing 'y_train'")?
+        .iter()
+        .map(|v| v.as_u64().ok_or("Non-integer in y_train").map(|n| n as usize))
+        .collect::<Result<Vec<_>, _>>()?;
+    let x_test_rows = parse_f64_matrix(&params, "x_test")?;
+
+    let x_train = vecs_to_array2(&x_train_rows)?;
+    let y_train = Array1::from_vec(y_train_raw);
+    let x_test = vecs_to_array2(&x_test_rows)?;
+
+    let n_trees = params.get("n_trees").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+    let max_depth = params.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+
+    let mut rf = machin_ensemble::random_forest::RandomForest::new(n_trees, max_depth).with_seed(42);
+    rf.fit(&x_train, &y_train);
+    let predictions = rf.predict(&x_test);
+    let probas = rf.predict_proba(&x_test);
+    let proba_rows: Vec<Vec<f64>> = (0..probas.nrows())
+        .map(|i| probas.row(i).to_vec()).collect();
+
+    Ok(json!({
+        "predictions": predictions.to_vec(),
+        "probabilities": proba_rows,
+        "n_trees": n_trees,
+        "max_depth": max_depth,
+    }))
+}
+
 // ── machin_cache ───────────────────────────────────────────────
 
 pub fn cache_op(params: Value) -> Result<Value, String> {

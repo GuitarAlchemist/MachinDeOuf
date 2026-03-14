@@ -496,6 +496,266 @@ impl ToolRegistry {
             handler: handlers::grammar_search,
         });
 
+        // ── New crate tools (Phase 4) ──────────────────────────────
+
+        self.tools.push(Tool {
+            name: "machin_rotation",
+            description: "3D rotation operations: quaternion from axis-angle, SLERP interpolation, Euler angle conversion, rotation matrix.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["quaternion", "slerp", "euler_to_quat", "quat_to_euler", "rotate_point", "rotation_matrix"],
+                        "description": "Rotation operation to perform"
+                    },
+                    "axis": { "type": "array", "items": { "type": "number" }, "description": "Rotation axis [x,y,z]" },
+                    "angle": { "type": "number", "description": "Rotation angle in radians" },
+                    "axis2": { "type": "array", "items": { "type": "number" }, "description": "Second rotation axis (for SLERP)" },
+                    "angle2": { "type": "number", "description": "Second angle (for SLERP)" },
+                    "t": { "type": "number", "description": "Interpolation parameter 0..1 (for SLERP)" },
+                    "roll": { "type": "number", "description": "Roll in radians (for Euler)" },
+                    "pitch": { "type": "number", "description": "Pitch in radians (for Euler)" },
+                    "yaw": { "type": "number", "description": "Yaw in radians (for Euler)" },
+                    "point": { "type": "array", "items": { "type": "number" }, "description": "Point [x,y,z] to rotate" },
+                    "quaternion": { "type": "array", "items": { "type": "number" }, "description": "Quaternion [w,x,y,z]" }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::rotation,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_number_theory",
+            description: "Number theory: prime sieve, primality testing, modular arithmetic (mod_pow, gcd, lcm, mod_inverse).",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["sieve", "is_prime", "mod_pow", "gcd", "lcm", "mod_inverse", "prime_gaps"],
+                        "description": "Number theory operation"
+                    },
+                    "limit": { "type": "integer", "description": "Upper limit for sieve", "minimum": 2 },
+                    "n": { "type": "integer", "description": "Number to test for primality" },
+                    "base": { "type": "integer", "description": "Base for mod_pow" },
+                    "exp": { "type": "integer", "description": "Exponent for mod_pow" },
+                    "modulus": { "type": "integer", "description": "Modulus for mod_pow/mod_inverse" },
+                    "a": { "type": "integer", "description": "First number for gcd/lcm" },
+                    "b": { "type": "integer", "description": "Second number for gcd/lcm" }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::number_theory,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_fractal",
+            description: "Generate fractal data: Takagi curve, Hilbert/Peano space-filling curves, Morton encoding.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["takagi", "hilbert", "peano", "morton_encode", "morton_decode"],
+                        "description": "Fractal operation"
+                    },
+                    "n_points": { "type": "integer", "description": "Number of points for Takagi curve", "minimum": 2 },
+                    "terms": { "type": "integer", "description": "Number of terms for Takagi", "minimum": 1 },
+                    "order": { "type": "integer", "description": "Order for space-filling curves", "minimum": 1 },
+                    "x": { "type": "integer", "description": "X coordinate for Morton encode" },
+                    "y": { "type": "integer", "description": "Y coordinate for Morton encode" },
+                    "z": { "type": "integer", "description": "Z-order value for Morton decode" }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::fractal,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_sedenion",
+            description: "Hypercomplex algebra: sedenion/octonion multiplication, conjugate, norm, Cayley-Dickson construction.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["multiply", "conjugate", "norm", "cayley_dickson_multiply"],
+                        "description": "Sedenion operation"
+                    },
+                    "a": { "type": "array", "items": { "type": "number" }, "description": "First element components (16 for sedenion)" },
+                    "b": { "type": "array", "items": { "type": "number" }, "description": "Second element components (for multiply)" }
+                },
+                "required": ["operation", "a"]
+            }),
+            handler: handlers::sedenion,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_topo",
+            description: "Topological data analysis: persistent homology, Betti numbers, Betti curves from point clouds.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["persistence", "betti_at_radius", "betti_curve"],
+                        "description": "TDA operation"
+                    },
+                    "points": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Point cloud (rows=points, cols=dimensions)"
+                    },
+                    "max_dim": { "type": "integer", "description": "Maximum homology dimension (default 1)", "minimum": 0 },
+                    "max_radius": { "type": "number", "description": "Maximum filtration radius (default 2.0)" },
+                    "radius": { "type": "number", "description": "Radius for betti_at_radius" },
+                    "n_steps": { "type": "integer", "description": "Number of steps for betti_curve (default 50)" }
+                },
+                "required": ["operation", "points"]
+            }),
+            handler: handlers::topo,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_category",
+            description: "Category theory: verify monad laws for Option/Result monads with sample functions.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["monad_laws", "free_forgetful"],
+                        "description": "Category theory operation"
+                    },
+                    "monad": {
+                        "type": "string",
+                        "enum": ["option", "result"],
+                        "description": "Which monad to verify laws for"
+                    },
+                    "value": { "type": "integer", "description": "Value to test monad laws with" },
+                    "elements": {
+                        "type": "array",
+                        "items": { "type": "integer" },
+                        "description": "Elements for free-forgetful adjunction"
+                    }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::category,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_nn_forward",
+            description: "Neural network forward pass: dense layer, MSE/BCE loss, attention, positional encodings.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["dense_forward", "mse_loss", "bce_loss", "sinusoidal_encoding", "attention"],
+                        "description": "Neural network operation"
+                    },
+                    "input": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Input matrix (rows=batch, cols=features)"
+                    },
+                    "target": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Target matrix (for loss computation)"
+                    },
+                    "output_size": { "type": "integer", "description": "Output size for dense layer" },
+                    "max_len": { "type": "integer", "description": "Max sequence length for positional encoding" },
+                    "d_model": { "type": "integer", "description": "Model dimension for positional encoding" },
+                    "seed": { "type": "integer", "description": "RNG seed (default 42)" }
+                },
+                "required": ["operation"]
+            }),
+            handler: handlers::nn_forward,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_bandit",
+            description: "Multi-armed bandit simulation: run epsilon-greedy, UCB1, or Thompson sampling for N rounds.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "algorithm": {
+                        "type": "string",
+                        "enum": ["epsilon_greedy", "ucb1", "thompson"],
+                        "description": "Bandit algorithm"
+                    },
+                    "n_arms": { "type": "integer", "description": "Number of arms", "minimum": 1 },
+                    "true_means": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "True mean rewards for each arm (for simulation)"
+                    },
+                    "rounds": { "type": "integer", "description": "Number of rounds to simulate", "minimum": 1 },
+                    "epsilon": { "type": "number", "description": "Epsilon for epsilon-greedy (default 0.1)" }
+                },
+                "required": ["algorithm", "true_means", "rounds"]
+            }),
+            handler: handlers::bandit,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_evolution",
+            description: "Evolutionary optimization: genetic algorithm or differential evolution on benchmark functions.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "algorithm": {
+                        "type": "string",
+                        "enum": ["genetic", "differential"],
+                        "description": "Evolution algorithm"
+                    },
+                    "function": {
+                        "type": "string",
+                        "enum": ["sphere", "rosenbrock", "rastrigin"],
+                        "description": "Benchmark function to minimize"
+                    },
+                    "dimensions": { "type": "integer", "description": "Number of dimensions", "minimum": 1 },
+                    "generations": { "type": "integer", "description": "Number of generations", "minimum": 1 },
+                    "population_size": { "type": "integer", "description": "Population size (default 50)" },
+                    "mutation_rate": { "type": "number", "description": "Mutation rate for GA (default 0.1)" }
+                },
+                "required": ["algorithm", "function", "dimensions", "generations"]
+            }),
+            handler: handlers::evolution,
+        });
+
+        self.tools.push(Tool {
+            name: "machin_random_forest",
+            description: "Random forest classifier: train on data and predict class labels with probability estimates.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "x_train": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Training feature matrix"
+                    },
+                    "y_train": {
+                        "type": "array",
+                        "items": { "type": "integer" },
+                        "description": "Training labels (class indices)"
+                    },
+                    "x_test": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "number" } },
+                        "description": "Test feature matrix to predict"
+                    },
+                    "n_trees": { "type": "integer", "description": "Number of trees (default 10)", "minimum": 1 },
+                    "max_depth": { "type": "integer", "description": "Max tree depth (default 5)", "minimum": 1 }
+                },
+                "required": ["x_train", "y_train", "x_test"]
+            }),
+            handler: handlers::random_forest,
+        });
+
         self.tools.push(Tool {
             name: "machin_cache",
             description: "In-memory cache operations: set, get, delete, or list keys.",

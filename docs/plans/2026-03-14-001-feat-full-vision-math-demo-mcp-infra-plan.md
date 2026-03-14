@@ -218,43 +218,43 @@ Fill gaps in MCP tools and Claude Code skills for all crates.
 
 Add tools for crates that lack them (see coverage gap table in brainstorm):
 
-- [ ] `machin_supervised` tool — Linear/logistic regression, SVM, KNN prediction
-- [ ] `machin_nn` tool — Forward pass through layer stack, transformer attention
-- [ ] `machin_rl` tool — Bandit arm selection, Q-learning step
-- [ ] `machin_evolution` tool — GA run with fitness function, DE optimization
-- [ ] `machin_graph` tool — Shortest path, PageRank, connected components
+- [x] `machin_nn` tool — Forward pass through layer stack (dense_forward, mse_loss, bce_loss, sinusoidal_encoding)
+- [x] `machin_rl` tool — Bandit simulation (epsilon_greedy, ucb1, thompson)
+- [x] `machin_evolution` tool — GA + DE on benchmark functions
+- [x] `machin_ensemble` tool — Random forest train/predict
+- [x] `machin_rotation` tool — Quaternion operations, SLERP, Euler conversion, rotation matrix
+- [x] `machin_number_theory` tool — Prime sieve, primality test, modular arithmetic, prime gaps
+- [x] `machin_fractal` tool — Takagi curve, Hilbert/Peano curves, Morton encoding
+- [x] `machin_sedenion` tool — Cayley-Dickson multiply, conjugate, norm
+- [x] `machin_topo` tool — Persistent homology, Betti numbers, Betti curve
+- [x] `machin_category` tool — Monad laws verification, free-forgetful adjunction
+- [x] Update `crates/machin-agent/src/tools.rs` — Register all new tools with JSON schemas
+- [x] Update `crates/machin-agent/src/handlers.rs` — Implement handlers for all new tools
+- [ ] `machin_supervised` tool — Linear/logistic regression, SVM, KNN prediction (already has machin_linear_regression)
+- [ ] `machin_graph` tool — Shortest path, PageRank, connected components (already has machin_markov, machin_viterbi)
 - [ ] `machin_probabilistic_hll` tool — HyperLogLog cardinality estimation
 - [ ] `machin_pipeline` tool — DAG execution with step definitions
-- [ ] `machin_ensemble` tool — Random forest train/predict
-- [ ] `machin_rotation` tool — Quaternion operations, SLERP, Euler conversion
-- [ ] `machin_number_theory` tool — Prime sieve, primality test, modular arithmetic
-- [ ] `machin_fractal` tool — Takagi curve, IFS generation, L-system expansion
-- [ ] `machin_sedenion` tool — Sedenion algebra operations
-- [ ] `machin_topo` tool — Persistent homology from point cloud
-- [ ] `machin_category` tool — Functor mapping, monad bind
-- [ ] Update `crates/machin-agent/src/tools.rs` — Register all new tools with JSON schemas
-- [ ] Update `crates/machin-agent/src/handlers.rs` — Implement handlers for all new tools
 
 ##### Claude Code Skills
 
 Create SKILL.md files for crates that lack them:
 
-- [ ] `.claude/skills/machin-rotation/SKILL.md`
-- [ ] `.claude/skills/machin-number-theory/SKILL.md`
-- [ ] `.claude/skills/machin-fractal/SKILL.md`
-- [ ] `.claude/skills/machin-sedenion/SKILL.md`
-- [ ] `.claude/skills/machin-topo/SKILL.md`
-- [ ] `.claude/skills/machin-category/SKILL.md`
+- [x] `.claude/skills/machin-rotation/SKILL.md`
+- [x] `.claude/skills/machin-number-theory/SKILL.md`
+- [x] `.claude/skills/machin-fractal/SKILL.md`
+- [x] `.claude/skills/machin-sedenion/SKILL.md`
+- [x] `.claude/skills/machin-topo/SKILL.md`
+- [x] `.claude/skills/machin-category/SKILL.md`
+- [x] `.claude/skills/machin-nn/SKILL.md`
+- [x] `.claude/skills/machin-bandit/SKILL.md` (covers machin-rl bandits)
+- [x] `.claude/skills/machin-evolution/SKILL.md`
+- [x] `.claude/skills/machin-random-forest/SKILL.md` (covers machin-ensemble)
 - [ ] `.claude/skills/machin-dynamics/SKILL.md`
 - [ ] `.claude/skills/machin-ktheory/SKILL.md`
 - [ ] `.claude/skills/machin-gpu/SKILL.md`
 - [ ] `.claude/skills/machin-cache/SKILL.md`
 - [ ] `.claude/skills/machin-grammar/SKILL.md`
-- [ ] `.claude/skills/machin-nn/SKILL.md`
 - [ ] `.claude/skills/machin-supervised/SKILL.md`
-- [ ] `.claude/skills/machin-ensemble/SKILL.md`
-- [ ] `.claude/skills/machin-rl/SKILL.md`
-- [ ] `.claude/skills/machin-evolution/SKILL.md`
 
 Each skill follows the existing pattern (see `.claude/skills/machin-optimize/SKILL.md`): when to use, method selection guidance, execution examples, output format.
 
