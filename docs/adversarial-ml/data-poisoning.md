@@ -45,7 +45,7 @@ flag samples whose projection onto that vector exceeds a percentile threshold.
 ## In Rust
 
 ```rust
-use machin_adversarial::poisoning::{
+use ix_adversarial::poisoning::{
     detect_label_flips,
     influence_function,
     spectral_signature_defense,
@@ -90,9 +90,9 @@ let flagged = spectral_signature_defense(&features, &labels, 2, 50.0);
 
 - Run `detect_label_flips` as a pre-processing step before training, removing flagged
   samples or sending them for human review.
-- Combine with adversarial training from `machin_adversarial::defense` to build models
+- Combine with adversarial training from `ix_adversarial::defense` to build models
   robust to both evasion and poisoning attacks.
-- Use `machin_unsupervised` clustering (K-Means) to independently verify class structure
+- Use `ix_unsupervised` clustering (K-Means) to independently verify class structure
   before training.
 - See [differential-privacy.md](differential-privacy.md) for limiting the influence of
   any single training sample via DP-SGD.

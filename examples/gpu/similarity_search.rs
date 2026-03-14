@@ -6,8 +6,8 @@
 //! cargo run --example similarity_search
 //! ```
 
-use machin_gpu::batch::top_k_similar;
-use machin_gpu::context::GpuContext;
+use ix_gpu::batch::top_k_similar;
+use ix_gpu::context::GpuContext;
 
 fn main() {
     // Initialize GPU (Vulkan on Windows/Linux, Metal on Mac)

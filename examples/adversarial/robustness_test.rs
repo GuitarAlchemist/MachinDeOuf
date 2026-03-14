@@ -6,8 +6,8 @@
 //! cargo run --example robustness_test
 //! ```
 
-use machin_adversarial::defense::{detect_adversarial, feature_squeezing};
-use machin_adversarial::evasion::{fgsm, pgd};
+use ix_adversarial::defense::{detect_adversarial, feature_squeezing};
+use ix_adversarial::evasion::{fgsm, pgd};
 use ndarray::array;
 
 fn main() {

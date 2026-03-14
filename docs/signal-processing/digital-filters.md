@@ -52,7 +52,7 @@ filters "remember" longer than their coefficient count.
 
 ### Design methods
 
-| Filter type | Design method | MachinDeOuf API |
+| Filter type | Design method | ix API |
 |-------------|--------------|-----------------|
 | FIR lowpass | Windowed sinc (Hamming window) | `FirFilter::lowpass(cutoff, order)` |
 | FIR highpass | Spectral inversion of lowpass | `FirFilter::highpass(cutoff, order)` |
@@ -63,7 +63,7 @@ filters "remember" longer than their coefficient count.
 ## In Rust
 
 ```rust
-use machin_signal::filter::{
+use ix_signal::filter::{
     FirFilter, IirFilter, butterworth_lowpass_2nd,
 };
 
@@ -138,11 +138,11 @@ let butter_filtered = bw.apply(&noisy_signal);
 
 ## Going Further
 
-- Apply `machin_signal::window::hamming()` to your signal before FFT analysis, or use
+- Apply `ix_signal::window::hamming()` to your signal before FFT analysis, or use
   these filters as pre-processing to isolate a band before spectral analysis.
 - Chain filters: `FirFilter::highpass(0.02, 64)` followed by `FirFilter::lowpass(0.2, 64)`
   for a clean bandpass with independent control of each edge.
-- Use `machin_signal::fft::rfft` + `machin_signal::fft::irfft` for frequency-domain
+- Use `ix_signal::fft::rfft` + `ix_signal::fft::irfft` for frequency-domain
   filtering as an alternative to time-domain convolution for very long signals.
-- Feed filtered signals into `machin_signal::kalman::KalmanFilter` for state estimation
+- Feed filtered signals into `ix_signal::kalman::KalmanFilter` for state estimation
   on pre-cleaned data.

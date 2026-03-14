@@ -1,0 +1,15 @@
+[package]
+name = "ix-signal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "Signal processing: FFT, wavelets, filters, spectral analysis, Kalman"
+
+[dependencies]
+ix-math = { workspace = true }
+ndarray = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,15 @@
+[package]
+name = "ix-chaos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "Chaos theory: Lyapunov exponents, bifurcation, attractors, fractal dimensions"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }

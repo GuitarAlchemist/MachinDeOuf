@@ -52,12 +52,12 @@ Repeat for each episode:
 
 ## In Rust
 
-> **Note:** Q-learning in `machin-rl` is currently a stub/TODO. The `Environment` and `Agent` traits are defined but the tabular Q-learning implementation is not yet built. Below is what the API will look like based on the trait definitions, along with a manual implementation you can use today.
+> **Note:** Q-learning in `ix-rl` is currently a stub/TODO. The `Environment` and `Agent` traits are defined but the tabular Q-learning implementation is not yet built. Below is what the API will look like based on the trait definitions, along with a manual implementation you can use today.
 
 ### The Trait Definitions (available now)
 
 ```rust
-use machin_rl::traits::{Environment, Agent};
+use ix_rl::traits::{Environment, Agent};
 
 // The Environment trait defines the world the agent interacts with
 // trait Environment {
@@ -123,12 +123,12 @@ impl QLearner {
 }
 ```
 
-### Related: Q* Search in machin-search
+### Related: Q* Search in ix-search
 
-While tabular Q-learning is not yet implemented, the `machin-search` crate offers **Q\* search** -- a pathfinding algorithm that uses learned Q-values as heuristics for A\* search. This is a different concept (search, not learning) but shares the idea of using Q-values to guide decisions:
+While tabular Q-learning is not yet implemented, the `ix-search` crate offers **Q\* search** -- a pathfinding algorithm that uses learned Q-values as heuristics for A\* search. This is a different concept (search, not learning) but shares the idea of using Q-values to guide decisions:
 
 ```rust
-use machin_search::qstar::{qstar_search, TabularQ};
+use ix_search::qstar::{qstar_search, TabularQ};
 
 // Q* uses a QFunction trait to estimate cost-to-go
 let mut q = TabularQ::new(10.0);  // default heuristic value
@@ -179,6 +179,6 @@ let result = qstar_search(start_state, &q);
 
 - **Bandits as a special case:** Q-learning with 1 state and no discounting reduces to the bandit update rule. See [multi-armed-bandits.md](./multi-armed-bandits.md).
 - **Exploration strategies:** The epsilon-greedy exploration in Q-learning is the same as in bandits. See [exploration-vs-exploitation.md](./exploration-vs-exploitation.md) for alternatives.
-- **Q\* search:** If you have a learned Q-function and want to find optimal paths, see the `machin-search` crate's `qstar` module, which uses Q-values as A\* heuristics.
-- **Deep Q-Networks (DQN):** Replace the Q-table with a neural network from `machin-nn`. Not yet integrated, but the architecture is: state -> `machin-nn::Layer` -> Q-values for each action.
-- **Policy gradient methods:** Instead of learning a value function, directly learn a policy. A fundamentally different approach, not yet in MachinDeOuf.
+- **Q\* search:** If you have a learned Q-function and want to find optimal paths, see the `ix-search` crate's `qstar` module, which uses Q-values as A\* heuristics.
+- **Deep Q-Networks (DQN):** Replace the Q-table with a neural network from `ix-nn`. Not yet integrated, but the architecture is: state -> `ix-nn::Layer` -> Q-values for each action.
+- **Policy gradient methods:** Instead of learning a value function, directly learn a policy. A fundamentally different approach, not yet in ix.

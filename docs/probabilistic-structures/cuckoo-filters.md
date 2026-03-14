@@ -82,7 +82,7 @@ else -> return false
 ### Session tracking with deletion
 
 ```rust
-use machin_probabilistic::cuckoo::CuckooFilter;
+use ix_probabilistic::cuckoo::CuckooFilter;
 
 // Create a filter sized for ~1,000 sessions
 let mut sessions = CuckooFilter::new(1000);
@@ -107,7 +107,7 @@ println!("Load factor: {:.2}", sessions.load_factor());   // low
 ### Handling a full filter
 
 ```rust
-use machin_probabilistic::cuckoo::CuckooFilter;
+use ix_probabilistic::cuckoo::CuckooFilter;
 
 let mut cf = CuckooFilter::new(100);
 

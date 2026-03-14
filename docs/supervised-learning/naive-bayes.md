@@ -14,7 +14,7 @@ Imagine you're a doctor diagnosing whether a patient has a cold or the flu. You 
 
 The "naive" part is the independence assumption. In reality, high temperature and severe cough are correlated -- but Naive Bayes pretends they're not. It treats each symptom as providing independent evidence. This simplification makes the math tractable and, surprisingly, rarely hurts classification accuracy much.
 
-The Gaussian variant used in MachinDeOuf assumes that each feature follows a bell curve (normal distribution) within each class. So for "positive reviews," the sentiment score might have a mean of 0.7 with some spread, while for "negative reviews," it might center around 0.3. When a new review comes in, the model asks: "Is this sentiment score more likely under the positive bell curve or the negative one?" -- and does this for every feature, then multiplies the answers together.
+The Gaussian variant used in ix assumes that each feature follows a bell curve (normal distribution) within each class. So for "positive reviews," the sentiment score might have a mean of 0.7 with some spread, while for "negative reviews," it might center around 0.3. When a new review comes in, the model asks: "Is this sentiment score more likely under the positive bell curve or the negative one?" -- and does this for every feature, then multiplies the answers together.
 
 ## How It Works
 
@@ -66,9 +66,9 @@ In plain English, this means: the raw products are not proper probabilities (the
 
 ```rust
 use ndarray::array;
-use machin_supervised::naive_bayes::GaussianNaiveBayes;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_supervised::naive_bayes::GaussianNaiveBayes;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     // Features: [sentiment_score, review_length_norm, exclamation_count, avg_word_embedding]
@@ -140,11 +140,11 @@ This is one of the simplest models to use -- there is nothing to tune.
 
 ## Pitfalls
 
-**The Gaussian assumption.** The model assumes each feature follows a bell curve within each class. If a feature is bimodal, heavily skewed, or binary, the Gaussian assumption is a poor fit. Binary features are better served by Bernoulli Naive Bayes (not currently in MachinDeOuf).
+**The Gaussian assumption.** The model assumes each feature follows a bell curve within each class. If a feature is bimodal, heavily skewed, or binary, the Gaussian assumption is a poor fit. Binary features are better served by Bernoulli Naive Bayes (not currently in ix).
 
 **Correlated features degrade probability estimates.** While classification accuracy is often robust to the independence violation, the *probabilities* can be wildly overconfident or underconfident. If you need calibrated probabilities, use logistic regression or apply post-hoc calibration.
 
-**Zero variance features.** If a feature has exactly the same value for all samples in a class, the variance is zero and the Gaussian PDF becomes a delta function. MachinDeOuf guards against this with a minimum variance of 1e-9, but such features should be removed.
+**Zero variance features.** If a feature has exactly the same value for all samples in a class, the variance is zero and the Gaussian PDF becomes a delta function. ix guards against this with a minimum variance of 1e-9, but such features should be removed.
 
 **Continuous features only.** The Gaussian variant expects continuous numerical features. Categorical features must be encoded numerically (e.g., one-hot encoding) before use, and the Gaussian assumption on binary features is a rough approximation.
 
@@ -152,7 +152,7 @@ This is one of the simplest models to use -- there is nothing to tune.
 
 ## Going Further
 
-- **Probability foundations:** The `machin_math::stats` module provides mean, variance, and other statistical functions used internally by this classifier.
+- **Probability foundations:** The `ix_math::stats` module provides mean, variance, and other statistical functions used internally by this classifier.
 - **Text classification pipeline:** Convert text to numerical features using TF-IDF or word embeddings, then feed into `GaussianNaiveBayes`. For binary word-presence features, a Bernoulli variant would be more appropriate.
 - **Multi-class:** The implementation handles any number of classes automatically -- labels 0, 1, 2, ... are all supported.
 - **Ensemble combination:** Use Naive Bayes predictions as a feature input to a `RandomForest` for a stacking ensemble approach.

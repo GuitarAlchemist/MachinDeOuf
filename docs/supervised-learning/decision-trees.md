@@ -57,9 +57,9 @@ In plain English, this means: answer each question in the flowchart, follow the 
 
 ```rust
 use ndarray::array;
-use machin_supervised::decision_tree::DecisionTree;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall};
+use ix_supervised::decision_tree::DecisionTree;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall};
 
 fn main() {
     // Features: [annual_income_k, credit_score, employment_years, debt_to_income]
@@ -149,4 +149,4 @@ DecisionTree::new(5)              // max_depth = 5
 - **Random forests:** Combine many decision trees to reduce variance and improve accuracy. See [random-forest.md](./random-forest.md).
 - **Feature importance:** Features used in splits near the root are more important. Track which features appear at which depths to understand what drives decisions.
 - **Pruning:** Train a deep tree, then remove branches that don't improve validation accuracy. This is an alternative to setting `max_depth` upfront.
-- **Multi-class:** The MachinDeOuf implementation handles any number of classes -- labels are `Array1<usize>` with classes 0, 1, 2, etc.
+- **Multi-class:** The ix implementation handles any number of classes -- labels are `Array1<usize>` with classes 0, 1, 2, etc.

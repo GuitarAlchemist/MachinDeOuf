@@ -6,7 +6,7 @@
 //! cargo run --example auctions
 //! ```
 
-use machin_game::auction::{
+use ix_game::auction::{
     dutch_auction, english_auction, first_price_auction, second_price_auction,
 };
 

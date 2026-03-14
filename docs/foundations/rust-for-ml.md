@@ -10,7 +10,7 @@ The trade-off? You need to understand a few Rust-specific patterns before the ML
 
 ## The Key Crate: ndarray
 
-Every ML algorithm in MachinDeOuf works with `ndarray` — Rust's equivalent of NumPy. It gives you n-dimensional arrays with fast element-wise operations.
+Every ML algorithm in ix works with `ndarray` — Rust's equivalent of NumPy. It gives you n-dimensional arrays with fast element-wise operations.
 
 ### Array1: Vectors
 
@@ -67,9 +67,9 @@ let vector = array![1.0, 2.0, 3.0];           // Array1
 let matrix = array![[1.0, 2.0], [3.0, 4.0]];  // Array2
 ```
 
-## Traits: How MachinDeOuf Organizes Algorithms
+## Traits: How ix Organizes Algorithms
 
-Rust traits are like interfaces — they define what an algorithm *can do*. MachinDeOuf uses a few key traits across all crates:
+Rust traits are like interfaces — they define what an algorithm *can do*. ix uses a few key traits across all crates:
 
 ### Regressor: Predicts a Number
 
@@ -119,10 +119,10 @@ Takes current parameters and a gradient, returns updated parameters.
 
 ## The Builder Pattern
 
-Many algorithms have hyperparameters (settings you choose before training). MachinDeOuf uses the builder pattern to configure them fluently:
+Many algorithms have hyperparameters (settings you choose before training). ix uses the builder pattern to configure them fluently:
 
 ```rust
-use machin_optimize::ParticleSwarm;
+use ix_optimize::ParticleSwarm;
 
 let optimizer = ParticleSwarm::new()
     .with_particles(50)
@@ -135,10 +135,10 @@ This pattern chains `.with_*()` calls to set options. Each method returns `Self`
 
 ## Seeded RNG for Reproducibility
 
-ML algorithms often use randomness (random initialization, random sampling). MachinDeOuf takes a `seed` parameter so you get the same results every time:
+ML algorithms often use randomness (random initialization, random sampling). ix takes a `seed` parameter so you get the same results every time:
 
 ```rust
-use machin_unsupervised::KMeans;
+use ix_unsupervised::KMeans;
 
 let mut kmeans = KMeans::new(3).with_seed(42);
 // Running this twice with seed 42 gives identical clusters
@@ -148,10 +148,10 @@ Under the hood, this uses `rand::rngs::StdRng::seed_from_u64(seed)`.
 
 ## Error Handling: Result and MathError
 
-Math operations can fail (mismatched dimensions, singular matrices). MachinDeOuf returns `Result<T, MathError>`:
+Math operations can fail (mismatched dimensions, singular matrices). ix returns `Result<T, MathError>`:
 
 ```rust
-use machin_math::linalg;
+use ix_math::linalg;
 
 let a = array![[1.0, 2.0], [3.0, 4.0]];
 let b = array![[5.0], [6.0]];
@@ -166,7 +166,7 @@ In examples and quick experiments, you'll often see `.unwrap()` which panics on 
 
 ## f64 Everywhere
 
-MachinDeOuf uses `f64` (64-bit floating point) for all CPU computations. This gives ~15 decimal digits of precision, which is more than enough for ML. GPU code uses `f32` for performance (GPUs are much faster with 32-bit floats).
+ix uses `f64` (64-bit floating point) for all CPU computations. This gives ~15 decimal digits of precision, which is more than enough for ML. GPU code uses `f32` for performance (GPUs are much faster with 32-bit floats).
 
 ## Iterators: The Rust Way to Process Data
 
@@ -199,7 +199,7 @@ Here's a complete example that uses all these patterns — training a linear reg
 
 ```rust
 use ndarray::array;
-use machin_supervised::{LinearRegression, Regressor};
+use ix_supervised::{LinearRegression, Regressor};
 
 fn main() {
     // Training data: 2 features per sample

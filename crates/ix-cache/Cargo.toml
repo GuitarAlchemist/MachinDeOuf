@@ -1,0 +1,20 @@
+[package]
+name = "ix-cache"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "Embedded in-process cache: concurrent, TTL, LRU eviction, pub/sub, optional RESP server"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+parking_lot = "0.12"
+tokio = { workspace = true, optional = true }
+
+[features]
+default = []
+resp-server = ["tokio"]

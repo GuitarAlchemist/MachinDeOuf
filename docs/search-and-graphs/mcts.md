@@ -60,10 +60,10 @@ After all iterations, return the root's **most-visited child** as the best move 
 
 ## In Rust
 
-The `machin-search` crate provides MCTS through the `MctsState` trait:
+The `ix-search` crate provides MCTS through the `MctsState` trait:
 
 ```rust
-use machin_search::mcts::{MctsState, mcts_search};
+use ix_search::mcts::{MctsState, mcts_search};
 
 // A simple Nim-like game: players take turns adding 1-3, goal is to reach 21.
 #[derive(Clone, Debug)]
@@ -163,9 +163,9 @@ pub fn mcts_search<S: MctsState>(
 
 ## Pitfalls
 
-1. **Reward must be from the right perspective.** `reward()` is called on a terminal state and backpropagated to all ancestors. If your game alternates turns, make sure the reward reflects the perspective of the *root* player, not the player who just moved. The implementation in machin-search backpropagates the same reward to all ancestors, so design `reward()` accordingly.
+1. **Reward must be from the right perspective.** `reward()` is called on a terminal state and backpropagated to all ancestors. If your game alternates turns, make sure the reward reflects the perspective of the *root* player, not the player who just moved. The implementation in ix-search backpropagates the same reward to all ancestors, so design `reward()` accordingly.
 
-2. **Random rollouts can be weak.** In games where random play is wildly different from good play (e.g., Chess -- random moves lose material instantly), raw MCTS with random rollouts will need many more iterations. The fix is a better rollout policy (not yet built into machin-search, but you can modify the algorithm).
+2. **Random rollouts can be weak.** In games where random play is wildly different from good play (e.g., Chess -- random moves lose material instantly), raw MCTS with random rollouts will need many more iterations. The fix is a better rollout policy (not yet built into ix-search, but you can modify the algorithm).
 
 3. **Rollout depth limit.** The implementation caps rollouts at 500 moves to prevent infinite games. If your game can last longer, the rollout will return the `reward()` of a non-terminal state.
 

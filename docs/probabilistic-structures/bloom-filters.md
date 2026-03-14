@@ -73,7 +73,7 @@ Two Bloom filters with the **same `m` and `k`** can be merged with a bitwise OR.
 ### Basic usage --- URL blocklist
 
 ```rust
-use machin_probabilistic::bloom::BloomFilter;
+use ix_probabilistic::bloom::BloomFilter;
 
 // Create a filter sized for 10,000 URLs at 1% false positive rate.
 // The library computes the optimal bit array size and hash count.
@@ -97,7 +97,7 @@ println!("Est. FP rate:    {:.6}", blocklist.estimated_fp_rate());
 ### Manual parameters
 
 ```rust
-use machin_probabilistic::bloom::BloomFilter;
+use ix_probabilistic::bloom::BloomFilter;
 
 // When you know exactly how many bits and hashes you want
 let mut bf = BloomFilter::with_params(1024, 5);
@@ -108,7 +108,7 @@ assert!(bf.contains(&42u64));
 ### Merging distributed filters
 
 ```rust
-use machin_probabilistic::bloom::BloomFilter;
+use ix_probabilistic::bloom::BloomFilter;
 
 let mut node_a = BloomFilter::with_params(10_000, 7);
 let mut node_b = BloomFilter::with_params(10_000, 7);
@@ -166,7 +166,7 @@ assert!(merged.contains(&"event-002"));
 
 ## Going Further
 
-- **Counting Bloom filters** replace each bit with a counter, enabling deletion at the cost of more memory. MachinDeOuf does not include one yet, but the `CuckooFilter` covers the deletion use case.
+- **Counting Bloom filters** replace each bit with a counter, enabling deletion at the cost of more memory. ix does not include one yet, but the `CuckooFilter` covers the deletion use case.
 - **Scalable Bloom filters** automatically add new bit arrays as the fill level rises, maintaining a target FP rate without knowing the item count up front.
 - **Count-Min Sketch** ([next doc](./count-min-sketch.md)) solves a related but different problem: estimating *how many times* an item appears, not just whether it exists.
-- Bloom filters pair naturally with the [`machin-cache`](../../crates/machin-cache) embedded cache: use the filter as a fast admission gate before writing to the cache, avoiding polluting it with one-hit wonders.
+- Bloom filters pair naturally with the [`ix-cache`](../../crates/ix-cache) embedded cache: use the filter as a fast admission gate before writing to the cache, avoiding polluting it with one-hit wonders.

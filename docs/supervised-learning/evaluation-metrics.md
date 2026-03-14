@@ -99,7 +99,7 @@ In plain English, this means: how much better is the model than just predicting 
 
 ```rust
 use ndarray::array;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     // Fraud detection results
@@ -133,7 +133,7 @@ fn main() {
 
 ```rust
 use ndarray::array;
-use machin_supervised::metrics::{mse, rmse, r_squared};
+use ix_supervised::metrics::{mse, rmse, r_squared};
 
 fn main() {
     // House price predictions (in thousands of dollars)
@@ -150,9 +150,9 @@ fn main() {
 
 ```rust
 use ndarray::array;
-use machin_supervised::logistic_regression::LogisticRegression;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_supervised::logistic_regression::LogisticRegression;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     let x_train = array![
@@ -225,12 +225,12 @@ Note that `precision`, `recall`, and `f1_score` require a `class` parameter spec
 
 **MSE is in squared units.** MSE of 625 for house prices in thousands means RMSE of 25, which means "roughly $25K off on average." Always take the square root for interpretability.
 
-**Edge cases.** If the model never predicts a class, precision for that class is 0/0. The MachinDeOuf implementation returns 0.0 in this case, which is a reasonable convention but worth knowing about.
+**Edge cases.** If the model never predicts a class, precision for that class is 0/0. The ix implementation returns 0.0 in this case, which is a reasonable convention but worth knowing about.
 
 ## Going Further
 
 - **Threshold tuning:** Most classifiers produce probabilities. By default, the threshold is 0.5, but you can adjust it. Lowering it to 0.3 boosts recall at the expense of precision. Plot the precision-recall curve at different thresholds to find the right trade-off.
 - **Macro vs. micro averaging:** For multi-class problems, you can compute F1 per class and average (macro), or pool all TP/FP/FN across classes (micro). Macro treats each class equally; micro weights by class frequency.
 - **Cross-validation:** Instead of a single train/test split, use k-fold cross-validation to get more reliable metric estimates. Train k models, each tested on a different fold, and average the metrics.
-- **Confusion matrix visualization:** While MachinDeOuf doesn't include visualization, the raw TP/FP/TN/FN counts can be computed from the `accuracy`, `precision`, and `recall` functions for any post-hoc analysis.
+- **Confusion matrix visualization:** While ix doesn't include visualization, the raw TP/FP/TN/FN counts can be computed from the `accuracy`, `precision`, and `recall` functions for any post-hoc analysis.
 - **Regression alternatives:** Mean Absolute Error (MAE) is more robust to outliers than MSE/RMSE. It can be computed as `(y_true - y_pred).mapv(f64::abs).mean().unwrap()`.

@@ -60,7 +60,7 @@ And so on. Typically the first 2-3 components capture 80-95% of the total varian
 
 ```rust
 use ndarray::array;
-use machin_unsupervised::{PCA, DimensionReducer};
+use ix_unsupervised::{PCA, DimensionReducer};
 
 // 6 customers with 4 features
 let data = array![
@@ -98,7 +98,7 @@ if let Some(components) = pca.components() {
 A common pattern — reduce dimensions first, then cluster:
 
 ```rust
-use machin_unsupervised::{PCA, DimensionReducer, KMeans, Clusterer};
+use ix_unsupervised::{PCA, DimensionReducer, KMeans, Clusterer};
 
 // High-dimensional data
 let data = /* ... 50-feature dataset ... */;
@@ -136,9 +136,9 @@ let labels = kmeans.fit_predict(&reduced);
 - **Standardize first!** PCA finds directions of maximum variance. If one feature ranges 0-100,000 and another 0-1, the first dominates purely due to scale. Use `linalg::standardize()` before PCA.
 - **PCA components are hard to interpret.** PC1 might be "0.5 × income + 0.3 × age + 0.4 × purchases" — it's a blend, not a single feature. If interpretability matters, consider feature selection instead.
 - **PCA is linear.** It can't capture nonlinear structure. If your data lies on a curve or manifold, PCA gives a poor reduction.
-- **Don't use PCA on categorical data.** PCA assumes continuous features. For categorical data, consider Multiple Correspondence Analysis (not in MachinDeOuf).
+- **Don't use PCA on categorical data.** PCA assumes continuous features. For categorical data, consider Multiple Correspondence Analysis (not in ix).
 - **Information loss is inevitable.** You're trading some accuracy for simplicity. Always check the explained variance ratio to ensure you're keeping enough.
-- **MachinDeOuf uses power iteration** for eigendecomposition, not LAPACK. This is accurate for the top few components but less precise for many components on large matrices.
+- **ix uses power iteration** for eigendecomposition, not LAPACK. This is accurate for the top few components but less precise for many components on large matrices.
 
 ## Going Further
 

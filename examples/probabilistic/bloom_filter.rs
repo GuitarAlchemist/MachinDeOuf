@@ -7,8 +7,8 @@
 //! cargo run --example bloom_filter
 //! ```
 
-use machin_probabilistic::bloom::BloomFilter;
-use machin_probabilistic::hyperloglog::HyperLogLog;
+use ix_probabilistic::bloom::BloomFilter;
+use ix_probabilistic::hyperloglog::HyperLogLog;
 
 fn main() {
     // Bloom filter: fast "is this URL in the blocklist?"

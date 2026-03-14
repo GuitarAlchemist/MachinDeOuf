@@ -1,6 +1,6 @@
 # Zero to Hero: Rust for Machine Learning
 
-> Everything you need to know about Rust to work with MachinDeOuf — from absolute beginner to productive ML developer.
+> Everything you need to know about Rust to work with ix — from absolute beginner to productive ML developer.
 
 This guide assumes no prior Rust experience. It covers exactly the Rust you need for ML development, skipping language features you won't use.
 
@@ -17,7 +17,7 @@ y = 20;              // OK
 
 // Type annotations (usually optional — Rust infers types)
 let count: usize = 42;     // Unsigned integer (used for array indices, counts)
-let price: f64 = 19.99;    // 64-bit float (all ML math in MachinDeOuf)
+let price: f64 = 19.99;    // 64-bit float (all ML math in ix)
 let flag: bool = true;      // Boolean
 let name: &str = "hello";   // String slice (borrowed text)
 ```
@@ -78,7 +78,7 @@ let result = dot_product(&weights, &input);  // borrow with &
 // weights and input are still usable here
 ```
 
-**In MachinDeOuf**: Most functions take `&` references. The `.fit(&mut self, x, y)` pattern borrows the data and mutates the model.
+**In ix**: Most functions take `&` references. The `.fit(&mut self, x, y)` pattern borrows the data and mutates the model.
 
 ## 3. Structs and Methods
 
@@ -121,7 +121,7 @@ model.update_bias(0.5);
 
 ### The Builder Pattern
 
-Many MachinDeOuf algorithms use this for configuration:
+Many ix algorithms use this for configuration:
 
 ```rust
 let optimizer = ParticleSwarm::new()     // Start with defaults
@@ -138,7 +138,7 @@ Each `.with_*()` method takes `mut self` and returns `Self`, enabling the chain.
 Traits define shared behavior. If you know interfaces (Java) or protocols (Swift), traits are similar.
 
 ```rust
-// MachinDeOuf defines traits like:
+// ix defines traits like:
 trait Classifier {
     fn fit(&mut self, x: &Array2<f64>, y: &Array1<usize>);
     fn predict(&self, x: &Array2<f64>) -> Array1<usize>;
@@ -185,7 +185,7 @@ if let Some(w) = &model.weights {
 ### Result: Something Might Fail
 
 ```rust
-use machin_math::linalg;
+use ix_math::linalg;
 
 // Matrix multiplication can fail (dimension mismatch)
 match linalg::matmul(&a, &b) {
@@ -203,7 +203,7 @@ fn compute(a: &Array2<f64>, b: &Array2<f64>) -> Result<Array2<f64>, MathError> {
 }
 ```
 
-**In MachinDeOuf**: Math functions return `Result`. In examples you'll see `.unwrap()` everywhere — in production, handle errors properly.
+**In ix**: Math functions return `Result`. In examples you'll see `.unwrap()` everywhere — in production, handle errors properly.
 
 ## 6. Iterators
 
@@ -287,10 +287,10 @@ let objective = |x: &Array1<f64>| -> f64 {
 };
 ```
 
-**In MachinDeOuf**: `ClosureObjective` wraps a closure into an `ObjectiveFunction`:
+**In ix**: `ClosureObjective` wraps a closure into an `ObjectiveFunction`:
 
 ```rust
-use machin_optimize::ClosureObjective;
+use ix_optimize::ClosureObjective;
 
 let objective = ClosureObjective {
     f: |x: &Array1<f64>| (x[0] - 3.0).powi(2) + (x[1] - 7.0).powi(2),
@@ -323,15 +323,15 @@ You'll read generics more than write them. When you see `<S: Trait>`, just read 
 ```rust
 // Import specific items
 use ndarray::{Array1, Array2, array};
-use machin_supervised::{LinearRegression, Regressor};
-use machin_math::distance;
+use ix_supervised::{LinearRegression, Regressor};
+use ix_math::distance;
 
 // Import everything from a module (use sparingly)
-use machin_math::stats::*;
+use ix_math::stats::*;
 
-// MachinDeOuf crate naming convention:
-// Crate name: machin-supervised  (hyphen)
-// Import name: machin_supervised (underscore)
+// ix crate naming convention:
+// Crate name: ix-supervised  (hyphen)
+// Import name: ix_supervised (underscore)
 ```
 
 ## 10. Running Code
@@ -430,6 +430,6 @@ let unsafe_result = risky_function().unwrap();  // Panic on error
 
 - **Rust Book** (free): https://doc.rust-lang.org/book/ — the definitive guide
 - **Rust by Example**: https://doc.rust-lang.org/rust-by-example/ — learn by doing
-- **ndarray docs**: https://docs.rs/ndarray — the array library MachinDeOuf builds on
-- **Next**: [Rust for ML](rust-for-ml.md) — ML-specific Rust patterns in MachinDeOuf
+- **ndarray docs**: https://docs.rs/ndarray — the array library ix builds on
+- **Next**: [Rust for ML](rust-for-ml.md) — ML-specific Rust patterns in ix
 - **Start learning**: [INDEX.md](../INDEX.md) — the full learning path

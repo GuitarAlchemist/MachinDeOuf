@@ -1,39 +1,45 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/machin-math",
-    "crates/machin-optimize",
-    "crates/machin-supervised",
-    "crates/machin-unsupervised",
-    "crates/machin-ensemble",
-    "crates/machin-nn",
-    "crates/machin-rl",
-    "crates/machin-evolution",
-    "crates/machin-graph",
-    "crates/machin-probabilistic",
-    "crates/machin-io",
-    "crates/machin-signal",
-    "crates/machin-chaos",
-    "crates/machin-game",
-    "crates/machin-search",
-    "crates/machin-gpu",
-    "crates/machin-cache",
-    "crates/machin-pipeline",
-    "crates/machin-adversarial",
-    "crates/machin-grammar",
-    "crates/machin-agent",
-    "crates/machin-dynamics",
-    "crates/machin-ktheory",
-    "crates/machin-topo",
-    "crates/machin-category",
-    "crates/machin-skill",
-    "crates/machin-demo",
+    "crates/ix-math",
+    "crates/ix-optimize",
+    "crates/ix-supervised",
+    "crates/ix-unsupervised",
+    "crates/ix-ensemble",
+    "crates/ix-nn",
+    "crates/ix-rl",
+    "crates/ix-evolution",
+    "crates/ix-graph",
+    "crates/ix-probabilistic",
+    "crates/ix-io",
+    "crates/ix-signal",
+    "crates/ix-chaos",
+    "crates/ix-game",
+    "crates/ix-search",
+    "crates/ix-gpu",
+    "crates/ix-cache",
+    "crates/ix-pipeline",
+    "crates/ix-adversarial",
+    "crates/ix-grammar",
+    "crates/ix-agent",
+    "crates/ix-dynamics",
+    "crates/ix-ktheory",
+    "crates/ix-topo",
+    "crates/ix-category",
+    "crates/ix-sedenion",
+    "crates/ix-rotation",
+    "crates/ix-fractal",
+    "crates/ix-number-theory",
+    "crates/ix-skill",
+    "crates/ix-demo",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+rust-version = "1.80"
+repository = "https://github.com/GuitarAlchemist/ix"
 
 [workspace.dependencies]
 ndarray = "0.17"
@@ -53,29 +59,37 @@ futures-util = "0.3"
 bytes = "1"
 
 # Internal crates
-machin-math = { path = "crates/machin-math", version = "0.1.0" }
-machin-optimize = { path = "crates/machin-optimize", version = "0.1.0" }
-machin-supervised = { path = "crates/machin-supervised", version = "0.1.0" }
-machin-unsupervised = { path = "crates/machin-unsupervised", version = "0.1.0" }
-machin-ensemble = { path = "crates/machin-ensemble", version = "0.1.0" }
-machin-nn = { path = "crates/machin-nn", version = "0.1.0" }
-machin-rl = { path = "crates/machin-rl", version = "0.1.0" }
-machin-evolution = { path = "crates/machin-evolution", version = "0.1.0" }
-machin-graph = { path = "crates/machin-graph", version = "0.1.0" }
-machin-probabilistic = { path = "crates/machin-probabilistic", version = "0.1.0" }
-machin-io = { path = "crates/machin-io", version = "0.1.0" }
-machin-signal = { path = "crates/machin-signal", version = "0.1.0" }
-machin-chaos = { path = "crates/machin-chaos", version = "0.1.0" }
-machin-game = { path = "crates/machin-game", version = "0.1.0" }
-machin-search = { path = "crates/machin-search", version = "0.1.0" }
-machin-gpu = { path = "crates/machin-gpu", version = "0.1.0" }
-machin-cache = { path = "crates/machin-cache", version = "0.1.0" }
-machin-pipeline = { path = "crates/machin-pipeline", version = "0.1.0" }
-machin-adversarial = { path = "crates/machin-adversarial", version = "0.1.0" }
-machin-grammar = { path = "crates/machin-grammar", version = "0.1.0" }
-machin-agent = { path = "crates/machin-agent", version = "0.1.0" }
-machin-dynamics = { path = "crates/machin-dynamics", version = "0.1.0" }
-machin-ktheory = { path = "crates/machin-ktheory", version = "0.1.0" }
-machin-topo = { path = "crates/machin-topo", version = "0.1.0" }
-machin-category = { path = "crates/machin-category", version = "0.1.0" }
+ix-math = { path = "crates/ix-math", version = "0.1.0" }
+ix-optimize = { path = "crates/ix-optimize", version = "0.1.0" }
+ix-supervised = { path = "crates/ix-supervised", version = "0.1.0" }
+ix-unsupervised = { path = "crates/ix-unsupervised", version = "0.1.0" }
+ix-ensemble = { path = "crates/ix-ensemble", version = "0.1.0" }
+ix-nn = { path = "crates/ix-nn", version = "0.1.0" }
+ix-rl = { path = "crates/ix-rl", version = "0.1.0" }
+ix-evolution = { path = "crates/ix-evolution", version = "0.1.0" }
+ix-graph = { path = "crates/ix-graph", version = "0.1.0" }
+ix-probabilistic = { path = "crates/ix-probabilistic", version = "0.1.0" }
+ix-io = { path = "crates/ix-io", version = "0.1.0" }
+ix-signal = { path = "crates/ix-signal", version = "0.1.0" }
+ix-chaos = { path = "crates/ix-chaos", version = "0.1.0" }
+ix-game = { path = "crates/ix-game", version = "0.1.0" }
+ix-search = { path = "crates/ix-search", version = "0.1.0" }
+ix-gpu = { path = "crates/ix-gpu", version = "0.1.0" }
+ix-cache = { path = "crates/ix-cache", version = "0.1.0" }
+ix-pipeline = { path = "crates/ix-pipeline", version = "0.1.0" }
+ix-adversarial = { path = "crates/ix-adversarial", version = "0.1.0" }
+ix-grammar = { path = "crates/ix-grammar", version = "0.1.0" }
+ix-agent = { path = "crates/ix-agent", version = "0.1.0" }
+ix-dynamics = { path = "crates/ix-dynamics", version = "0.1.0" }
+ix-ktheory = { path = "crates/ix-ktheory", version = "0.1.0" }
+ix-topo = { path = "crates/ix-topo", version = "0.1.0" }
+ix-category = { path = "crates/ix-category", version = "0.1.0" }
+ix-rotation = { path = "crates/ix-rotation", version = "0.1.0" }
+ix-sedenion = { path = "crates/ix-sedenion", version = "0.1.0" }
+ix-fractal = { path = "crates/ix-fractal", version = "0.1.0" }
+ix-number-theory = { path = "crates/ix-number-theory", version = "0.1.0" }
 parking_lot = "0.12"
+
+# Testing & benchmarking
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }

@@ -74,7 +74,7 @@ To merge two HLL instances with the same precision, take the element-wise maximu
 ### Counting unique visitors
 
 ```rust
-use machin_probabilistic::hyperloglog::HyperLogLog;
+use ix_probabilistic::hyperloglog::HyperLogLog;
 
 // Standard precision: p=14, ~16 KB memory, ~0.81% error
 let mut hll = HyperLogLog::standard();
@@ -98,7 +98,7 @@ println!("Memory used: {} bytes", hll.memory_bytes());     // 16,384
 ### Custom precision for different workloads
 
 ```rust
-use machin_probabilistic::hyperloglog::HyperLogLog;
+use ix_probabilistic::hyperloglog::HyperLogLog;
 
 // Low memory (256 bytes), ~6.5% error -- good for rough estimates
 let mut hll_small = HyperLogLog::new(8);
@@ -110,7 +110,7 @@ let mut hll_precise = HyperLogLog::new(18);
 ### Merging across distributed nodes
 
 ```rust
-use machin_probabilistic::hyperloglog::HyperLogLog;
+use ix_probabilistic::hyperloglog::HyperLogLog;
 
 let mut server_a = HyperLogLog::new(12);
 let mut server_b = HyperLogLog::new(12);

@@ -54,7 +54,7 @@ The stationary distribution pi* satisfies:
 pi* = pi* * P
 ```
 
-**In plain English:** If you are in the stationary distribution, one more step leaves you in the same distribution. It is the equilibrium. MachinDeOuf finds it via power iteration: start with a uniform distribution and keep multiplying by P until it stops changing.
+**In plain English:** If you are in the stationary distribution, one more step leaves you in the same distribution. It is the equilibrium. ix finds it via power iteration: start with a uniform distribution and keep multiplying by P until it stops changing.
 
 ### Mean First Passage Time
 
@@ -64,7 +64,7 @@ The expected number of steps to reach state j starting from state i:
 M(i, j) = E[min{t > 0 : X_t = j | X_0 = i}]
 ```
 
-**In plain English:** "On average, how many steps to get from i to j for the first time?" MachinDeOuf estimates this via Monte Carlo simulation (running many random walks and averaging).
+**In plain English:** "On average, how many steps to get from i to j for the first time?" ix estimates this via Monte Carlo simulation (running many random walks and averaging).
 
 ### Ergodicity
 
@@ -79,7 +79,7 @@ Ergodic = all entries of P^k are positive (for some k)
 ## In Rust
 
 ```rust
-use machin_graph::markov::MarkovChain;
+use ix_graph::markov::MarkovChain;
 use ndarray::{array, Array1};
 
 // Weather model: Sunny=0, Cloudy=1, Rainy=2
@@ -131,7 +131,7 @@ println!("Ergodic: {}", ergodic);  // true (all states reachable, aperiodic)
 ### Absorbing Chains
 
 ```rust
-use machin_graph::markov::{MarkovChain, AbsorbingChain};
+use ix_graph::markov::{MarkovChain, AbsorbingChain};
 use ndarray::array;
 
 // Customer lifecycle: Active=0, Dormant=1, Churned=2 (absorbing)
@@ -198,7 +198,7 @@ println!("Is state 2 absorbing? {}", absorbing.is_absorbing_state(2));  // true
 
 - **Hidden Markov Models:** When you cannot observe the state directly. See [hidden-markov-models.md](./hidden-markov-models.md).
 - **Viterbi algorithm:** Decode the most likely state sequence from observations. See [viterbi-algorithm.md](./viterbi-algorithm.md).
-- **Continuous-time Markov chains (CTMC):** Transitions happen at random times (exponentially distributed) rather than at fixed steps. Model with rate matrices instead of transition matrices. Not yet in MachinDeOuf.
+- **Continuous-time Markov chains (CTMC):** Transitions happen at random times (exponentially distributed) rather than at fixed steps. Model with rate matrices instead of transition matrices. Not yet in ix.
 - **PageRank:** Google's original algorithm is a Markov chain on the web graph. The stationary distribution gives page importance.
 - **Markov chain Monte Carlo (MCMC):** Design a Markov chain whose stationary distribution is the target distribution you want to sample from. Foundational for Bayesian inference.
 - **Text generation:** Build a transition matrix from word-pair frequencies in a corpus. `simulate()` generates text.

@@ -85,13 +85,13 @@ How you set the initial weights matters enormously:
 
 ## In Rust
 
-MachinDeOuf provides the building blocks in `machin-nn`:
+ix provides the building blocks in `ix-nn`:
 
 ```rust
 use ndarray::array;
-use machin_nn::layer::{Dense, Layer};
-use machin_nn::loss::{mse_loss, mse_gradient};
-use machin_math::activation::{relu_array, sigmoid_array, softmax};
+use ix_nn::layer::{Dense, Layer};
+use ix_nn::loss::{mse_loss, mse_gradient};
+use ix_math::activation::{relu_array, sigmoid_array, softmax};
 
 // Build a simple 2-layer network: 3 inputs → 4 hidden → 2 outputs
 let mut hidden = Dense::new(3, 4);   // Xavier-initialized
@@ -119,7 +119,7 @@ hidden.backward(&grad_hidden, 0.01);
 ### Weight Initialization Options
 
 ```rust
-use machin_nn::initializers;
+use ix_nn::initializers;
 
 let xavier_weights = initializers::xavier(784, 128);  // For sigmoid/tanh
 let he_weights = initializers::he(784, 128);           // For ReLU
@@ -130,7 +130,7 @@ let zero_weights = initializers::zeros(784, 128);      // Don't use this
 
 ```rust
 use ndarray::array;
-use machin_math::activation;
+use ix_math::activation;
 
 let x = array![1.0, -0.5, 0.0, 2.0];
 

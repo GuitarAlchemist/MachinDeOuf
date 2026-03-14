@@ -1,0 +1,46 @@
+[package]
+name = "ix-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "MCP server exposing ix ML algorithms as Claude Code tools"
+
+[[bin]]
+name = "ix-mcp"
+path = "src/main.rs"
+
+[dependencies]
+ix-math = { workspace = true }
+ix-optimize = { workspace = true }
+ix-supervised = { workspace = true }
+ix-unsupervised = { workspace = true }
+ix-graph = { workspace = true }
+ix-search = { workspace = true }
+ix-chaos = { workspace = true }
+ix-game = { workspace = true }
+ix-adversarial = { workspace = true }
+ix-grammar = { workspace = true }
+ix-probabilistic = { workspace = true }
+ix-signal = { workspace = true }
+ix-cache = { workspace = true }
+ix-pipeline = { workspace = true }
+ix-nn = { workspace = true }
+ix-rl = { workspace = true }
+ix-evolution = { workspace = true }
+ix-ensemble = { workspace = true }
+ix-rotation = { workspace = true }
+ix-number-theory = { workspace = true }
+ix-fractal = { workspace = true }
+ix-sedenion = { workspace = true }
+ix-topo = { workspace = true }
+ix-category = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }

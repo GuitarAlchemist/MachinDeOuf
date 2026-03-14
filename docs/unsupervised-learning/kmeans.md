@@ -24,7 +24,7 @@ That's K-Means. The "stations" are **centroids** (cluster centers), and the algo
 
 Random initial centroids can give bad results. K-Means++ is smarter: it picks the first centroid randomly, then picks each subsequent centroid with probability proportional to its distance from existing centroids. This spreads initial centroids apart, leading to better and more consistent clusters.
 
-MachinDeOuf uses K-Means++ by default.
+ix uses K-Means++ by default.
 
 ## How It Works
 
@@ -57,7 +57,7 @@ In plain English: the total distance of all points to their assigned centroids. 
 
 ```rust
 use ndarray::array;
-use machin_unsupervised::{KMeans, Clusterer};
+use ix_unsupervised::{KMeans, Clusterer};
 
 // Customer data: [avg_order, frequency, recency, categories]
 let customers = array![
@@ -78,7 +78,7 @@ println!("Cluster assignments: {:?}", labels);
 
 // Check cluster quality
 if let Some(centroids) = &kmeans.centroids {
-    let score = machin_unsupervised::inertia(&customers, &labels, centroids);
+    let score = ix_unsupervised::inertia(&customers, &labels, centroids);
     println!("Inertia: {:.2}", score);
 }
 ```
@@ -88,7 +88,7 @@ if let Some(centroids) = &kmeans.centroids {
 ### Elbow Method: Choosing K
 
 ```rust
-use machin_unsupervised::{KMeans, Clusterer, inertia};
+use ix_unsupervised::{KMeans, Clusterer, inertia};
 
 for k in 2..=8 {
     let mut kmeans = KMeans::new(k).with_seed(42);

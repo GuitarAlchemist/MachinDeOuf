@@ -9,7 +9,7 @@ You are building a model training workflow with five steps: load data, compute s
 3. Executes everything in the correct order.
 4. Passes outputs from one step to the inputs of the next.
 
-This is the ETL pipeline problem, the CI/CD pipeline problem, the DAG-based workflow orchestration problem. MachinDeOuf's `machin-pipeline` crate solves it with a typed, cycle-checked DAG and a level-parallel executor.
+This is the ETL pipeline problem, the CI/CD pipeline problem, the DAG-based workflow orchestration problem. ix's `ix-pipeline` crate solves it with a typed, cycle-checked DAG and a level-parallel executor.
 
 ---
 
@@ -91,8 +91,8 @@ Edges declared via `.input(name, source_node)` are **auto-detected**: if a node'
 ### ETL pipeline with the builder API
 
 ```rust
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, NoCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, NoCache};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -135,8 +135,8 @@ println!("Executed in {} levels", result.execution_order.len());
 ### Diamond pattern (parallel branches)
 
 ```rust
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, NoCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, NoCache};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -180,7 +180,7 @@ println!("Result: {}", result.output("merge").unwrap());  // 100
 ### Using the raw DAG API
 
 ```rust
-use machin_pipeline::dag::{Dag, DagError};
+use ix_pipeline::dag::{Dag, DagError};
 
 let mut dag = Dag::new();
 dag.add_node("load",    "Load CSV").unwrap();
@@ -222,8 +222,8 @@ println!("Critical path: {:?} (cost: {})", path, cost);
 ### External inputs
 
 ```rust
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, NoCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, NoCache};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -240,10 +240,10 @@ let pipeline = PipelineBuilder::new()
     .unwrap();
 
 let mut inputs = HashMap::new();
-inputs.insert("name".to_string(), Value::from("MachinDeOuf"));
+inputs.insert("name".to_string(), Value::from("ix"));
 
 let result = execute(&pipeline, &inputs, &NoCache).unwrap();
-println!("{}", result.output("greet").unwrap());  // "Hello, MachinDeOuf!"
+println!("{}", result.output("greet").unwrap());  // "Hello, ix!"
 ```
 
 ---
@@ -292,7 +292,7 @@ println!("{}", result.output("greet").unwrap());  // "Hello, MachinDeOuf!"
 
 ## Going Further
 
-- **[Caching and Memoization](./caching-and-memoization.md)** covers the `PipelineCache` trait, per-node cacheability, and how to connect to `machin-cache` for incremental recomputation.
+- **[Caching and Memoization](./caching-and-memoization.md)** covers the `PipelineCache` trait, per-node cacheability, and how to connect to `ix-cache` for incremental recomputation.
 - **Critical path analysis** (`dag.critical_path(cost_fn)`) identifies the bottleneck chain in your pipeline. Use it to decide which nodes to optimize or move to GPU.
 - **`parallel_levels()`** returns the execution schedule. You can use this for visualization, progress bars, or custom scheduling without running the full executor.
 - The `Dag` is generic over node data (`Dag<N>`). The pipeline uses `Dag<PipelineNode>`, but you can use `Dag<String>`, `Dag<MyTask>`, or any other type for non-pipeline DAG workloads (dependency graphs, build systems, task schedulers).

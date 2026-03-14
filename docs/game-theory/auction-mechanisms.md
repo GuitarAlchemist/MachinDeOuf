@@ -67,10 +67,10 @@ all bidders pay their own bid (win or lose)
 
 ## In Rust
 
-The `machin-game` crate provides auction mechanisms:
+The `ix-game` crate provides auction mechanisms:
 
 ```rust
-use machin_game::auction::{
+use ix_game::auction::{
     Bid, AuctionResult,
     first_price_auction, second_price_auction, all_pay_auction,
     english_auction, dutch_auction, revenue_equivalence_test,
@@ -163,7 +163,7 @@ See the full working example: [examples/game-theory/auctions.rs](../../examples/
 | Want fast resolution | Sealed-bid (first or second) | One round, no iteration |
 | Want price discovery | English | Bidders observe others' willingness to pay |
 | Modeling competitive spending | All-pay | Captures lobbying, R&D races |
-| Multiple items | Generalize (not yet in machin-game) | VCG mechanism, combinatorial auctions |
+| Multiple items | Generalize (not yet in ix-game) | VCG mechanism, combinatorial auctions |
 
 ## Key Parameters
 
@@ -192,5 +192,5 @@ See the full working example: [examples/game-theory/auctions.rs](../../examples/
 - **VCG (Vickrey-Clarke-Groves) mechanism:** Generalizes second-price auctions to multiple items. Each winner pays the externality they impose on others.
 - **Combinatorial auctions:** Bidders bid on *bundles* of items. Used for spectrum allocation and airport landing slots.
 - **Nash equilibria in auctions:** Auction strategies form a game. See [Nash Equilibria](./nash-equilibria.md) for the general theory.
-- **Mechanism design:** Design the *rules* so that the equilibrium achieves your goal (efficiency, revenue, fairness). The auction functions in machin-game are building blocks for this.
+- **Mechanism design:** Design the *rules* so that the equilibrium achieves your goal (efficiency, revenue, fairness). The auction functions in ix-game are building blocks for this.
 - Read: Milgrom, *Putting Auction Theory to Work* (2004) -- the practical guide by a Nobel laureate.

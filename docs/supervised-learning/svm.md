@@ -81,9 +81,9 @@ In plain English, this means: the further a point is from the decision boundary,
 
 ```rust
 use ndarray::array;
-use machin_supervised::svm::LinearSVM;
-use machin_supervised::traits::Classifier;
-use machin_supervised::metrics::{accuracy, precision, recall, f1_score};
+use ix_supervised::svm::LinearSVM;
+use ix_supervised::traits::Classifier;
+use ix_supervised::metrics::{accuracy, precision, recall, f1_score};
 
 fn main() {
     // Features: [stroke_angle, endpoints, height_width_ratio, has_crossbar, ink_density]
@@ -173,9 +173,9 @@ LinearSVM::new(1.0)               // C = 1.0
 
 **Feature scaling is essential.** SVM computes dot products and norms. If one feature ranges from 0 to 1000 and another from 0 to 1, the first feature dominates the margin calculation. Always standardize features (zero mean, unit variance) before training.
 
-**Binary only.** The MachinDeOuf `LinearSVM` supports two classes (0 and 1). For multi-class problems, train multiple SVMs in a one-vs-rest configuration and pick the class with the highest decision function value.
+**Binary only.** The ix `LinearSVM` supports two classes (0 and 1). For multi-class problems, train multiple SVMs in a one-vs-rest configuration and pick the class with the highest decision function value.
 
-**Linear only.** This implementation finds a linear hyperplane. If the classes are not linearly separable (e.g., one class surrounds the other in a ring), the SVM will perform poorly. Kernel SVMs (RBF, polynomial) can handle non-linear boundaries but are not implemented in MachinDeOuf.
+**Linear only.** This implementation finds a linear hyperplane. If the classes are not linearly separable (e.g., one class surrounds the other in a ring), the SVM will perform poorly. Kernel SVMs (RBF, polynomial) can handle non-linear boundaries but are not implemented in ix.
 
 **Convergence.** Subgradient descent is not as smooth as standard gradient descent. The loss may oscillate. Increasing `max_iterations` and using a smaller `learning_rate` helps, but convergence is slow. Monitor the training loss if possible.
 

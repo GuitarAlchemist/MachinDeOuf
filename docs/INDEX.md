@@ -1,4 +1,4 @@
-# MachinDeOuf Learning Path
+# ix Learning Path
 
 > From zero to ML practitioner — using real Rust code you can run today.
 

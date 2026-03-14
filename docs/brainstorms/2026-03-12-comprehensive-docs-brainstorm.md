@@ -3,7 +3,7 @@ date: 2026-03-12
 topic: comprehensive-ml-documentation
 ---
 
-# Comprehensive ML/Math Documentation for MachinDeOuf
+# Comprehensive ML/Math Documentation for ix
 
 ## What We're Building
 
@@ -160,7 +160,7 @@ Formulas introduced ONE AT A TIME, each immediately followed by
 "In plain English, this means..."]
 
 ## In Rust
-[Code using MachinDeOuf crates. Links to relevant `examples/` file.
+[Code using ix crates. Links to relevant `examples/` file.
 Explains Rust-specific patterns (traits, ndarray, etc.) for Rust beginners.]
 
 → See [`examples/domain/example_name.rs`](../../examples/domain/example_name.rs) for the full runnable version.

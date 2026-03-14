@@ -67,7 +67,7 @@ Pick: argmax theta(a)
 ## In Rust
 
 ```rust
-use machin_rl::bandit::{EpsilonGreedy, UCB1, ThompsonSampling};
+use ix_rl::bandit::{EpsilonGreedy, UCB1, ThompsonSampling};
 
 // === Epsilon-Greedy: simple and predictable ===
 let mut eg = EpsilonGreedy::new(
@@ -161,7 +161,7 @@ See the full working example: [`examples/reinforcement-learning/bandits.rs`](../
 
 ## Going Further
 
-- **Contextual bandits:** Choose arms based on user features (age, location). Not yet implemented, but you could combine bandit selection with a feature vector from `machin-supervised`.
+- **Contextual bandits:** Choose arms based on user features (age, location). Not yet implemented, but you could combine bandit selection with a feature vector from `ix-supervised`.
 - **Exploration vs. Exploitation deep dive:** See [exploration-vs-exploitation.md](./exploration-vs-exploitation.md) for a conceptual comparison of all three strategies.
 - **Decaying epsilon:** Wrap the bandit in a loop that reduces `epsilon` over time: `bandit.epsilon = 1.0 / (round as f64).sqrt()`.
 - **Regret analysis:** UCB1 has a provable O(sqrt(T * K * ln(T))) regret bound. Thompson Sampling often matches or beats it empirically.

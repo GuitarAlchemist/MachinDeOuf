@@ -4,7 +4,7 @@
 
 You have a five-stage data pipeline that takes 30 seconds to run end-to-end. You change the normalization logic in stage 4 and re-run. Stages 1 through 3 produce exactly the same output as before --- but the pipeline recomputes them anyway, wasting 25 seconds. You need a way to skip nodes whose inputs have not changed, re-executing only the parts of the DAG that are actually affected.
 
-This is the **incremental recomputation** problem. Build tools (Make, Bazel), notebook environments (Jupyter cell caching), and ETL frameworks (dbt) all solve versions of it. MachinDeOuf's pipeline executor solves it at the node level with a pluggable cache interface.
+This is the **incremental recomputation** problem. Build tools (Make, Bazel), notebook environments (Jupyter cell caching), and ETL frameworks (dbt) all solve versions of it. ix's pipeline executor solves it at the node level with a pluggable cache interface.
 
 ---
 
@@ -30,7 +30,7 @@ pub trait PipelineCache: Send + Sync {
 }
 ```
 
-**In plain English:** any type that can look up and store JSON values by string key can serve as a pipeline cache. This could be an in-memory HashMap, a Redis connection, the `machin-cache` embedded store, or a file-based cache.
+**In plain English:** any type that can look up and store JSON values by string key can serve as a pipeline cache. This could be an in-memory HashMap, a Redis connection, the `ix-cache` embedded store, or a file-based cache.
 
 ### Cache key generation
 
@@ -82,8 +82,8 @@ This is a zero-cost way to disable caching entirely.
 ### Seeing cache hits in action
 
 ```rust
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, PipelineCache, NoCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, PipelineCache, NoCache};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -143,8 +143,8 @@ assert_eq!(r1.output("expensive_stats"), r2.output("expensive_stats"));
 ### Mixing cacheable and non-cacheable nodes
 
 ```rust
-use machin_pipeline::builder::PipelineBuilder;
-use machin_pipeline::executor::{execute, PipelineCache};
+use ix_pipeline::builder::PipelineBuilder;
+use ix_pipeline::executor::{execute, PipelineCache};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -194,7 +194,7 @@ println!("Process output: {}", r.output("process").unwrap());
 ### Inspecting execution details from PipelineResult
 
 ```rust
-use machin_pipeline::executor::PipelineResult;
+use ix_pipeline::executor::PipelineResult;
 
 fn print_execution_report(result: &PipelineResult) {
     println!("Total time: {:?}", result.total_duration);
@@ -231,11 +231,11 @@ The `PipelineResult` fields relevant to caching:
 
 | Situation | Caching strategy |
 |-----------|-----------------|
-| Pipeline runs repeatedly with same inputs | Use a persistent cache (file or `machin-cache`) |
+| Pipeline runs repeatedly with same inputs | Use a persistent cache (file or `ix-cache`) |
 | Pipeline runs once | Use `NoCache` to avoid overhead |
 | Some nodes are non-deterministic | Mark them `.no_cache()` |
 | Debugging: want to see all computations | Use `NoCache` temporarily |
-| Distributed pipeline across machines | Use a shared cache (Redis-compatible, or `machin-cache` with TCP) |
+| Distributed pipeline across machines | Use a shared cache (Redis-compatible, or `ix-cache` with TCP) |
 
 ---
 
@@ -245,7 +245,7 @@ The `PipelineResult` fields relevant to caching:
 |-----------|-----------------|----------|
 | `cacheable` (per node) | Whether the executor checks/stores cache for this node | Default: `true`. Disable with `.no_cache()` for side effects or non-determinism |
 | Cache key | `"pipeline:{node_id}:{input_hash}"` | Deterministic from node ID + sorted input values. Changes when any input changes |
-| `PipelineCache` implementation | Where cached values are stored | In-memory HashMap for tests; `machin-cache` for production |
+| `PipelineCache` implementation | Where cached values are stored | In-memory HashMap for tests; `ix-cache` for production |
 | `initial_inputs` | External values fed to the pipeline | Changing these changes the cache keys of all nodes that read them |
 
 ---
@@ -254,7 +254,7 @@ The `PipelineResult` fields relevant to caching:
 
 1. **Non-deterministic nodes poison downstream caches.** If a non-cacheable node produces different output on each run, all downstream nodes will miss the cache too (because their inputs changed). This is correct behavior, but it means caching only helps the branches that are purely deterministic.
 
-2. **Cache does not expire automatically.** The pipeline executor does not implement TTL or eviction. If you use a simple HashMap cache, it grows without bound. Connect to `machin-cache` (which supports TTL and LRU eviction) for production workloads.
+2. **Cache does not expire automatically.** The pipeline executor does not implement TTL or eviction. If you use a simple HashMap cache, it grows without bound. Connect to `ix-cache` (which supports TTL and LRU eviction) for production workloads.
 
 3. **Large JSON values are expensive to cache.** The cache stores `serde_json::Value` objects. If a node outputs a multi-megabyte JSON array, cloning it into the cache and back out adds overhead. For large intermediate data, consider storing a reference (file path, buffer ID) rather than the data itself.
 
@@ -266,7 +266,7 @@ The `PipelineResult` fields relevant to caching:
 
 ## Going Further
 
-- **Connect to `machin-cache`** for a production-grade cache with TTL, LRU eviction, pub/sub notifications, and a Redis-compatible RESP server. Implement `PipelineCache` to call into the cache crate's API.
+- **Connect to `ix-cache`** for a production-grade cache with TTL, LRU eviction, pub/sub notifications, and a Redis-compatible RESP server. Implement `PipelineCache` to call into the cache crate's API.
 - **Content-addressed caching** hashes the node's *code* (or a version tag) alongside its inputs, automatically invalidating when logic changes. This is how Bazel and Nix achieve reproducible builds.
 - **Partial re-execution.** Use `dag.has_path(changed_node, target_node)` to determine which downstream nodes need to re-run after a change, without re-executing the entire pipeline.
 - **[DAG Execution](./dag-execution.md)** covers the pipeline builder, executor, error types, and parallel-levels scheduling in full detail.

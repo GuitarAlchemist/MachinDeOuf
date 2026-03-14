@@ -18,7 +18,7 @@ The cost of using the stadium: you have to write your problem on a whiteboard in
 
 ### The WGPU stack
 
-MachinDeOuf uses [WGPU](https://wgpu.rs/), a cross-platform GPU abstraction layer:
+ix uses [WGPU](https://wgpu.rs/), a cross-platform GPU abstraction layer:
 
 | Platform | Backend |
 |----------|---------|
@@ -52,7 +52,7 @@ Every GPU computation follows this pattern:
 
 ### Why f32, not f64?
 
-GPUs are optimized for 32-bit floating point. Most consumer GPUs have **32x** more f32 throughput than f64. MachinDeOuf's CPU algorithms use `f64` for precision, but all GPU paths use `f32`. For the vast majority of ML workloads (similarity search, matrix multiply, neural net inference), f32 is more than sufficient.
+GPUs are optimized for 32-bit floating point. Most consumer GPUs have **32x** more f32 throughput than f64. ix's CPU algorithms use `f64` for precision, but all GPU paths use `f32`. For the vast majority of ML workloads (similarity search, matrix multiply, neural net inference), f32 is more than sufficient.
 
 ---
 
@@ -63,7 +63,7 @@ GPUs are optimized for 32-bit floating point. Most consumer GPUs have **32x** mo
 ### Initializing the GPU context
 
 ```rust
-use machin_gpu::context::GpuContext;
+use ix_gpu::context::GpuContext;
 
 // Synchronous initialization (blocks until GPU is ready)
 let ctx = GpuContext::new().expect("No compatible GPU found");
@@ -75,7 +75,7 @@ println!("Backend: {:?}", ctx.backend()); // e.g., Vulkan
 For async code (inside a Tokio runtime):
 
 ```rust
-use machin_gpu::context::GpuContext;
+use ix_gpu::context::GpuContext;
 
 let ctx = GpuContext::new_async().await.expect("No compatible GPU found");
 ```
@@ -83,7 +83,7 @@ let ctx = GpuContext::new_async().await.expect("No compatible GPU found");
 ### Creating buffers
 
 ```rust
-use machin_gpu::context::GpuContext;
+use ix_gpu::context::GpuContext;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -101,7 +101,7 @@ let results: Vec<f32> = ctx.read_buffer(&output, 16);
 ### Understanding the GpuContext fields
 
 ```rust
-use machin_gpu::context::GpuContext;
+use ix_gpu::context::GpuContext;
 
 let ctx = GpuContext::new().unwrap();
 
@@ -117,7 +117,7 @@ let backend = ctx.backend();     // Vulkan, DX12, Metal, etc.
 ### Handling "no GPU available"
 
 ```rust
-use machin_gpu::context::GpuContext;
+use ix_gpu::context::GpuContext;
 
 match GpuContext::new() {
     Ok(ctx) => {
@@ -131,7 +131,7 @@ match GpuContext::new() {
 }
 ```
 
-All `machin-gpu` modules provide CPU fallback functions alongside their GPU versions, so your code can degrade gracefully.
+All `ix-gpu` modules provide CPU fallback functions alongside their GPU versions, so your code can degrade gracefully.
 
 ---
 
@@ -155,9 +155,9 @@ All `machin-gpu` modules provide CPU fallback functions alongside their GPU vers
 | Parameter | What it controls | Guidance |
 |-----------|-----------------|----------|
 | Workgroup size | Threads per workgroup (set in WGSL: `@workgroup_size(256)`) | 256 is a safe default for most GPUs. Must be a power of 2. |
-| Number of workgroups | Total parallelism: `ceil(data_size / workgroup_size)` | Computed automatically by MachinDeOuf functions |
+| Number of workgroups | Total parallelism: `ceil(data_size / workgroup_size)` | Computed automatically by ix functions |
 | Buffer usage flags | `STORAGE`, `COPY_SRC`, `MAP_READ`, etc. | Handled by `create_buffer_init`, `create_output_buffer`, `create_readback_buffer` |
-| Power preference | `HighPerformance` vs `LowPower` | MachinDeOuf defaults to `HighPerformance` (discrete GPU preferred) |
+| Power preference | `HighPerformance` vs `LowPower` | ix defaults to `HighPerformance` (discrete GPU preferred) |
 
 ---
 
@@ -167,7 +167,7 @@ All `machin-gpu` modules provide CPU fallback functions alongside their GPU vers
 
 2. **Transfer overhead is real.** Uploading data to VRAM and reading results back takes time proportional to the data size. For small inputs (a few hundred floats), the transfer alone may exceed the CPU computation time.
 
-3. **f32 precision loss.** If your algorithm is numerically sensitive (e.g., computing tiny differences between large numbers), the drop from f64 to f32 can introduce meaningful error. The CPU fallback functions use f32 too (for API compatibility), so compare against `machin-math` f64 routines for a ground truth.
+3. **f32 precision loss.** If your algorithm is numerically sensitive (e.g., computing tiny differences between large numbers), the drop from f64 to f32 can introduce meaningful error. The CPU fallback functions use f32 too (for API compatibility), so compare against `ix-math` f64 routines for a ground truth.
 
 4. **Not all GPUs are equal.** Integrated GPUs (Intel UHD, AMD APUs) have far less compute throughput than discrete GPUs (NVIDIA RTX, AMD RX). Test on your target hardware.
 

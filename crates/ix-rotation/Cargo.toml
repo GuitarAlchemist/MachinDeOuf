@@ -1,0 +1,18 @@
+[package]
+name = "ix-rotation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "3D rotation mathematics: quaternions, dual quaternions, SLERP, Euler angles, rotation matrices"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

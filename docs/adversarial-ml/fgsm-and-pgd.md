@@ -80,7 +80,7 @@ class probability. Perturb it. Repeat up to a budget of max_perturbations featur
 ## In Rust
 
 ```rust
-use machin_adversarial::evasion::{fgsm, pgd, cw_attack, jsma};
+use ix_adversarial::evasion::{fgsm, pgd, cw_attack, jsma};
 use ndarray::array;
 
 let input = array![0.5, 0.3, 0.8, 0.1];
@@ -170,11 +170,11 @@ let adversarial_jsma = jsma(
 
 ## Going Further
 
-- Use `machin_adversarial::evasion::universal_perturbation` to find a single perturbation
+- Use `ix_adversarial::evasion::universal_perturbation` to find a single perturbation
   that fools the model on many inputs simultaneously.
 - After generating adversarial examples, test defenses from
-  `machin_adversarial::defense` -- see [adversarial-defenses.md](adversarial-defenses.md).
+  `ix_adversarial::defense` -- see [adversarial-defenses.md](adversarial-defenses.md).
 - Combine PGD with adversarial training: generate PGD examples at each training step and
   include them in the batch to harden the model.
-- Feed adversarial examples into `machin_adversarial::poisoning::detect_label_flips`
+- Feed adversarial examples into `ix_adversarial::poisoning::detect_label_flips`
   to check whether an attack on training data could go undetected.

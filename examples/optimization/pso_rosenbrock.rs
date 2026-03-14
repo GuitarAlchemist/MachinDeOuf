@@ -6,8 +6,8 @@
 //! cargo run --example pso_rosenbrock
 //! ```
 
-use machin_optimize::pso::pso_minimize;
-use machin_optimize::traits::ClosureObjective;
+use ix_optimize::pso::pso_minimize;
+use ix_optimize::traits::ClosureObjective;
 use ndarray::Array1;
 
 fn main() {

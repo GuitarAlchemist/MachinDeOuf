@@ -1,0 +1,16 @@
+[package]
+name = "ix-gpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "GPU-accelerated compute via WGPU: cosine similarity, matrix ops, vector search"
+
+[dependencies]
+wgpu = "28"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+ndarray = { workspace = true }

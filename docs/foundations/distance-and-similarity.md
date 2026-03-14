@@ -92,11 +92,11 @@ In plain English: the dot product of a and b, divided by the product of their le
 
 ## In Rust
 
-All distance functions live in `machin_math::distance`:
+All distance functions live in `ix_math::distance`:
 
 ```rust
 use ndarray::array;
-use machin_math::distance;
+use ix_math::distance;
 
 let song_a = array![120.0, 0.8, 0.7, -5.0, 0.3];
 let song_b = array![125.0, 0.75, 0.65, -6.0, 0.25];
@@ -129,7 +129,7 @@ Here's a practical example — finding the 3 most similar songs:
 
 ```rust
 use ndarray::{array, Array1};
-use machin_math::distance;
+use ix_math::distance;
 
 let query = array![120.0, 0.8, 0.7];
 let catalog = vec![

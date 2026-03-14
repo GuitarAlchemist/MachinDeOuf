@@ -84,7 +84,7 @@ params_new = params - lr * m_hat / (sqrt(v_hat) + epsilon)
 
 ### Setting Up the Objective Function
 
-Every optimization in MachinDeOuf starts with an `ObjectiveFunction`. This trait has three methods:
+Every optimization in ix starts with an `ObjectiveFunction`. This trait has three methods:
 
 - `evaluate(&self, x) -> f64` -- compute the error for a given set of parameters
 - `gradient(&self, x) -> Array1<f64>` -- compute the gradient (defaults to numerical differentiation if you don't override it)
@@ -93,9 +93,9 @@ Every optimization in MachinDeOuf starts with an `ObjectiveFunction`. This trait
 For quick experiments, use `ClosureObjective` to wrap a closure:
 
 ```rust
-use machin_optimize::traits::{ClosureObjective, ObjectiveFunction, OptimizeResult};
-use machin_optimize::convergence::ConvergenceCriteria;
-use machin_optimize::gradient::{SGD, Momentum, Adam, minimize};
+use ix_optimize::traits::{ClosureObjective, ObjectiveFunction, OptimizeResult};
+use ix_optimize::convergence::ConvergenceCriteria;
+use ix_optimize::gradient::{SGD, Momentum, Adam, minimize};
 use ndarray::{array, Array1};
 
 // Mean squared error for a simple linear model: price = w0 * sqft + w1 * beds + w2

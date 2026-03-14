@@ -23,12 +23,12 @@ origin: docs/brainstorms/2026-03-13-tars-math-concepts-brainstorm.md
 6. Renamed `derham.rs` → `de_rham.rs` for naming consistency with `poincare_map.rs`
 
 ### New Considerations Discovered
-- machin-chaos has NO error types — Takagi/de Rham should return plain values with sensible defaults, not `Result`
+- ix-chaos has NO error types — Takagi/de Rham should return plain values with sensible defaults, not `Result`
 - Hamilton convention must be documented in module-level `//!` comment (vs JPL)
 - Dual quaternion normalization must enforce `real · dual = 0` orthogonality constraint
 - ScLERP has a degenerate pure-translation case requiring special handling
 - Cross product is NOT provided by ndarray — must implement manually
-- Architecture note: primes.rs is a domain mismatch for machin-math (number theory vs continuous math) but acceptable for Phase 1 scope
+- Architecture note: primes.rs is a domain mismatch for ix-math (number theory vs continuous math) but acceptable for Phase 1 scope
 
 ### YAGNI Analysis (Noted, User Override)
 The simplicity reviewer recommended deferring dual_quaternion.rs and plucker.rs (zero current consumers). However, the user explicitly requested "all of them, add dual quaternions too (Include Plücker notation)." All 6 modules are retained per user intent.
@@ -37,13 +37,13 @@ The simplicity reviewer recommended deferring dual_quaternion.rs and plucker.rs 
 
 ## Overview
 
-Phase 1 of TARS mathematical concepts: extend `machin-math` with algebraic types (quaternions, dual quaternions, Plücker coordinates) and prime utilities; extend `machin-chaos` with fractal curves (Takagi, de Rham). These are foundational types that later phases (Lie groups, TDA, Neural ODEs) build upon.
+Phase 1 of TARS mathematical concepts: extend `ix-math` with algebraic types (quaternions, dual quaternions, Plücker coordinates) and prime utilities; extend `ix-chaos` with fractal curves (Takagi, de Rham). These are foundational types that later phases (Lie groups, TDA, Neural ODEs) build upon.
 
 (see brainstorm: docs/brainstorms/2026-03-13-tars-math-concepts-brainstorm.md)
 
 ## Problem Statement / Motivation
 
-MachinDeOuf lacks 3D rotation/rigid-body primitives, line geometry, number-theoretic utilities, and fractal curve generators. These are needed for:
+ix lacks 3D rotation/rigid-body primitives, line geometry, number-theoretic utilities, and fractal curve generators. These are needed for:
 - 3D rotation interpolation (quaternion SLERP) — robotics, animation, spatial ML
 - Rigid-body transforms (dual quaternions) — 6-DOF pose representation
 - Line geometry (Plücker) — collision detection, screw theory bridge
@@ -54,7 +54,7 @@ MachinDeOuf lacks 3D rotation/rigid-body primitives, line geometry, number-theor
 
 Add 6 new modules across 2 existing crates, following established conventions.
 
-### Extend `machin-math` (4 new modules)
+### Extend `ix-math` (4 new modules)
 
 #### 1. `math/quaternion.rs` — Unit Quaternion for 3D Rotation
 
@@ -284,13 +284,13 @@ pub fn prime_factors(n: u64) -> Vec<(u64, u32)>;  // (prime, exponent) pairs
 
 **`prime_factors` — Added:** Most common number-theory operation after `is_prime`. Trial division up to sqrt(n), return `Vec<(u64, u32)>` of (prime, exponent) pairs.
 
-**Architecture Note:** primes.rs is a domain mismatch for machin-math (number theory vs continuous math). Acceptable for Phase 1 scope, but consider relocating to machin-probabilistic in a future refactor if the module grows.
+**Architecture Note:** primes.rs is a domain mismatch for ix-math (number theory vs continuous math). Acceptable for Phase 1 scope, but consider relocating to ix-probabilistic in a future refactor if the module grows.
 
 ---
 
-### Extend `machin-chaos` (2 new modules)
+### Extend `ix-chaos` (2 new modules)
 
-**Important Pattern:** machin-chaos has NO error types. No `Result`, no `thiserror`, no dependency on machin-math. Functions handle edge cases with early returns of sensible defaults or empty collections. Follow this convention.
+**Important Pattern:** ix-chaos has NO error types. No `Result`, no `thiserror`, no dependency on ix-math. Functions handle edge cases with early returns of sensible defaults or empty collections. Follow this convention.
 
 #### 5. `chaos/takagi.rs` — Blancmange / Takagi Curve
 
@@ -320,7 +320,7 @@ pub fn takagi_series(n_points: usize, terms: usize) -> Array1<f64>;
 
 **`takagi_perturbation` — Deferred:** Simplicity review flagged this as speculative (no current consumer for fractal noise injection). Defer to when an optimizer or sampler actually needs it.
 
-**Integration with existing `machin-chaos::fractal`:** The Blancmange curve has known fractal dimension 1.5. Add a test computing `box_counting_dimension_2d` on Takagi samples as a cross-module validation.
+**Integration with existing `ix-chaos::fractal`:** The Blancmange curve has known fractal dimension 1.5. Add a test computing `box_counting_dimension_2d` on Takagi samples as a cross-module validation.
 
 ---
 
@@ -370,23 +370,23 @@ pub fn de_rham_curve_1d(
 ## Technical Considerations
 
 ### Dependencies
-- `machin-math`: no new dependencies (uses existing ndarray, thiserror)
-- `machin-chaos`: no new dependencies (uses existing ndarray, rand, rand_distr). Does NOT depend on machin-math.
+- `ix-math`: no new dependencies (uses existing ndarray, thiserror)
+- `ix-chaos`: no new dependencies (uses existing ndarray, rand, rand_distr). Does NOT depend on ix-math.
 - Dual quaternion and Plücker modules depend on quaternion module (same crate, no circular deps)
 
 ### Error Handling
 
-**machin-math modules** follow the crate's `Result<T, MathError>` pattern for fallible operations. Extend `MathError` with:
+**ix-math modules** follow the crate's `Result<T, MathError>` pattern for fallible operations. Extend `MathError` with:
 
 ```rust
-// In crates/machin-math/src/error.rs — no new variants needed.
+// In crates/ix-math/src/error.rs — no new variants needed.
 // Existing InvalidParameter(String) covers all new cases:
 //   "zero-norm quaternion", "coincident points", "sieve limit exceeds maximum", etc.
 // Existing DimensionMismatch covers Array1 length checks.
 // Existing Singular covers quaternion inverse of zero.
 ```
 
-**machin-chaos modules** return plain values. No `Result`, no errors. Handle edge cases with:
+**ix-chaos modules** return plain values. No `Result`, no errors. Handle edge cases with:
 - Early returns of empty/default values
 - Silent capping of parameters (`terms.min(53)`, `depth.min(20)`)
 
@@ -406,7 +406,7 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 - **Known-value tests:** rotation matrix from 90° around Z-axis, π(10^6) = 78498 primes, T(0.5) = 0.5 for standard Blancmange
 - **Round-trip tests:** axis-angle → quaternion → rotation matrix → verify determinant = 1; rotation+translation → DualQuaternion → extract back
 - **Edge cases:** zero quaternion, coincident points in Plücker, `slerp(q, -q, 0.5)`, `is_prime(0)`, `is_prime(1)`, `is_prime(2)`, `nth_prime(1) = 2`
-- **Cross-module test:** compute fractal dimension of Takagi curve ≈ 1.5 using `machin_chaos::fractal::box_counting_dimension_2d`
+- **Cross-module test:** compute fractal dimension of Takagi curve ≈ 1.5 using `ix_chaos::fractal::box_counting_dimension_2d`
 - **Implement `AbsDiffEq` for Quaternion** (approx crate already in dev-deps) for cleaner test assertions
 
 ### Performance
@@ -420,7 +420,7 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 
 ## Acceptance Criteria
 
-### `machin-math` — Quaternions (`crates/machin-math/src/quaternion.rs`)
+### `ix-math` — Quaternions (`crates/ix-math/src/quaternion.rs`)
 - [x] `Quaternion` struct with `#[derive(Debug, Clone, Copy, PartialEq)]`
 - [x] `new`, `identity`, `from_axis_angle` (validates axis), `to_rotation_matrix` (re-normalizes)
 - [x] `rotate_vector` — direct q*v*q⁻¹ without building rotation matrix
@@ -434,7 +434,7 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 - [x] `//!` module doc specifying Hamilton convention and rotation semantics
 - [x] Tests: identity, rotation, slerp interpolation, exp/ln round-trip, edge cases, algebraic properties
 
-### `machin-math` — Dual Quaternions (`crates/machin-math/src/dual_quaternion.rs`)
+### `ix-math` — Dual Quaternions (`crates/ix-math/src/dual_quaternion.rs`)
 - [x] `DualQuaternion` struct composed of two `Quaternion`s
 - [x] `identity`, `from_rotation_translation`, `to_rotation_translation`
 - [x] `conjugate`, `norm`, `normalize` (enforces `real · dual = 0`), `inverse` (Result)
@@ -443,7 +443,7 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 - [x] `sclerp(dq1, dq2, t)` — screw linear interpolation with pure-translation fallback
 - [x] Tests: identity transform, rotation-only, translation-only, combined, inverse round-trip
 
-### `machin-math` — Plücker Coordinates (`crates/machin-math/src/plucker.rs`)
+### `ix-math` — Plücker Coordinates (`crates/ix-math/src/plucker.rs`)
 - [x] `PluckerLine` struct with `direction: [f64; 3]`, `moment: [f64; 3]`, derives Copy
 - [x] `from_two_points` (validates non-coincident), `from_point_direction` (validates non-zero direction)
 - [x] `reciprocal_product`, `intersects`
@@ -451,7 +451,7 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 - [x] `closest_point_to_origin`
 - [x] Tests: construction, intersection detection, known distances, degenerate inputs
 
-### `machin-math` — Primes (`crates/machin-math/src/primes.rs`)
+### `ix-math` — Primes (`crates/ix-math/src/primes.rs`)
 - [x] `sieve_of_eratosthenes(limit)` → `Result<Vec<u64>, MathError>`, bit-packed, capped at 100M
 - [x] `is_prime(n)` — trial division for small n, deterministic Miller-Rabin for large n
 - [x] `nth_prime(n)` → `Result<u64, MathError>`, capped at 10M
@@ -459,20 +459,20 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 - [x] `prime_factors(n)` → `Vec<(u64, u32)>` — (prime, exponent) pairs
 - [x] Tests: known primes, π(10^6) = 78498, edge cases (0, 1, 2), factorization, Miller-Rabin correctness
 
-### `machin-chaos` — Takagi Curve (`crates/machin-chaos/src/takagi.rs`)
+### `ix-chaos` — Takagi Curve (`crates/ix-chaos/src/takagi.rs`)
 - [x] `takagi(t, terms)` — Blancmange evaluation with periodic extension, terms capped at 53
 - [x] `takagi_series(n_points, terms)` — sampled curve, vectorized inner loop
 - [x] Tests: known values (T(0)=0, T(0.5)≈0.5, T(1)=0), symmetry T(t)=T(1-t), series length
 - [ ] Cross-module test: fractal dimension ≈ 1.5 via box_counting_dimension_2d (deferred — requires integration test)
 
-### `machin-chaos` — De Rham Curves (`crates/machin-chaos/src/de_rham.rs`)
+### `ix-chaos` — De Rham Curves (`crates/ix-chaos/src/de_rham.rs`)
 - [x] `de_rham_interpolate(p0, p1, depth, roughness, rng)` — iterative IFS, depth capped at 20
 - [x] `de_rham_curve_1d(depth, roughness, rng)` — 1D fractal signal
 - [x] Tests: endpoint preservation, point count = 2^depth + 1, seeded reproducibility, depth=0 edge case
 
 ### Integration
-- [x] Register new modules in `machin-math/src/lib.rs` and `machin-chaos/src/lib.rs`
-- [x] Add `#![forbid(unsafe_code)]` to machin-math crate root
+- [x] Register new modules in `ix-math/src/lib.rs` and `ix-chaos/src/lib.rs`
+- [x] Add `#![forbid(unsafe_code)]` to ix-math crate root
 - [x] `cargo test --workspace` passes
 - [x] `cargo clippy --workspace` clean
 
@@ -489,9 +489,9 @@ Add a `fn cross3(a: &[f64; 3], b: &[f64; 3]) -> [f64; 3]` helper (used by Plück
 ## Sources & References
 
 - **Origin brainstorm:** [docs/brainstorms/2026-03-13-tars-math-concepts-brainstorm.md](docs/brainstorms/2026-03-13-tars-math-concepts-brainstorm.md) — key decisions: struct-based quaternion, f64 only, seeded RNG
-- **Existing patterns:** `crates/machin-math/src/hyperbolic.rs` (Poincaré geometry — similar math-heavy module with validation)
-- **Existing patterns:** `crates/machin-chaos/src/attractors.rs` (`State3D` struct, `LorenzParams` with Default)
-- **Existing patterns:** `crates/machin-math/src/distance.rs` (`check_same_len` helper, `Result<f64, MathError>`)
+- **Existing patterns:** `crates/ix-math/src/hyperbolic.rs` (Poincaré geometry — similar math-heavy module with validation)
+- **Existing patterns:** `crates/ix-chaos/src/attractors.rs` (`State3D` struct, `LorenzParams` with Default)
+- **Existing patterns:** `crates/ix-math/src/distance.rs` (`check_same_len` helper, `Result<f64, MathError>`)
 - **nalgebra UnitQuaternion:** https://docs.rs/nalgebra/latest/nalgebra/geometry/type.UnitQuaternion.html
 - **Quaternion Exp Map (CMU):** https://www.cs.cmu.edu/~spiff/moedit99/expmap.pdf
 - **Exponentially Better Rotations:** https://thenumb.at/Exponential-Rotations/

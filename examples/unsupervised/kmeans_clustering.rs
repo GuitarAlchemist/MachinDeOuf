@@ -6,7 +6,7 @@
 //! cargo run --example kmeans_clustering
 //! ```
 
-use machin_unsupervised::kmeans::KMeans;
+use ix_unsupervised::kmeans::KMeans;
 use ndarray::Array2;
 
 fn main() {

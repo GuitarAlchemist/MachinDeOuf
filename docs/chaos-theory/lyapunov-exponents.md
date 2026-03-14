@@ -66,7 +66,7 @@ spectrum, telling you about the system's full geometry.
 ## In Rust
 
 ```rust
-use machin_chaos::lyapunov::{mle_1d, lyapunov_spectrum, classify_dynamics, DynamicsType};
+use ix_chaos::lyapunov::{mle_1d, lyapunov_spectrum, classify_dynamics, DynamicsType};
 
 // --- 1D map: logistic map x_{n+1} = r*x*(1-x) ---
 let r = 4.0;  // fully chaotic regime
@@ -166,9 +166,9 @@ println!("Lorenz spectrum: {:?}", spectrum);
 
 - Plot MLE as a function of a parameter to build a **Lyapunov diagram** -- a quantitative
   companion to the bifurcation diagram.
-- Use `machin_chaos::attractors::lorenz` to generate trajectories, then analyse their
+- Use `ix_chaos::attractors::lorenz` to generate trajectories, then analyse their
   Lyapunov spectrum for different parameter values.
-- Combine with `machin_chaos::fractal::correlation_dimension` to relate the number of
+- Combine with `ix_chaos::fractal::correlation_dimension` to relate the number of
   positive exponents to the attractor's fractal dimension (Kaplan-Yorke conjecture).
 - Feed financial returns into `mle_1d` with a suitable map to detect regime changes in
   real time.

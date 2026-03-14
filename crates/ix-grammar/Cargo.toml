@@ -1,0 +1,17 @@
+[package]
+name = "ix-grammar"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "Probabilistic grammars: Bayesian weight updates, replicator dynamics, grammar-guided MCTS"
+
+[dependencies]
+ix-search = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }

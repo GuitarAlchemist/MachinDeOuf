@@ -28,7 +28,7 @@ This is remarkably effective because:
 
 ## How It Works
 
-DE maintains a population of N vectors (candidate solutions) in D dimensions. The variant implemented in MachinDeOuf is **DE/rand/1/bin** (the most common).
+DE maintains a population of N vectors (candidate solutions) in D dimensions. The variant implemented in ix is **DE/rand/1/bin** (the most common).
 
 ### For Each Individual x_i in the Population
 
@@ -68,7 +68,7 @@ if fitness(trial) <= fitness(x_i):
 ## In Rust
 
 ```rust
-use machin_evolution::differential::DifferentialEvolution;
+use ix_evolution::differential::DifferentialEvolution;
 use ndarray::Array1;
 
 // Minimize the Sphere function: f(x) = sum(x_i^2)
@@ -94,7 +94,7 @@ println!("Best fitness:  {:.8}", result.best_fitness);
 The Rosenbrock function has a narrow, curved valley that challenges many optimizers:
 
 ```rust
-use machin_evolution::differential::DifferentialEvolution;
+use ix_evolution::differential::DifferentialEvolution;
 use ndarray::Array1;
 
 // Rosenbrock: f(x) = sum(100*(x_{i+1} - x_i^2)^2 + (1 - x_i)^2)
@@ -203,7 +203,7 @@ println!("Last 10 gen fitness:  {:?}", last_10);
 
 4. **CR too low on non-separable functions.** When CR is small, only 1-2 dimensions change per trial. If the function requires coordinated changes across dimensions (e.g., Rosenbrock's curved valley), low CR prevents the algorithm from moving diagonally in the search space.
 
-5. **Same bounds for all dimensions.** If parameter 1 ranges from 0 to 1 and parameter 2 ranges from 0 to 10000, using `with_bounds(0.0, 10000.0)` wastes search effort on parameter 1. MachinDeOuf currently uses uniform bounds; for heterogeneous scales, normalize your parameters first.
+5. **Same bounds for all dimensions.** If parameter 1 ranges from 0 to 1 and parameter 2 ranges from 0 to 10000, using `with_bounds(0.0, 10000.0)` wastes search effort on parameter 1. ix currently uses uniform bounds; for heterogeneous scales, normalize your parameters first.
 
 6. **No early stopping.** The algorithm always runs for the full number of generations. If the fitness history plateaus early, you are wasting computation. Monitor `fitness_history` and add your own early stopping logic.
 
@@ -213,5 +213,5 @@ println!("Last 10 gen fitness:  {:?}", last_10);
 - **DE variants:** DE/best/1/bin uses the best individual instead of a random one for mutation (`v = x_best + F * (x_r1 - x_r2)`). Converges faster but may get trapped in local optima. Not yet implemented but easy to add.
 - **Self-adaptive DE (jDE, SHADE):** Automatically adapt F and CR during the run. Eliminates the need to choose these parameters.
 - **Constraint handling:** Penalize infeasible solutions in the fitness function: `fitness(x) + penalty * max(0, g(x))` where g(x) > 0 means constraint violated.
-- **Multi-objective DE:** Maintain a Pareto front of non-dominated solutions. Combine with `machin-evolution`'s selection operators.
-- **Hybrid methods:** Use DE for global exploration, then switch to a local optimizer (e.g., `machin-optimize`'s gradient methods) for fine-tuning around the best solution.
+- **Multi-objective DE:** Maintain a Pareto front of non-dominated solutions. Combine with `ix-evolution`'s selection operators.
+- **Hybrid methods:** Use DE for global exploration, then switch to a local optimizer (e.g., `ix-optimize`'s gradient methods) for fine-tuning around the best solution.

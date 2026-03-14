@@ -57,10 +57,10 @@ Example with 3 players:
 
 ## In Rust
 
-The `machin-game` crate provides cooperative game theory using bitmask-based coalitions:
+The `ix-game` crate provides cooperative game theory using bitmask-based coalitions:
 
 ```rust
-use machin_game::cooperative::{CooperativeGame, weighted_voting_game};
+use ix_game::cooperative::{CooperativeGame, weighted_voting_game};
 
 fn main() {
     // --- Cost allocation example ---
@@ -156,7 +156,7 @@ fn main() {
 
 ## Pitfalls
 
-1. **Exponential complexity.** Computing the exact Shapley value requires iterating over all `2^n` coalitions for each of `n` players. With 20 players, that is 20 million coalitions. With 30, it is 30 billion. For large games, use sampling-based approximations (not yet in machin-game).
+1. **Exponential complexity.** Computing the exact Shapley value requires iterating over all `2^n` coalitions for each of `n` players. With 20 players, that is 20 million coalitions. With 30, it is 30 billion. For large games, use sampling-based approximations (not yet in ix-game).
 
 2. **63-player limit.** The bitmask representation uses `u64`, so the maximum number of players is 63. This is fine for most game-theoretic applications but too small for SHAP values on high-dimensional ML models.
 

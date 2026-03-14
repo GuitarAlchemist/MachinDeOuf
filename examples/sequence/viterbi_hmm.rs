@@ -6,7 +6,7 @@
 //! cargo run --example viterbi_hmm
 //! ```
 
-use machin_graph::hmm::HiddenMarkovModel;
+use ix_graph::hmm::HiddenMarkovModel;
 use ndarray::Array2;
 
 fn main() {

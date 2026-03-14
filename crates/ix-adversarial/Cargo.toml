@@ -1,0 +1,16 @@
+[package]
+name = "ix-adversarial"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["machine-learning", "math", "algorithms"]
+description = "Adversarial ML: evasion attacks, robustness testing, poisoning detection, model privacy"
+
+[dependencies]
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }

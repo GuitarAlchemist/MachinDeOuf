@@ -6,9 +6,9 @@
 //! cargo run --example logistic_map
 //! ```
 
-use machin_chaos::attractors::integrate;
-use machin_chaos::bifurcation::bifurcation_diagram;
-use machin_chaos::lyapunov::{classify_dynamics, mle_1d, DynamicsType};
+use ix_chaos::attractors::integrate;
+use ix_chaos::bifurcation::bifurcation_diagram;
+use ix_chaos::lyapunov::{classify_dynamics, mle_1d, DynamicsType};
 
 fn main() {
     // Logistic map: is r=3.9 chaotic?
