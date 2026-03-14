@@ -54,8 +54,74 @@ enum Commands {
         k: usize,
     },
 
+    /// Probabilistic grammar operations
+    Grammar {
+        #[command(subcommand)]
+        command: GrammarCommands,
+    },
+
     /// Information about available algorithms
     List,
+}
+
+#[derive(Subcommand)]
+enum GrammarCommands {
+    /// Bayesian weight update and softmax query over grammar rules
+    Weights {
+        /// Path to JSON file with WeightedRule array
+        #[arg(long)]
+        rules: String,
+
+        /// Apply an observation: rule_id:success|failure  (e.g. r1:success)
+        #[arg(long)]
+        observe: Option<String>,
+
+        /// Softmax temperature
+        #[arg(long, default_value = "1.0")]
+        temperature: f64,
+    },
+
+    /// Replicator dynamics simulation over grammar species
+    Evolve {
+        /// Path to JSON file with GrammarSpecies array
+        #[arg(long)]
+        species: String,
+
+        /// Number of simulation steps
+        #[arg(long, default_value = "100")]
+        steps: usize,
+
+        /// Time step dt
+        #[arg(long, default_value = "0.05")]
+        dt: f64,
+
+        /// Prune threshold
+        #[arg(long, default_value = "0.000001")]
+        prune_threshold: f64,
+    },
+
+    /// Grammar-guided MCTS derivation search
+    Search {
+        /// Path to EBNF grammar file
+        #[arg(long)]
+        grammar: String,
+
+        /// MCTS iterations
+        #[arg(long, default_value = "500")]
+        iterations: usize,
+
+        /// UCB1 exploration constant
+        #[arg(long, default_value = "1.41")]
+        exploration: f64,
+
+        /// Max derivation depth
+        #[arg(long, default_value = "20")]
+        max_depth: usize,
+
+        /// RNG seed
+        #[arg(long, default_value = "42")]
+        seed: u64,
+    },
 }
 
 fn main() {
@@ -77,8 +143,96 @@ fn main() {
             println!("Clustering with {} (k={})", algo, k);
             println!("  (TODO: implement data loading)");
         }
+        Commands::Grammar { command } => {
+            run_grammar(command);
+        }
         Commands::List => {
             print_algorithms();
+        }
+    }
+}
+
+fn run_grammar(cmd: GrammarCommands) {
+    match cmd {
+        GrammarCommands::Weights { rules, observe, temperature } => {
+            let json_str = match std::fs::read_to_string(&rules) {
+                Ok(s) => s,
+                Err(e) => { eprintln!("Failed to read {}: {}", rules, e); return; }
+            };
+            let mut rule_list: Vec<machin_grammar::weighted::WeightedRule> =
+                match serde_json::from_str(&json_str) {
+                    Ok(r) => r,
+                    Err(e) => { eprintln!("Failed to parse rules: {}", e); return; }
+                };
+
+            if let Some(obs) = observe {
+                let parts: Vec<&str> = obs.splitn(2, ':').collect();
+                if parts.len() == 2 {
+                    let rule_id = parts[0];
+                    let success = parts[1].eq_ignore_ascii_case("success");
+                    for rule in &mut rule_list {
+                        if rule.id == rule_id {
+                            *rule = machin_grammar::weighted::bayesian_update(rule, success);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let probs = machin_grammar::weighted::softmax(&rule_list, temperature);
+            println!("Updated rules:");
+            for r in &rule_list {
+                println!("  {} α={:.3} β={:.3} w={:.4}", r.id, r.alpha, r.beta, r.weight);
+            }
+            println!("\nSoftmax (temperature={}):", temperature);
+            for (id, p) in &probs {
+                println!("  {} → {:.4}", id, p);
+            }
+        }
+
+        GrammarCommands::Evolve { species, steps, dt, prune_threshold } => {
+            let json_str = match std::fs::read_to_string(&species) {
+                Ok(s) => s,
+                Err(e) => { eprintln!("Failed to read {}: {}", species, e); return; }
+            };
+            let initial: Vec<machin_grammar::replicator::GrammarSpecies> =
+                match serde_json::from_str(&json_str) {
+                    Ok(s) => s,
+                    Err(e) => { eprintln!("Failed to parse species: {}", e); return; }
+                };
+
+            let result = machin_grammar::replicator::simulate(&initial, steps, dt, prune_threshold);
+
+            println!("Final species (after {} steps):", steps);
+            for s in &result.final_species {
+                println!("  {} proportion={:.4} fitness={:.4} stable={}", s.id, s.proportion, s.fitness, s.is_stable);
+            }
+            if !result.ess.is_empty() {
+                println!("\nEvolutionarily Stable Strategies:");
+                for s in &result.ess {
+                    println!("  {} (proportion={:.4})", s.id, s.proportion);
+                }
+            }
+        }
+
+        GrammarCommands::Search { grammar, iterations, exploration, max_depth, seed } => {
+            let grammar_str = match std::fs::read_to_string(&grammar) {
+                Ok(s) => s,
+                Err(e) => { eprintln!("Failed to read {}: {}", grammar, e); return; }
+            };
+            let g = match machin_grammar::constrained::EbnfGrammar::from_str(&grammar_str) {
+                Ok(g) => g,
+                Err(e) => { eprintln!("Failed to parse grammar: {}", e); return; }
+            };
+
+            let result = machin_grammar::constrained::search_derivation(
+                g, iterations, exploration, max_depth, seed,
+            );
+
+            println!("Best derivation (reward={:.4}):", result.reward);
+            for (nt, alt) in &result.best_derivation {
+                println!("  {} → {}", nt, alt.join(" "));
+            }
         }
     }
 }

@@ -18,6 +18,7 @@ machin-ensemble = { workspace = true }
 machin-nn = { workspace = true }
 machin-rl = { workspace = true }
 machin-evolution = { workspace = true }
+machin-grammar = { workspace = true }
 machin-graph = { workspace = true }
 machin-probabilistic = { workspace = true }
 machin-io = { workspace = true }

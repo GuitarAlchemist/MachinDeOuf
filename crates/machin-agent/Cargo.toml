@@ -19,6 +19,7 @@ machin-search = { workspace = true }
 machin-chaos = { workspace = true }
 machin-game = { workspace = true }
 machin-adversarial = { workspace = true }
+machin-grammar = { workspace = true }
 machin-probabilistic = { workspace = true }
 machin-signal = { workspace = true }
 machin-cache = { workspace = true }

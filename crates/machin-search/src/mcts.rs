@@ -126,6 +126,30 @@ fn ucb1(total_reward: f64, visits: u64, parent_visits: f64, c: f64) -> f64 {
     total_reward / v + c * (parent_visits.ln() / v).sqrt()
 }
 
+/// Grammar-weighted UCB1: multiplies the exploration bonus by a rule weight.
+///
+/// This variant is used by grammar-guided MCTS where `weight` encodes the
+/// Bayesian confidence in a production rule (range 0–1, higher is preferred).
+///
+/// ```
+/// use machin_search::mcts::weighted_ucb1;
+/// let score = weighted_ucb1(5.0, 10, 100.0, 1.41, 0.8);
+/// assert!(score > 0.0);
+/// ```
+pub fn weighted_ucb1(
+    total_reward: f64,
+    visits: u64,
+    parent_visits: f64,
+    c: f64,
+    weight: f64,
+) -> f64 {
+    if visits == 0 {
+        return f64::INFINITY;
+    }
+    let v = visits as f64;
+    total_reward / v + c * weight * (parent_visits.ln() / v).sqrt()
+}
+
 /// Random rollout from a state.
 fn rollout<S: MctsState>(state: &S, rng: &mut impl Rng) -> f64 {
     let mut current = state.clone();

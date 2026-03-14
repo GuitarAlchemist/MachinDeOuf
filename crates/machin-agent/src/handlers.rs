@@ -524,6 +524,151 @@ pub fn bloom_filter(params: Value) -> Result<Value, String> {
     }
 }
 
+// ── machin_grammar_weights ─────────────────────────────────────
+
+pub fn grammar_weights(params: Value) -> Result<Value, String> {
+    use machin_grammar::weighted::{bayesian_update, softmax, WeightedRule};
+
+    // Parse rules array
+    let rules_val = params
+        .get("rules")
+        .and_then(|v| v.as_array())
+        .ok_or("Missing or invalid field 'rules'")?;
+
+    let mut rules: Vec<WeightedRule> = rules_val
+        .iter()
+        .map(|r| {
+            let id = r.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let alpha = r.get("alpha").and_then(|v| v.as_f64()).unwrap_or(1.0);
+            let beta = r.get("beta").and_then(|v| v.as_f64()).unwrap_or(1.0);
+            let weight = r.get("weight").and_then(|v| v.as_f64()).unwrap_or(alpha / (alpha + beta));
+            let level = r.get("level").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            let source = r.get("source").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            WeightedRule { id, alpha, beta, weight, level, source }
+        })
+        .collect();
+
+    // Apply Bayesian update if observation provided
+    if let Some(obs) = params.get("observation") {
+        let rule_id = obs.get("rule_id").and_then(|v| v.as_str())
+            .ok_or("observation.rule_id required")?;
+        let success = obs.get("success").and_then(|v| v.as_bool())
+            .ok_or("observation.success required")?;
+
+        for rule in &mut rules {
+            if rule.id == rule_id {
+                *rule = bayesian_update(rule, success);
+                break;
+            }
+        }
+    }
+
+    let temperature = params.get("temperature").and_then(|v| v.as_f64()).unwrap_or(1.0);
+    let probs = softmax(&rules, temperature);
+
+    let rules_json: Vec<Value> = rules
+        .iter()
+        .map(|r| json!({
+            "id": r.id,
+            "alpha": r.alpha,
+            "beta": r.beta,
+            "weight": r.weight,
+            "level": r.level,
+            "source": r.source,
+        }))
+        .collect();
+
+    let probs_json: Vec<Value> = probs
+        .iter()
+        .map(|(id, p)| json!({ "rule_id": id, "probability": p }))
+        .collect();
+
+    Ok(json!({
+        "updated_rules": rules_json,
+        "probabilities": probs_json,
+        "temperature": temperature,
+    }))
+}
+
+// ── machin_grammar_evolve ──────────────────────────────────────
+
+pub fn grammar_evolve(params: Value) -> Result<Value, String> {
+    use machin_grammar::replicator::{simulate, GrammarSpecies};
+
+    let species_val = params
+        .get("species")
+        .and_then(|v| v.as_array())
+        .ok_or("Missing or invalid field 'species'")?;
+
+    let species: Vec<GrammarSpecies> = species_val
+        .iter()
+        .map(|s| {
+            let id = s.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let proportion = s.get("proportion").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let fitness = s.get("fitness").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let is_stable = s.get("is_stable").and_then(|v| v.as_bool()).unwrap_or(false);
+            GrammarSpecies { id, proportion, fitness, is_stable }
+        })
+        .collect();
+
+    let steps = parse_usize(&params, "steps")?;
+    let dt = params.get("dt").and_then(|v| v.as_f64()).unwrap_or(0.05);
+    let prune_threshold = params.get("prune_threshold").and_then(|v| v.as_f64()).unwrap_or(1e-6);
+
+    let result = simulate(&species, steps, dt, prune_threshold);
+
+    let species_to_json = |s: &GrammarSpecies| json!({
+        "id": s.id,
+        "proportion": s.proportion,
+        "fitness": s.fitness,
+        "is_stable": s.is_stable,
+    });
+
+    // Return trajectory sampled at most every 10 steps to keep payload manageable
+    let sample_rate = (steps / 100).max(1);
+    let trajectory_json: Vec<Value> = result.trajectory
+        .iter()
+        .step_by(sample_rate)
+        .map(|step| step.iter().map(species_to_json).collect::<Vec<_>>().into())
+        .collect();
+
+    Ok(json!({
+        "final_species": result.final_species.iter().map(species_to_json).collect::<Vec<_>>(),
+        "trajectory": trajectory_json,
+        "ess": result.ess.iter().map(species_to_json).collect::<Vec<_>>(),
+        "steps": steps,
+        "dt": dt,
+    }))
+}
+
+// ── machin_grammar_search ──────────────────────────────────────
+
+pub fn grammar_search(params: Value) -> Result<Value, String> {
+    use machin_grammar::constrained::{search_derivation, EbnfGrammar};
+
+    let grammar_str = parse_str(&params, "grammar_ebnf")?;
+    let grammar = EbnfGrammar::from_str(grammar_str)?;
+
+    let max_iterations = params.get("max_iterations").and_then(|v| v.as_u64()).unwrap_or(500) as usize;
+    let exploration = params.get("exploration").and_then(|v| v.as_f64()).unwrap_or(1.41);
+    let max_depth = params.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+    let seed = params.get("seed").and_then(|v| v.as_u64()).unwrap_or(42);
+
+    let result = search_derivation(grammar, max_iterations, exploration, max_depth, seed);
+
+    let derivation_json: Vec<Value> = result
+        .best_derivation
+        .iter()
+        .map(|(nt, alt)| json!({ "nonterminal": nt, "alternative": alt }))
+        .collect();
+
+    Ok(json!({
+        "best_derivation": derivation_json,
+        "reward": result.reward,
+        "iterations": result.iterations,
+    }))
+}
+
 // ── machin_cache ───────────────────────────────────────────────
 
 pub fn cache_op(params: Value) -> Result<Value, String> {

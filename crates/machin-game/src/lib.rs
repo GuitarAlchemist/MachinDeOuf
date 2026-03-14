@@ -9,3 +9,4 @@ pub mod cooperative;
 pub mod mechanism;
 pub mod auction;
 pub mod mean_field;
+pub mod grammar_replicator;
