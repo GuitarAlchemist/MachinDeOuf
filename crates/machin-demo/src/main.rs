@@ -38,27 +38,15 @@ enum Tab {
     Probabilistic,
     GpuKernels,
     Transformer,
+    Rotation,
+    NumberTheory,
+    Fractal,
+    Sedenion,
+    Topology,
+    Category,
 }
 
 impl Tab {
-    const ALL: &[Tab] = &[
-        Tab::Stats,
-        Tab::Regression,
-        Tab::Clustering,
-        Tab::NeuralNet,
-        Tab::Optimization,
-        Tab::Chaos,
-        Tab::Signal,
-        Tab::IKChain,
-        Tab::Evolution,
-        Tab::Reinforcement,
-        Tab::Search,
-        Tab::GameTheory,
-        Tab::Probabilistic,
-        Tab::GpuKernels,
-        Tab::Transformer,
-    ];
-
     fn label(self) -> &'static str {
         match self {
             Tab::Stats => "Stats",
@@ -76,6 +64,12 @@ impl Tab {
             Tab::Probabilistic => "Probabilistic",
             Tab::GpuKernels => "GPU Kernels",
             Tab::Transformer => "Transformer",
+            Tab::Rotation => "Rotation",
+            Tab::NumberTheory => "Number Theory",
+            Tab::Fractal => "Fractals",
+            Tab::Sedenion => "Sedenions",
+            Tab::Topology => "Topology",
+            Tab::Category => "Category",
         }
     }
 }
@@ -97,6 +91,12 @@ struct MachinApp {
     prob_demo: demos::probabilistic::ProbabilisticDemo,
     gpu_demo: demos::gpu_kernels::GpuKernelsDemo,
     transformer_demo: demos::transformer::TransformerDemo,
+    rotation_demo: demos::rotation::RotationDemo,
+    number_theory_demo: demos::number_theory::NumberTheoryDemo,
+    fractal_demo: demos::fractal::FractalDemo,
+    sedenion_demo: demos::sedenion::SedenionDemo,
+    topology_demo: demos::topology::TopologyDemo,
+    category_demo: demos::category::CategoryDemo,
 }
 
 impl Default for MachinApp {
@@ -118,6 +118,12 @@ impl Default for MachinApp {
             prob_demo: demos::probabilistic::ProbabilisticDemo::default(),
             gpu_demo: demos::gpu_kernels::GpuKernelsDemo::default(),
             transformer_demo: demos::transformer::TransformerDemo::default(),
+            rotation_demo: demos::rotation::RotationDemo::default(),
+            number_theory_demo: demos::number_theory::NumberTheoryDemo::default(),
+            fractal_demo: demos::fractal::FractalDemo::default(),
+            sedenion_demo: demos::sedenion::SedenionDemo::default(),
+            topology_demo: demos::topology::TopologyDemo::default(),
+            category_demo: demos::category::CategoryDemo::default(),
         }
     }
 }
@@ -128,7 +134,27 @@ impl eframe::App for MachinApp {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("MachinDeOuf");
                 ui.separator();
-                for &tab in Tab::ALL {
+                // Core Math
+                ui.label(egui::RichText::new("Math").strong().small());
+                for tab in [Tab::Stats, Tab::Regression, Tab::Optimization] {
+                    ui.selectable_value(&mut self.active_tab, tab, tab.label());
+                }
+                ui.separator();
+                // ML
+                ui.label(egui::RichText::new("ML").strong().small());
+                for tab in [Tab::Clustering, Tab::NeuralNet, Tab::Transformer, Tab::Evolution, Tab::Reinforcement] {
+                    ui.selectable_value(&mut self.active_tab, tab, tab.label());
+                }
+                ui.separator();
+                // Advanced Math
+                ui.label(egui::RichText::new("Advanced").strong().small());
+                for tab in [Tab::Rotation, Tab::NumberTheory, Tab::Fractal, Tab::Sedenion, Tab::Topology, Tab::Category] {
+                    ui.selectable_value(&mut self.active_tab, tab, tab.label());
+                }
+                ui.separator();
+                // Infrastructure & Systems
+                ui.label(egui::RichText::new("Systems").strong().small());
+                for tab in [Tab::Chaos, Tab::Signal, Tab::IKChain, Tab::Search, Tab::GameTheory, Tab::Probabilistic, Tab::GpuKernels] {
                     ui.selectable_value(&mut self.active_tab, tab, tab.label());
                 }
             });
@@ -152,6 +178,12 @@ impl eframe::App for MachinApp {
                     Tab::Probabilistic => self.prob_demo.ui(ui),
                     Tab::GpuKernels => self.gpu_demo.ui(ui),
                     Tab::Transformer => self.transformer_demo.ui(ui),
+                    Tab::Rotation => self.rotation_demo.ui(ui),
+                    Tab::NumberTheory => self.number_theory_demo.ui(ui),
+                    Tab::Fractal => self.fractal_demo.ui(ui),
+                    Tab::Sedenion => self.sedenion_demo.ui(ui),
+                    Tab::Topology => self.topology_demo.ui(ui),
+                    Tab::Category => self.category_demo.ui(ui),
                 }
             });
         });

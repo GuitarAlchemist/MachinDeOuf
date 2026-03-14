@@ -32,3 +32,9 @@ machin-gpu = { workspace = true }
 machin-probabilistic = { workspace = true }
 machin-search = { workspace = true }
 machin-game = { workspace = true }
+machin-rotation = { workspace = true }
+machin-sedenion = { workspace = true }
+machin-fractal = { workspace = true }
+machin-number-theory = { workspace = true }
+machin-topo = { workspace = true }
+machin-category = { workspace = true }

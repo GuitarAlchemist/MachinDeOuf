@@ -82,6 +82,10 @@ machin-dynamics = { path = "crates/machin-dynamics", version = "0.1.0" }
 machin-ktheory = { path = "crates/machin-ktheory", version = "0.1.0" }
 machin-topo = { path = "crates/machin-topo", version = "0.1.0" }
 machin-category = { path = "crates/machin-category", version = "0.1.0" }
+machin-rotation = { path = "crates/machin-rotation", version = "0.1.0" }
+machin-sedenion = { path = "crates/machin-sedenion", version = "0.1.0" }
+machin-fractal = { path = "crates/machin-fractal", version = "0.1.0" }
+machin-number-theory = { path = "crates/machin-number-theory", version = "0.1.0" }
 parking_lot = "0.12"
 
 # Testing & benchmarking
