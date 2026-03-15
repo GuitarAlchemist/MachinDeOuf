@@ -20,3 +20,4 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 ix-supervised = { workspace = true }
+ix-gpu = { workspace = true }

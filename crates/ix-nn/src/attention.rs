@@ -404,6 +404,203 @@ pub fn multi_head_attention(
     (output, head_weights)
 }
 
+/// Try to create a GPU context, returning None if no GPU is available.
+///
+/// Uses `pollster::block_on` internally — safe to call from synchronous code.
+pub fn try_gpu() -> Option<ix_gpu::context::GpuContext> {
+    ix_gpu::context::GpuContext::new().ok()
+}
+
+/// GPU-accelerated scaled dot-product attention.
+///
+/// Falls back to CPU if `gpu_ctx` is `None`.
+/// Uses `ix_gpu::matmul::matmul_gpu` for the Q·K^T and attn_weights·V matrix products,
+/// while scaling, masking, and softmax remain on the CPU for numerical precision.
+///
+/// `q`, `k`, `v` have shape `(batch, seq_len, d_k)`.
+/// Optional `mask` has shape `(seq_len, seq_len)` — added to scores before softmax.
+///
+/// Returns `(output, attention_weights)`:
+/// - output: `(batch, seq_len, d_k)`
+/// - weights: `(batch, seq_len, seq_len)`
+pub fn scaled_dot_product_attention_gpu(
+    q: &Array3<f64>,
+    k: &Array3<f64>,
+    v: &Array3<f64>,
+    mask: Option<&Array2<f64>>,
+    gpu_ctx: Option<&ix_gpu::context::GpuContext>,
+) -> (Array3<f64>, Array3<f64>) {
+    let ctx = match gpu_ctx {
+        Some(c) => c,
+        None => return scaled_dot_product_attention(q, k, v, mask),
+    };
+
+    let batch = q.shape()[0];
+    let seq_len = q.shape()[1];
+    let d_k = q.shape()[2];
+    let scale = (d_k as f64).sqrt();
+    let kv_seq = k.shape()[1];
+
+    let mut output = Array3::zeros((batch, seq_len, v.shape()[2]));
+    let mut all_weights = Array3::zeros((batch, seq_len, kv_seq));
+
+    for b in 0..batch {
+        let q_b = q.slice(s![b, .., ..]);
+        let k_b = k.slice(s![b, .., ..]);
+        let v_b = v.slice(s![b, .., ..]);
+
+        // Convert to f32 flat arrays for GPU
+        let q_f32: Vec<f32> = q_b.iter().map(|&x| x as f32).collect();
+        // K^T: transpose from (kv_seq, d_k) to (d_k, kv_seq) in row-major
+        let mut k_t_f32 = vec![0.0f32; d_k * kv_seq];
+        for i in 0..kv_seq {
+            for j in 0..d_k {
+                k_t_f32[j * kv_seq + i] = k_b[[i, j]] as f32;
+            }
+        }
+
+        // Q @ K^T via GPU: (seq_len, d_k) × (d_k, kv_seq) -> (seq_len, kv_seq)
+        let scores_f32 = ix_gpu::matmul::matmul_gpu(ctx, &q_f32, &k_t_f32, seq_len, d_k, kv_seq);
+
+        // Convert back to f64, apply scaling and mask on CPU
+        let mut scores = Array2::from_shape_vec(
+            (seq_len, kv_seq),
+            scores_f32.into_iter().map(|x| x as f64 / scale).collect(),
+        )
+        .expect("scores shape mismatch");
+
+        if let Some(m) = mask {
+            scores += m;
+        }
+
+        // Softmax on CPU (numerically sensitive, keep in f64)
+        let weights = softmax_2d(&scores);
+
+        // Convert weights to f32 for GPU matmul
+        let attn_f32: Vec<f32> = weights.iter().map(|&x| x as f32).collect();
+        let v_f32: Vec<f32> = v_b.iter().map(|&x| x as f32).collect();
+
+        // attn_weights @ V via GPU: (seq_len, kv_seq) × (kv_seq, d_v) -> (seq_len, d_v)
+        let d_v = v.shape()[2];
+        let out_f32 = ix_gpu::matmul::matmul_gpu(ctx, &attn_f32, &v_f32, seq_len, kv_seq, d_v);
+
+        // Convert result back to f64
+        let out = Array2::from_shape_vec(
+            (seq_len, d_v),
+            out_f32.into_iter().map(|x| x as f64).collect(),
+        )
+        .expect("output shape mismatch");
+
+        output.slice_mut(s![b, .., ..]).assign(&out);
+        all_weights.slice_mut(s![b, .., ..]).assign(&weights);
+    }
+
+    (output, all_weights)
+}
+
+/// GPU-accelerated multi-head attention.
+///
+/// Falls back to CPU if `gpu_ctx` is `None`.
+/// Uses GPU matmul for projection matrices (Q·W_Q, K·W_K, V·W_V),
+/// per-head attention, and the output projection.
+///
+/// `q`, `k`, `v` have shape `(batch, seq_len, d_model)`.
+/// `w_q`, `w_k`, `w_v` are projection matrices `(d_model, d_model)`.
+/// `w_o` is output projection `(d_model, d_model)`.
+///
+/// Returns `(output, attention_weights_per_head)`.
+#[allow(clippy::too_many_arguments)]
+pub fn multi_head_attention_gpu(
+    q: &Array3<f64>,
+    k: &Array3<f64>,
+    v: &Array3<f64>,
+    w_q: &Array2<f64>,
+    w_k: &Array2<f64>,
+    w_v: &Array2<f64>,
+    w_o: &Array2<f64>,
+    n_heads: usize,
+    mask: Option<&Array2<f64>>,
+    gpu_ctx: Option<&ix_gpu::context::GpuContext>,
+) -> (Array3<f64>, Vec<Array3<f64>>) {
+    let ctx = match gpu_ctx {
+        Some(c) => c,
+        None => return multi_head_attention(q, k, v, w_q, w_k, w_v, w_o, n_heads, mask),
+    };
+
+    let batch = q.shape()[0];
+    let seq_len = q.shape()[1];
+    let d_model = q.shape()[2];
+    let d_k = d_model / n_heads;
+
+    // Project Q, K, V using GPU matmul
+    let q_proj = matmul_3d_2d_gpu(q, w_q, ctx);
+    let k_proj = matmul_3d_2d_gpu(k, w_k, ctx);
+    let v_proj = matmul_3d_2d_gpu(v, w_v, ctx);
+
+    // Split into heads and compute attention
+    let mut head_outputs = Vec::with_capacity(n_heads);
+    let mut head_weights = Vec::with_capacity(n_heads);
+
+    for h in 0..n_heads {
+        let start = h * d_k;
+        let end = start + d_k;
+
+        let q_h = q_proj.slice(s![.., .., start..end]).to_owned();
+        let k_h = k_proj.slice(s![.., .., start..end]).to_owned();
+        let v_h = v_proj.slice(s![.., .., start..end]).to_owned();
+
+        let (out, w) = scaled_dot_product_attention_gpu(&q_h, &k_h, &v_h, mask, Some(ctx));
+        head_outputs.push(out);
+        head_weights.push(w);
+    }
+
+    // Concatenate heads: (batch, seq_len, d_model)
+    let mut concat = Array3::zeros((batch, seq_len, d_model));
+    for (h, head_out) in head_outputs.iter().enumerate() {
+        let start = h * d_k;
+        concat.slice_mut(s![.., .., start..start + d_k]).assign(head_out);
+    }
+
+    // Output projection via GPU matmul
+    let output = matmul_3d_2d_gpu(&concat, w_o, ctx);
+
+    (output, head_weights)
+}
+
+/// Helper: GPU-accelerated (batch, seq, d_in) × (d_in, d_out) -> (batch, seq, d_out).
+///
+/// Uses `ix_gpu::matmul::matmul_gpu` for each batch element.
+fn matmul_3d_2d_gpu(
+    a: &Array3<f64>,
+    b: &Array2<f64>,
+    ctx: &ix_gpu::context::GpuContext,
+) -> Array3<f64> {
+    let batch = a.shape()[0];
+    let seq = a.shape()[1];
+    let d_in = a.shape()[2];
+    let d_out = b.shape()[1];
+    let mut result = Array3::zeros((batch, seq, d_out));
+
+    // Pre-convert b to f32 (shared across batches)
+    let b_f32: Vec<f32> = b.iter().map(|&x| x as f32).collect();
+
+    for i in 0..batch {
+        let a_b = a.slice(s![i, .., ..]);
+        let a_f32: Vec<f32> = a_b.iter().map(|&x| x as f32).collect();
+
+        let out_f32 = ix_gpu::matmul::matmul_gpu(ctx, &a_f32, &b_f32, seq, d_in, d_out);
+
+        let out = Array2::from_shape_vec(
+            (seq, d_out),
+            out_f32.into_iter().map(|x| x as f64).collect(),
+        )
+        .expect("matmul_3d_2d_gpu shape mismatch");
+
+        result.slice_mut(s![i, .., ..]).assign(&out);
+    }
+    result
+}
+
 /// Helper: multiply (batch, seq, d_in) × (d_in, d_out) -> (batch, seq, d_out)
 pub(crate) fn matmul_3d_2d(a: &Array3<f64>, b: &Array2<f64>) -> Array3<f64> {
     let batch = a.shape()[0];
@@ -727,5 +924,172 @@ mod tests {
 
         let diff: f64 = (&w_q - &w_q_before).mapv(|v| v.abs()).sum();
         assert!(diff > 1e-10, "w_q should have been updated");
+    }
+
+    // --- GPU attention tests ---
+
+    #[test]
+    fn test_gpu_attention_fallback_to_cpu() {
+        // When gpu_ctx is None, GPU version should produce identical results to CPU
+        let q = Array3::from_shape_fn((2, 4, 8), |(b, i, j)| (b + i + j) as f64 * 0.1);
+        let k = Array3::from_shape_fn((2, 4, 8), |(b, i, j)| (b * 2 + i + j) as f64 * 0.1);
+        let v = Array3::from_shape_fn((2, 4, 8), |(b, i, j)| (b + i * 2 + j) as f64 * 0.1);
+
+        let (cpu_out, cpu_w) = scaled_dot_product_attention(&q, &k, &v, None);
+        let (gpu_out, gpu_w) = scaled_dot_product_attention_gpu(&q, &k, &v, None, None);
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!((a - b).abs() < 1e-15, "fallback should be identical to CPU");
+        }
+        for (a, b) in cpu_w.iter().zip(gpu_w.iter()) {
+            assert!((a - b).abs() < 1e-15, "fallback weights should be identical to CPU");
+        }
+    }
+
+    #[test]
+    fn test_gpu_attention_matches_cpu() {
+        // If GPU is available, results should match CPU within f32 tolerance
+        let ctx = try_gpu();
+        let q = Array3::from_shape_fn((1, 3, 4), |(_, i, j)| (i + j) as f64 * 0.1 + 0.05);
+        let k = Array3::from_shape_fn((1, 3, 4), |(_, i, j)| (i * 2 + j) as f64 * 0.1 + 0.1);
+        let v = Array3::from_shape_fn((1, 3, 4), |(_, i, j)| (i + j * 2) as f64 * 0.1 + 0.02);
+
+        let (cpu_out, cpu_w) = scaled_dot_product_attention(&q, &k, &v, None);
+        let (gpu_out, gpu_w) = scaled_dot_product_attention_gpu(&q, &k, &v, None, ctx.as_ref());
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!(
+                (a - b).abs() < 1e-5,
+                "GPU/CPU output mismatch: cpu={a}, gpu={b}"
+            );
+        }
+        for (a, b) in cpu_w.iter().zip(gpu_w.iter()) {
+            assert!(
+                (a - b).abs() < 1e-5,
+                "GPU/CPU weights mismatch: cpu={a}, gpu={b}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_gpu_attention_with_mask() {
+        let ctx = try_gpu();
+        let q = Array3::ones((1, 4, 2));
+        let k = Array3::ones((1, 4, 2));
+        let v = Array3::from_shape_fn((1, 4, 2), |(_, i, _)| i as f64);
+        let mask = causal_mask(4);
+
+        let (cpu_out, cpu_w) = scaled_dot_product_attention(&q, &k, &v, Some(&mask));
+        let (gpu_out, gpu_w) =
+            scaled_dot_product_attention_gpu(&q, &k, &v, Some(&mask), ctx.as_ref());
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!((a - b).abs() < 1e-5, "masked output mismatch: cpu={a}, gpu={b}");
+        }
+        for (a, b) in cpu_w.iter().zip(gpu_w.iter()) {
+            assert!((a - b).abs() < 1e-5, "masked weights mismatch: cpu={a}, gpu={b}");
+        }
+    }
+
+    #[test]
+    fn test_gpu_attention_batch_sizes() {
+        let ctx = try_gpu();
+        for batch in [1, 2, 4] {
+            for seq in [2, 5, 8] {
+                let d_k = 4;
+                let q = Array3::from_shape_fn((batch, seq, d_k), |(b, i, j)| {
+                    ((b * 7 + i * 3 + j) as f64 * 0.1).sin()
+                });
+                let k = Array3::from_shape_fn((batch, seq, d_k), |(b, i, j)| {
+                    ((b * 5 + i * 2 + j + 1) as f64 * 0.1).cos()
+                });
+                let v = Array3::from_shape_fn((batch, seq, d_k), |(b, i, j)| {
+                    ((b * 3 + i + j * 2) as f64 * 0.1).sin()
+                });
+
+                let (cpu_out, _) = scaled_dot_product_attention(&q, &k, &v, None);
+                let (gpu_out, _) =
+                    scaled_dot_product_attention_gpu(&q, &k, &v, None, ctx.as_ref());
+
+                for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+                    assert!(
+                        (a - b).abs() < 1e-4,
+                        "batch={batch}, seq={seq}: cpu={a}, gpu={b}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_gpu_multi_head_attention_fallback() {
+        let d_model = 8;
+        let n_heads = 2;
+        let q = Array3::ones((1, 4, d_model));
+        let k = Array3::ones((1, 4, d_model));
+        let v = Array3::ones((1, 4, d_model));
+        let eye = Array2::from_diag(&ndarray::Array1::ones(d_model));
+
+        let (cpu_out, _) = multi_head_attention(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, None,
+        );
+        let (gpu_out, _) = multi_head_attention_gpu(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, None, None,
+        );
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!((a - b).abs() < 1e-15, "fallback mismatch");
+        }
+    }
+
+    #[test]
+    fn test_gpu_multi_head_attention_matches_cpu() {
+        let ctx = try_gpu();
+        let d_model = 8;
+        let n_heads = 2;
+        let q = Array3::from_shape_fn((1, 4, d_model), |(_, i, j)| (i + j) as f64 * 0.1);
+        let k = q.clone();
+        let v = Array3::ones((1, 4, d_model));
+        let eye = Array2::from_diag(&ndarray::Array1::ones(d_model));
+
+        let (cpu_out, _) = multi_head_attention(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, None,
+        );
+        let (gpu_out, _) = multi_head_attention_gpu(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, None, ctx.as_ref(),
+        );
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!(
+                (a - b).abs() < 1e-5,
+                "multi-head GPU/CPU mismatch: cpu={a}, gpu={b}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_gpu_multi_head_attention_with_mask() {
+        let ctx = try_gpu();
+        let d_model = 4;
+        let n_heads = 2;
+        let q = Array3::ones((1, 3, d_model));
+        let k = Array3::ones((1, 3, d_model));
+        let v = Array3::from_shape_fn((1, 3, d_model), |(_, i, _)| i as f64);
+        let eye = Array2::from_diag(&ndarray::Array1::ones(d_model));
+        let mask = causal_mask(3);
+
+        let (cpu_out, _) = multi_head_attention(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, Some(&mask),
+        );
+        let (gpu_out, _) = multi_head_attention_gpu(
+            &q, &k, &v, &eye, &eye, &eye, &eye, n_heads, Some(&mask), ctx.as_ref(),
+        );
+
+        for (a, b) in cpu_out.iter().zip(gpu_out.iter()) {
+            assert!(
+                (a - b).abs() < 1e-5,
+                "masked multi-head mismatch: cpu={a}, gpu={b}"
+            );
+        }
     }
 }
