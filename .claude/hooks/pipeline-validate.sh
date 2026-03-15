@@ -11,7 +11,7 @@ if [[ "$TOOL_NAME" =~ ^(Write|Edit)$ ]] && [[ "$FILE_PATH" == *pipeline* ]]; the
     if [[ -f "$FILE_PATH" ]]; then
         # Warn if a node references itself as input
         if grep -qE '\.input\("[^"]+",\s*"([^"]+)"\).*\.node\("\1"' "$FILE_PATH" 2>/dev/null; then
-            echo "[machin-pipeline] WARNING: Possible self-referencing node detected" >&2
+            echo "[ix-pipeline] WARNING: Possible self-referencing node detected" >&2
         fi
     fi
 fi
