@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/GuitarAlchemist/ix/actions/workflows/ci.yml/badge.svg)](https://github.com/GuitarAlchemist/ix/actions/workflows/ci.yml)
 
-A Rust workspace of composable ML/math algorithms, designed to be exposed as **Claude Code skills** via an MCP server and CLI.
+A Rust workspace of composable ML/math algorithms and AI governance, designed to be exposed as **Claude Code skills** via an MCP server and CLI. Part of the [GuitarAlchemist](https://github.com/GuitarAlchemist) ecosystem (ix + [tars](https://github.com/GuitarAlchemist/tars) + [ga](https://github.com/GuitarAlchemist/ga) + [Demerzel](https://github.com/GuitarAlchemist/Demerzel)).
 
-27 crates. Pure Rust. No external ML frameworks.
+32 crates. 37 MCP tools. 80+ Claude Code skills. Pure Rust. No external ML frameworks.
 
 ## Quick Start
 
@@ -39,13 +39,13 @@ cargo run -p ix-agent
 ### Unsupervised Learning
 | Crate | Description |
 |-------|-------------|
-| **ix-unsupervised** | K-Means clustering, DBSCAN, PCA (power iteration) |
+| **ix-unsupervised** | K-Means, DBSCAN, PCA, t-SNE (Barnes-Hut), GMM (EM algorithm) |
 
 ### Deep Learning & RL
 | Crate | Description |
 |-------|-------------|
-| **ix-nn** | Neural network layers, loss functions, backpropagation |
-| **ix-rl** | Multi-armed bandits (epsilon-greedy, UCB1, Thompson sampling), Q-learning |
+| **ix-nn** | Neural network layers, loss functions, backpropagation, Sequential network |
+| **ix-rl** | Multi-armed bandits (epsilon-greedy, UCB1, Thompson), Q-learning, GridWorld |
 | **ix-evolution** | Genetic algorithms, differential evolution |
 
 ### Search & Graphs
@@ -74,6 +74,10 @@ cargo run -p ix-agent
 | **ix-ktheory** | Graph K-theory, Grothendieck K0/K1, Mayer-Vietoris sequences |
 | **ix-category** | Functors, natural transformations, monads, category theory primitives |
 | **ix-grammar** | Formal grammars: context-free grammars, Earley parser, CYK, Chomsky normal form |
+| **ix-rotation** | Quaternions, SLERP, Euler angles, axis-angle, rotation matrices, Plücker coordinates |
+| **ix-sedenion** | Hypercomplex algebra: sedenions, octonions, Cayley-Dickson construction, BSP trees |
+| **ix-fractal** | Takagi curves, IFS (Sierpinski, fern), L-systems, Hilbert/Peano/Morton space-filling curves |
+| **ix-number-theory** | Prime sieving, Miller-Rabin, modular arithmetic, CRT, elliptic curves |
 
 ### Infrastructure
 | Crate | Description |
@@ -82,14 +86,19 @@ cargo run -p ix-agent
 | **ix-cache** | Embedded Redis-like cache with sharded concurrency, TTL, LRU eviction, pub/sub, RESP protocol server |
 | **ix-pipeline** | DAG executor with topological sort, parallel branch execution, memoization, critical path analysis |
 | **ix-probabilistic** | Bloom filter, Count-Min sketch, HyperLogLog, Cuckoo filter |
-| **ix-io** | CSV, JSON, file watcher, named pipes, TCP, HTTP client, WebSocket |
+| **ix-io** | CSV, JSON, file watcher, named pipes, TCP, HTTP, WebSocket, trace bridge |
+
+### Governance
+| Crate | Description |
+|-------|-------------|
+| **ix-governance** | Demerzel governance: tetravalent logic (T/F/U/C), constitution parser, 12 persona loader, policy engine |
 
 ### Integration
 | Crate | Description |
 |-------|-------------|
-| **ix-agent** | MCP server exposing all algorithms as Claude Code tools via JSON-RPC over stdio |
-| **ix-skill** | CLI binary (`machin`) for direct command-line access to all algorithms |
-| **ix-demo** | egui desktop app with 16 interactive demo tabs (stats, regression, clustering, neural nets, chaos, GPU, transformer, etc.) |
+| **ix-agent** | MCP server: 37 tools via JSON-RPC over stdio (algorithms + governance + federation) |
+| **ix-skill** | CLI binary for direct command-line access to all algorithms |
+| **ix-demo** | egui desktop app with 22+ interactive demo tabs including governance explorer |
 
 ## Claude Code Integration
 
@@ -112,18 +121,33 @@ Claude can then call tools like `ix_kmeans`, `ix_viterbi`, `ix_optimize`, etc. d
 
 ### Skills
 
-10 Claude Code skills are included in `.claude/skills/`:
+80+ Claude Code skills organized by domain:
 
-- `/ix-optimize` — Function minimization
-- `/ix-cluster` — Data clustering
-- `/ix-search` — Pathfinding and game search
-- `/ix-chaos` — Dynamical systems analysis
-- `/ix-hmm` — Hidden Markov Model decoding
-- `/ix-adversarial` — Robustness testing
-- `/ix-game` — Game theory analysis
-- `/ix-pipeline` — DAG orchestration
-- `/ix-signal` — Signal processing
-- `/ix-benchmark` — Performance profiling
+**Algorithm skills** (26): ix-optimize, ix-cluster, ix-search, ix-chaos, ix-hmm, ix-adversarial, ix-game, ix-pipeline, ix-signal, ix-benchmark, ix-nn, ix-bandit, ix-evolution, ix-random-forest, ix-supervised, ix-topo, ix-category, ix-dynamics, ix-ktheory, ix-gpu, ix-cache, ix-grammar, ix-rotation, ix-sedenion, ix-fractal, ix-number-theory
+
+**Governance skills** (3): ix-governance-check, ix-governance-persona, ix-governance-belief
+
+**Federation skills** (4): federation-discover, federation-grammar, federation-music, federation-traces
+
+**Ecosystem skills** (4): governed-execute, ecosystem-audit, roadblock-resolver, delegate-cli
+
+### MCP Federation
+
+ix connects to tars (F# reasoning) and ga (music theory) via MCP:
+
+```json
+{
+  "mcpServers": {
+    "ix": { "command": "cargo", "args": ["run", "--release", "-p", "ix-agent"] },
+    "tars": { "command": "dotnet", "args": ["run", "--project", "path/to/Tars.Interface.Cli", "--", "mcp", "server"] },
+    "ga": { "command": "dotnet", "args": ["run", "--project", "path/to/GaMcpServer"] }
+  }
+}
+```
+
+### Demerzel Governance
+
+Agents operate under the [Demerzel](https://github.com/GuitarAlchemist/Demerzel) constitution (11 articles, 12 personas, tetravalent logic). Named after [R. Daneel Olivaw](https://asimov.fandom.com/wiki/R._Daneel_Olivaw) — consistent with Asimov's Zeroth Law.
 
 ## Examples
 
