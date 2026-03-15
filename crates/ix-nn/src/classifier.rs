@@ -187,9 +187,9 @@ impl Classifier for TransformerClassifier {
                 sample += pos;
             }
 
-            // Transformer forward
-            let stack = self.stack.as_ref().unwrap();
-            let transformed = stack.forward(&encoded, None);
+            // Transformer forward (with cache for backward)
+            let stack = self.stack.as_mut().unwrap();
+            let transformed = stack.forward_cache(&encoded, None);
 
             // Mean pool → (batch, d_model)
             let pooled = Self::mean_pool(&transformed);
@@ -220,7 +220,7 @@ impl Classifier for TransformerClassifier {
             // Head backward
             let grad_hw = pooled.t().dot(&grad_logits);
             let grad_hb = grad_logits.sum_axis(Axis(0));
-            let _grad_pooled = grad_logits.dot(&hw.t());
+            let grad_pooled = grad_logits.dot(&hw.t());
 
             // Update head weights
             let lr = self.config.learning_rate;
@@ -229,10 +229,21 @@ impl Classifier for TransformerClassifier {
             let hb_mut = self.head_bias.as_mut().unwrap();
             *hb_mut = &*hb_mut - &(&grad_hb * lr);
 
-            // NOTE: Transformer stack backward would go here once backward passes are implemented.
-            // For now, only the classification head is trained.
-            // When TransformerStack::backward is available:
-            //   let grad_pooled_3d = expand grad_pooled to (batch, seq, d_model) / seq_len
+            // Backprop through mean pool: distribute gradient equally across sequence positions
+            let seq_len = self.seq_len;
+            let d_model = self.config.d_model;
+            let mut grad_transformed = Array3::zeros((n_samples, seq_len, d_model));
+            for i in 0..n_samples {
+                for s in 0..seq_len {
+                    for d in 0..d_model {
+                        grad_transformed[[i, s, d]] = grad_pooled[[i, d]] / seq_len as f64;
+                    }
+                }
+            }
+
+            // Full transformer stack backward — trains all attention, FFN, and norm weights
+            let stack = self.stack.as_mut().unwrap();
+            stack.backward(&grad_transformed, lr);
             //   stack.backward(&grad_pooled_3d, lr);
         }
     }
@@ -360,8 +371,8 @@ impl Regressor for TransformerRegressor {
                 sample += pos;
             }
 
-            let stack = self.stack.as_ref().unwrap();
-            let transformed = stack.forward(&encoded, None);
+            let stack = self.stack.as_mut().unwrap();
+            let transformed = stack.forward_cache(&encoded, None);
             let pooled = Self::mean_pool(&transformed);
 
             let hw = self.head_weights.as_ref().unwrap();
@@ -379,11 +390,26 @@ impl Regressor for TransformerRegressor {
             // Head backward
             let grad_hw = pooled.t().dot(&grad_pred);
             let grad_hb: f64 = grad_pred.sum();
+            let grad_pooled = grad_pred.dot(&hw.t());
 
             let lr = self.config.learning_rate;
             let hw_mut = self.head_weights.as_mut().unwrap();
             *hw_mut = &*hw_mut - &(&grad_hw * lr);
             *self.head_bias.as_mut().unwrap() -= lr * grad_hb;
+
+            // Backprop through mean pool → transformer stack
+            let seq_len = self.seq_len;
+            let d_model = self.config.d_model;
+            let mut grad_transformed = Array3::zeros((n_samples, seq_len, d_model));
+            for i in 0..n_samples {
+                for s in 0..seq_len {
+                    for d in 0..d_model {
+                        grad_transformed[[i, s, d]] = grad_pooled[[i, d]] / seq_len as f64;
+                    }
+                }
+            }
+            let stack = self.stack.as_mut().unwrap();
+            stack.backward(&grad_transformed, lr);
         }
     }
 
