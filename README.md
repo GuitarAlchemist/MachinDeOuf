@@ -33,8 +33,8 @@ cargo run -p ix-agent
 ### Supervised Learning
 | Crate | Description |
 |-------|-------------|
-| **ix-supervised** | Linear/logistic regression, decision trees (CART), KNN, Naive Bayes, SVM, metrics |
-| **ix-ensemble** | Random forest with bootstrap aggregation and random feature subsets |
+| **ix-supervised** | Linear/logistic regression, decision trees, KNN, Naive Bayes, SVM, metrics (confusion matrix, ROC/AUC), cross-validation, SMOTE, TF-IDF |
+| **ix-ensemble** | Random forest, gradient boosted trees |
 
 ### Unsupervised Learning
 | Crate | Description |
@@ -44,7 +44,7 @@ cargo run -p ix-agent
 ### Deep Learning & RL
 | Crate | Description |
 |-------|-------------|
-| **ix-nn** | Neural network layers, loss functions, backpropagation, Sequential network |
+| **ix-nn** | Neural network layers (Dense, LayerNorm, BatchNorm, Dropout), loss functions, backprop, transformers |
 | **ix-rl** | Multi-armed bandits (epsilon-greedy, UCB1, Thompson), Q-learning, GridWorld |
 | **ix-evolution** | Genetic algorithms, differential evolution |
 
@@ -179,6 +179,14 @@ cargo run --example viterbi_hmm
 cargo run --example bloom_filter
 # etc.
 ```
+
+## Documentation
+
+**[Learning Path — 60+ tutorials](docs/INDEX.md)** from foundations to advanced topics, with runnable Rust examples.
+
+**[🇫🇷 Parcours d'apprentissage en français](docs/fr/INDEX.md)** — 11 tutoriels d'algorithmes + 4 cas pratiques traduits en français.
+
+Topics: linear algebra, optimization, supervised/unsupervised learning, neural networks, reinforcement learning, game theory, signal processing, chaos theory, adversarial ML, GPU computing, and more.
 
 ## Architecture
 

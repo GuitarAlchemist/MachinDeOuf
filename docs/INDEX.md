@@ -2,6 +2,8 @@
 
 > From zero to ML practitioner — using real Rust code you can run today.
 
+**🇫🇷 [Version française disponible](fr/INDEX.md)**
+
 This index is your roadmap. Follow it top to bottom as a curriculum, or jump to any topic you need. Every doc links to runnable code in [`examples/`](../examples/).
 
 ---
