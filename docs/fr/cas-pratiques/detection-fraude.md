@@ -177,13 +177,13 @@ sur la fraude.
 
 ```rust
 // --- SANS SMOTE : entraînement sur données déséquilibrées ---
-let mut gbc_no_smote = GradientBoostedClassifier::new(100, 0.1, 3);
+let mut gbc_no_smote = GradientBoostedClassifier::new(100, 0.1);
 gbc_no_smote.fit(&x, &y);  // données originales déséquilibrées
 let pred_no_smote = gbc_no_smote.predict(&x);
 let recall_no_smote = recall(&y, &pred_no_smote, 1);
 
 // --- AVEC SMOTE : entraînement sur données équilibrées ---
-let mut gbc_smote = GradientBoostedClassifier::new(100, 0.1, 3);
+let mut gbc_smote = GradientBoostedClassifier::new(100, 0.1);
 gbc_smote.fit(&x_bal, &y_bal);  // données équilibrées par SMOTE
 let pred_smote = gbc_smote.predict(&x);
 let recall_smote = recall(&y, &pred_smote, 1);

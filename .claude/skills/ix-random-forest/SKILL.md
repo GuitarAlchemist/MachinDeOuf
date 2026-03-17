@@ -45,7 +45,7 @@ rf.fit(&x_train, &y_train);
 let preds = rf.predict(&x_test);
 
 // Gradient Boosting
-let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+let mut gbc = GradientBoostedClassifier::new(50, 0.1);
 gbc.fit(&x_train, &y_train);
 let preds = gbc.predict(&x_test);
 let probas = gbc.predict_proba(&x_test);

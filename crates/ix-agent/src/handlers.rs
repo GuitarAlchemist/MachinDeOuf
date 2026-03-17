@@ -1195,9 +1195,8 @@ pub fn gradient_boosting(params: Value) -> Result<Value, String> {
 
     let n_estimators = params.get("n_estimators").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
     let learning_rate = params.get("learning_rate").and_then(|v| v.as_f64()).unwrap_or(0.1);
-    let max_depth = params.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
 
-    let mut gbc = GradientBoostedClassifier::new(n_estimators, learning_rate, max_depth);
+    let mut gbc = GradientBoostedClassifier::new(n_estimators, learning_rate);
     gbc.fit(&x_train, &y_train);
     let predictions = gbc.predict(&x_test);
     let probas = gbc.predict_proba(&x_test);
@@ -1209,7 +1208,6 @@ pub fn gradient_boosting(params: Value) -> Result<Value, String> {
         "probabilities": proba_rows,
         "n_estimators": n_estimators,
         "learning_rate": learning_rate,
-        "max_depth": max_depth,
     }))
 }
 

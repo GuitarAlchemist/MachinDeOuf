@@ -173,13 +173,13 @@ The real payoff -- showing that SMOTE dramatically improves fraud recall.
 
 ```rust
 // --- WITHOUT SMOTE: train on imbalanced data ---
-let mut gbc_no_smote = GradientBoostedClassifier::new(100, 0.1, 3);
+let mut gbc_no_smote = GradientBoostedClassifier::new(100, 0.1);
 gbc_no_smote.fit(&x, &y);  // original imbalanced data
 let pred_no_smote = gbc_no_smote.predict(&x);
 let recall_no_smote = recall(&y, &pred_no_smote, 1);
 
 // --- WITH SMOTE: train on balanced data ---
-let mut gbc_smote = GradientBoostedClassifier::new(100, 0.1, 3);
+let mut gbc_smote = GradientBoostedClassifier::new(100, 0.1);
 gbc_smote.fit(&x_bal, &y_bal);  // SMOTE-balanced data
 let pred_smote = gbc_smote.predict(&x);
 let recall_smote = recall(&y, &pred_smote, 1);

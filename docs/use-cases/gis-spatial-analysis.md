@@ -409,7 +409,7 @@ let x = Array2::from_shape_vec((8, 5), vec![
 ]).unwrap();
 let y = array![1, 1, 1, 1, 0, 0, 0, 0]; // 1 = high-risk period
 
-let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+let mut gbc = GradientBoostedClassifier::new(50, 0.1);
 gbc.fit(&x, &y);
 
 // Predict risk for upcoming shift

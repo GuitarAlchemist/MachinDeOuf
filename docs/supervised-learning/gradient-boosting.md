@@ -85,7 +85,7 @@ fn main() {
     ]).unwrap();
     let y = array![0, 0, 0, 0, 1, 1, 1, 1];
 
-    let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+    let mut gbc = GradientBoostedClassifier::new(50, 0.1);
     gbc.fit(&x, &y);
 
     let preds = gbc.predict(&x);
@@ -134,7 +134,7 @@ fn main() {
     println!("Random Forest acc: {:.4}",
         ix_supervised::metrics::accuracy(&y, &rf.predict(&x)));
 
-    let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+    let mut gbc = GradientBoostedClassifier::new(50, 0.1);
     gbc.fit(&x, &y);
     println!("Gradient Boost acc: {:.4}",
         ix_supervised::metrics::accuracy(&y, &gbc.predict(&x)));

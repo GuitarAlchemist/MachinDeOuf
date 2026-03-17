@@ -26,7 +26,7 @@
 //! ]).unwrap();
 //! let y = array![0, 0, 0, 0, 1, 1, 1, 1];
 //!
-//! let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+//! let mut gbc = GradientBoostedClassifier::new(50, 0.1);
 //! gbc.fit(&x, &y);
 //!
 //! let pred = gbc.predict(&x);
@@ -49,7 +49,7 @@
 //! ]).unwrap();
 //! let y = array![0, 0, 0, 1, 1, 1, 2, 2, 2];
 //!
-//! let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+//! let mut gbc = GradientBoostedClassifier::new(50, 0.1);
 //! gbc.fit(&x, &y);
 //!
 //! let pred = gbc.predict(&x);
@@ -70,7 +70,7 @@
 //! let y = array![0, 0, 0, 1, 1, 1];
 //!
 //! // More trees + lower learning rate = smoother fit
-//! let mut gbc = GradientBoostedClassifier::new(100, 0.05, 2)
+//! let mut gbc = GradientBoostedClassifier::new(100, 0.05)
 //!     .with_min_samples_leaf(1);
 //! gbc.fit(&x, &y);
 //!
@@ -194,8 +194,6 @@ pub struct GradientBoostedClassifier {
     pub n_estimators: usize,
     /// Learning rate (shrinkage factor).
     pub learning_rate: f64,
-    /// Maximum depth per weak learner (currently depth-1 stumps).
-    pub max_depth: usize,
     /// Minimum samples required in each leaf.
     pub min_samples_leaf: usize,
 
@@ -213,12 +211,10 @@ impl GradientBoostedClassifier {
     /// # Arguments
     /// - `n_estimators` — number of boosting rounds
     /// - `learning_rate` — step size shrinkage (0.01–0.3 typical)
-    /// - `max_depth` — maximum tree depth (1 = stump)
-    pub fn new(n_estimators: usize, learning_rate: f64, max_depth: usize) -> Self {
+    pub fn new(n_estimators: usize, learning_rate: f64) -> Self {
         Self {
             n_estimators,
             learning_rate,
-            max_depth,
             min_samples_leaf: 1,
             n_classes: 0,
             init_scores: Vec::new(),
@@ -359,7 +355,7 @@ mod tests {
         ]).unwrap();
         let y = array![0, 0, 0, 0, 1, 1, 1, 1];
 
-        let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+        let mut gbc = GradientBoostedClassifier::new(50, 0.1);
         gbc.fit(&x, &y);
 
         let pred = gbc.predict(&x);
@@ -376,7 +372,7 @@ mod tests {
         ]).unwrap();
         let y = array![0, 0, 0, 1, 1, 1, 2, 2, 2];
 
-        let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3);
+        let mut gbc = GradientBoostedClassifier::new(50, 0.1);
         gbc.fit(&x, &y);
 
         let pred = gbc.predict(&x);
@@ -392,7 +388,7 @@ mod tests {
         ]).unwrap();
         let y = array![0, 0, 1, 1];
 
-        let mut gbc = GradientBoostedClassifier::new(20, 0.1, 2);
+        let mut gbc = GradientBoostedClassifier::new(20, 0.1);
         gbc.fit(&x, &y);
 
         let proba = gbc.predict_proba(&x);
@@ -407,7 +403,7 @@ mod tests {
         let x = Array2::from_shape_vec((4, 1), vec![0.0, 1.0, 5.0, 6.0]).unwrap();
         let y = array![0, 0, 1, 1];
 
-        let mut gbc = GradientBoostedClassifier::new(30, 0.1, 2);
+        let mut gbc = GradientBoostedClassifier::new(30, 0.1);
         gbc.fit(&x, &y);
 
         assert_eq!(gbc.n_estimators(), 30);
@@ -421,13 +417,13 @@ mod tests {
         let y = array![0, 0, 0, 1, 1, 1];
 
         // High LR with few trees
-        let mut gbc_fast = GradientBoostedClassifier::new(10, 0.5, 2);
+        let mut gbc_fast = GradientBoostedClassifier::new(10, 0.5);
         gbc_fast.fit(&x, &y);
         let pred_fast = gbc_fast.predict(&x);
         let acc_fast = accuracy(&y, &pred_fast);
 
         // Low LR with many trees
-        let mut gbc_slow = GradientBoostedClassifier::new(100, 0.05, 2);
+        let mut gbc_slow = GradientBoostedClassifier::new(100, 0.05);
         gbc_slow.fit(&x, &y);
         let pred_slow = gbc_slow.predict(&x);
         let acc_slow = accuracy(&y, &pred_slow);
@@ -445,7 +441,7 @@ mod tests {
         ]).unwrap();
         let y = array![0, 0, 0, 0, 1, 1, 1, 1];
 
-        let mut gbc = GradientBoostedClassifier::new(50, 0.1, 3)
+        let mut gbc = GradientBoostedClassifier::new(50, 0.1)
             .with_min_samples_leaf(2);
         gbc.fit(&x, &y);
 
