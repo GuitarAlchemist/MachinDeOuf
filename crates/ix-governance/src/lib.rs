@@ -12,6 +12,7 @@ pub mod persona;
 pub mod policy;
 pub mod remediation_optimizer;
 pub mod tetravalent;
+pub mod karnaugh;
 pub mod violation_pattern;
 
 pub use constitution::{Article, ArticleRef, ComplianceResult, Constitution};

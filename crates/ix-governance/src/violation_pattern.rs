@@ -102,7 +102,7 @@ impl ViolationPatternAnalyzer {
             .collect();
 
         // Sort by violation count descending.
-        summaries.sort_by(|a, b| b.violation_count.cmp(&a.violation_count));
+        summaries.sort_by_key(|s| std::cmp::Reverse(s.violation_count));
 
         // ── Compute correlation matrix ──────────────────────────────────
         let correlations = Self::compute_correlations(evolution);

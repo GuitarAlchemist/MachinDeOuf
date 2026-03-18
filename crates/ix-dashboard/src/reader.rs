@@ -10,7 +10,7 @@ fn read_json_dir<T: serde::de::DeserializeOwned>(dir: &Path) -> Vec<T> {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "json") {
+        if path.extension().is_some_and(|e| e == "json") {
             if let Ok(content) = std::fs::read_to_string(&path) {
                 match serde_json::from_str::<T>(&content) {
                     Ok(item) => results.push(item),

@@ -62,6 +62,37 @@ impl TruthValue {
             (Unknown, Unknown) => Unknown,
         }
     }
+
+    /// Tetravalent implication: A → B ≡ ¬A ∨ B.
+    pub fn implies(self, other: Self) -> Self {
+        (!self).or(other)
+    }
+
+    /// Tetravalent XOR: exactly one is True.
+    /// XOR(A, B) = (A OR B) AND NOT(A AND B).
+    pub fn xor(self, other: Self) -> Self {
+        self.or(other).and(!(self.and(other)))
+    }
+
+    /// Tetravalent equivalence: A ↔ B ≡ (A → B) ∧ (B → A).
+    pub fn equiv(self, other: Self) -> Self {
+        self.implies(other).and(other.implies(self))
+    }
+
+    /// Returns true if this value is definite (True or False).
+    pub fn is_definite(self) -> bool {
+        matches!(self, TruthValue::True | TruthValue::False)
+    }
+
+    /// Returns true if this value is indefinite (Unknown or Contradictory).
+    pub fn is_indefinite(self) -> bool {
+        !self.is_definite()
+    }
+
+    /// All four values in canonical order.
+    pub fn all() -> [TruthValue; 4] {
+        [TruthValue::True, TruthValue::False, TruthValue::Unknown, TruthValue::Contradictory]
+    }
 }
 
 /// A piece of evidence for or against a proposition.
