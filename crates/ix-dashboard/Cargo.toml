@@ -1,0 +1,20 @@
+[package]
+name = "ix-dashboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Governance dashboard TUI — reads Demerzel state/ and displays health"
+
+[[bin]]
+name = "ix-dashboard"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
