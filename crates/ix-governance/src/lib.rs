@@ -10,7 +10,10 @@ pub mod error;
 pub mod feedback;
 pub mod persona;
 pub mod policy;
+pub mod remediation_optimizer;
 pub mod tetravalent;
+pub mod karnaugh;
+pub mod violation_pattern;
 
 pub use constitution::{Article, ArticleRef, ComplianceResult, Constitution};
 pub use error::{GovernanceError, Result};
@@ -20,4 +23,6 @@ pub use feedback::{
 };
 pub use persona::{list_personas, Persona, Voice};
 pub use policy::{AlignmentPolicy, EscalationLevel, Policy};
+pub use remediation_optimizer::{RemediationOptimizer, RemediationPlan};
 pub use tetravalent::{BeliefState, EvidenceItem, ResolvedAction, TruthValue};
+pub use violation_pattern::{ViolationPatternAnalyzer, ViolationPatternReport};

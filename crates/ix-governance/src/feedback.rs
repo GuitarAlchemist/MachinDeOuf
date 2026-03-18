@@ -227,7 +227,7 @@ impl StateReader {
             if path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map_or(false, |n| n.ends_with(suffix))
+                .is_some_and(|n| n.ends_with(suffix))
             {
                 let contents =
                     std::fs::read_to_string(&path).map_err(crate::GovernanceError::IoError)?;
