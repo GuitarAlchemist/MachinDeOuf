@@ -10,6 +10,7 @@ pub mod activation;
 pub mod calculus;
 pub mod random;
 pub mod hyperbolic;
+pub mod poincare_hierarchy;
 pub mod quaternion;
 pub mod dual_quaternion;
 pub mod plucker;
