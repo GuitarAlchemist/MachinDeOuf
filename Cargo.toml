@@ -35,6 +35,7 @@ members = [
     "crates/ix-governance",
     "crates/ix-code",
     "crates/ix-dashboard",
+    "crates/memristive-markov",
 ]
 
 [workspace.package]

@@ -1,0 +1,47 @@
+[package]
+name = "memristive-markov"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["markov-chain", "memristor", "probabilistic", "machine-learning"]
+description = "Non-linear Markov chains with memristive conductance, VLMM, and GPU acceleration"
+
+[features]
+default = []
+gpu = ["dep:ix-gpu"]
+reservoir = ["dep:ndarray-rand", "dep:rand_distr"]
+ffi = []
+full = ["gpu", "reservoir", "ffi"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+ndarray = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
+ahash = "0.8"
+
+[dependencies.ndarray-rand]
+workspace = true
+optional = true
+
+[dependencies.rand_distr]
+workspace = true
+optional = true
+
+[dependencies.ix-gpu]
+path = "../ix-gpu"
+optional = true
+
+[dev-dependencies]
+proptest = "1"
+criterion = "0.5"
+rand_distr = { workspace = true }
+ndarray-rand = { workspace = true }
+
+[[bench]]
+name = "engine_bench"
+harness = false
