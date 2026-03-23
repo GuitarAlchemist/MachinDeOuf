@@ -22,4 +22,7 @@ pub use conductance::ConductanceMatrix;
 pub use vlmm::VariableOrderSelector;
 pub use sampler::SamplingStrategy;
 pub use consolidator::MemoryConsolidator;
+pub mod governance;
+
 pub use engine::MemristiveEngine;
+pub use governance::{GovernanceState, GovernanceMarkov};
