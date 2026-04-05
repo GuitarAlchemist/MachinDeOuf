@@ -22,6 +22,91 @@ cargo run -p ix-skill -- optimize --algo pso --function sphere --dim 10
 cargo run -p ix-agent
 ```
 
+## Crate Maturity & Stability
+
+### Maturity Tiers
+
+| Tier | Meaning | Downstream-Safe? |
+|------|---------|:---:|
+| **Stable** | API commitments, well-tested, used in production MCP tools | Yes |
+| **Beta** | Feature-complete, actively used, API may change between minor versions | With caution |
+| **Experimental** | Research-grade, novel math, no stability guarantees | No |
+| **Internal** | Tooling/infra, not intended for direct external use | No |
+
+### Stable Subset (safe for ga, tars, Demerzel consumption via MCP)
+
+| Crate | Tier | Notes |
+|-------|------|-------|
+| ix-math | Stable | Core linear algebra, statistics, activations — everything depends on this |
+| ix-optimize | Stable | SGD, Adam, PSO, simulated annealing |
+| ix-supervised | Stable | Regression, trees, KNN, SVM, metrics |
+| ix-ensemble | Stable | Random forest, gradient boosted trees |
+| ix-unsupervised | Stable | KMeans, DBSCAN, PCA, t-SNE, GMM |
+| ix-search | Stable | A*, MCTS, minimax, BFS/DFS |
+| ix-graph | Stable | Markov chains, HMM/Viterbi, agent routing |
+| ix-signal | Stable | FFT, wavelets, Kalman, spectral analysis |
+
+### Beta Crates
+
+| Crate | Tier | Notes |
+|-------|------|-------|
+| ix-nn | Beta | Transformers, backprop — complex but actively developed |
+| ix-pipeline | Beta | DAG executor — critical infrastructure, API stabilizing |
+| ix-agent | Beta | MCP server (37 tools) — production-facing integration point |
+| ix-governance | Beta | Demerzel governance bridge — consumed by ga/tars |
+| ix-cache | Beta | Embedded Redis-like cache — stable patterns |
+| ix-io | Beta | I/O utilities (CSV, JSON, TCP, WebSocket) |
+| ix-probabilistic | Beta | Bloom, HLL, Count-Min — well-defined algorithms |
+| ix-game | Beta | Nash, Shapley, auctions — solid math, newer API |
+| ix-grammar | Beta | Earley, CYK parsers — formal but API evolving |
+| ix-rl | Beta | Bandits, Q-learning — actively used in demos |
+
+### Experimental Crates
+
+| Crate | Tier | Notes |
+|-------|------|-------|
+| ix-evolution | Experimental | Genetic algorithms, differential evolution |
+| ix-chaos | Experimental | Lyapunov, bifurcation, strange attractors |
+| ix-adversarial | Experimental | FGSM, PGD, differential privacy |
+| ix-dynamics | Experimental | Lie groups/algebras, neural ODEs |
+| ix-topo | Experimental | Persistent homology, simplicial complexes |
+| ix-ktheory | Experimental | Graph K-theory, Grothendieck K0/K1 |
+| ix-category | Experimental | Functors, monads, category theory |
+| ix-rotation | Experimental | Quaternions, SLERP, Plücker coordinates |
+| ix-sedenion | Experimental | Hypercomplex algebra, Cayley-Dickson |
+| ix-fractal | Experimental | Takagi curves, IFS, L-systems |
+| ix-number-theory | Experimental | Prime sieving, elliptic curves |
+| ix-gpu | Experimental | WGPU compute shaders (Vulkan/DX12/Metal) |
+| memristive-markov | Experimental | Research prototype |
+
+### Internal Crates
+
+| Crate | Tier | Notes |
+|-------|------|-------|
+| ix-skill | Internal | CLI binary for direct command-line access |
+| ix-skill-macros | Internal | Proc macros for skill registration |
+| ix-demo | Internal | egui desktop app with interactive tabs |
+| ix-dashboard | Internal | Dashboard utilities |
+| ix-registry | Internal | Crate registry metadata |
+| ix-code | Internal | Code generation utilities |
+| ix-types | Internal | Shared type definitions |
+
+### MCP Tool Annotations
+
+The 37 MCP tools exposed by `ix-agent` are categorized:
+
+| Category | Tools | Readiness |
+|----------|-------|-----------|
+| **Core ML** (8) | kmeans, regression, pca, random_forest, svm, knn, naive_bayes, gbdt | **Production** |
+| **Search & Graph** (5) | astar, mcts, minimax, hmm, viterbi | **Production** |
+| **Optimization** (4) | sgd, adam, pso, annealing | **Production** |
+| **Signal** (3) | fft, wavelet, kalman | **Production** |
+| **Governance** (3) | governance_check, governance_persona, governance_belief | **Production** |
+| **Neural** (3) | nn_forward, nn_train, transformer | Beta |
+| **Game Theory** (3) | nash, shapley, auction | Beta |
+| **Federation** (4) | discover, grammar, music, traces | Beta |
+| **Advanced Math** (4) | topology, ktheory, category, dynamics | Experimental |
+
 ## Crates
 
 ### Core Math & Optimization
