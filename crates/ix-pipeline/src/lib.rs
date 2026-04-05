@@ -7,3 +7,6 @@
 pub mod dag;
 pub mod executor;
 pub mod builder;
+pub mod spec;
+pub mod lower;
+pub mod lock;

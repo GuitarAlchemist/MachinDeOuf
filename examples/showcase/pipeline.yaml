@@ -1,0 +1,62 @@
+version: "1"
+
+# ── Showcase pipeline ──────────────────────────────────────────────────────
+#
+# Five stages across four domains with a diamond dependency graph. Demonstrates:
+#   • parallel execution (3 independent roots → 1 governance leaf)
+#   • registry skill invocation from YAML (no Rust code required)
+#   • governance gate auditing the combined output
+#
+# Execution graph:
+#
+#          ┌────────────────┐   ┌────────────────┐   ┌──────────────────┐
+#          │ baseline_stats │   │ signal_spectrum│   │   primality      │
+#          │     (stats)    │   │     (fft)      │   │ (number_theory)  │
+#          └────────┬───────┘   └────────┬───────┘   └────────┬─────────┘
+#                   │                    │                    │
+#                   └────────────────────┴────────────────────┘
+#                                        │
+#                                        ▼
+#                              ┌───────────────────┐
+#                              │  compliance_audit │
+#                              │ (governance.check)│
+#                              └───────────────────┘
+
+stages:
+
+  # Signal statistics — mean, median, std_dev, min/max of a sensor trace.
+  baseline_stats:
+    skill: stats
+    args:
+      data: [0.1, 0.4, 0.8, 1.2, 1.7, 2.3, 2.1, 1.8, 1.1, 0.5]
+
+  # Frequency-domain analysis — FFT of a square-wave signal.
+  signal_spectrum:
+    skill: fft
+    args:
+      signal: [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0]
+      inverse: false
+
+  # Number theory — primality test on a safe prime candidate.
+  primality:
+    skill: number_theory
+    args:
+      operation: is_prime
+      n: 97
+
+  # GCD check on the same numbers (demonstrates parallel roots).
+  gcd_test:
+    skill: number_theory
+    args:
+      operation: gcd
+      a: 48
+      b: 18
+
+  # Governance leaf — audits the combined pipeline run against the
+  # Demerzel constitution. Depends on every compute stage so it only
+  # fires after all upstreams complete.
+  compliance_audit:
+    skill: governance.check
+    args:
+      action: "analyze signal statistics and spectrum for deployment readiness"
+    deps: [baseline_stats, signal_spectrum, primality, gcd_test]

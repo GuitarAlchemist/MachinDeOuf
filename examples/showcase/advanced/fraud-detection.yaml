@@ -1,0 +1,78 @@
+version: "1"
+
+# ── E-commerce transaction fraud screening ────────────────────────────────
+#
+# Real-world problem: a payment API must decide whether to let a charge
+# through or freeze the account, combining four independent signals:
+#
+#   1. amount profile     — how unusual is this transaction size?
+#   2. behavior clustering — does this merchant/device pair fit a known cluster?
+#   3. known-fraud list    — is this account ID on our bad-actor watchlist?
+#   4. velocity check      — how many distinct IPs saw this account recently?
+#
+# Each signal runs independently; a constitutional gate fuses them into
+# a block/allow decision, logged with an audit trail.
+#
+# Execution graph (4 parallel roots → 1 governance leaf):
+#
+#   ┌──────────┐  ┌──────────┐  ┌─────────────┐  ┌──────────────┐
+#   │ amounts  │  │ clusters │  │  watchlist  │  │  ip_velocity │
+#   │ (stats)  │  │ (kmeans) │  │(bloom_filter│  │(hyperloglog) │
+#   └────┬─────┘  └────┬─────┘  └──────┬──────┘  └──────┬───────┘
+#        └─────────────┴────────────────┴────────────────┘
+#                              │
+#                              ▼
+#                    ┌────────────────────┐
+#                    │   fraud_decision   │
+#                    │ (governance.check) │
+#                    └────────────────────┘
+
+stages:
+
+  # Distribution of recent transaction amounts on this merchant account.
+  # Large std_dev or high max/mean ratio = candidate for extra scrutiny.
+  amount_profile:
+    skill: stats
+    args:
+      data: [99.50, 125.00, 87.30, 142.50, 99.00, 115.20, 103.75, 128.40, 94.60, 2850.00]
+
+  # K-Means on (recency_days, amount_tier) pairs for this merchant's
+  # traffic — the new transaction gets compared to the three clusters.
+  # k=3 represents: normal / bulk / anomaly bands.
+  behavior_clusters:
+    skill: kmeans
+    args:
+      data: [[1, 2], [1.5, 1.8], [1.2, 2.1], [2, 3], [5, 8], [6, 7], [5.5, 7.5], [50, 60], [55, 58]]
+      k: 3
+      max_iter: 50
+
+  # Watchlist check: is this session's account_id known to be fraudulent?
+  # Bloom filter lets us keep a multi-million ID list in O(bits-per-elem)
+  # memory with configurable false-positive rate.
+  watchlist_check:
+    skill: bloom_filter
+    args:
+      operation: check
+      items: ["acc_3a7f2b", "acc_9c1e44", "acc_b8d2e7", "acc_f23481", "acc_c7e19b"]
+      query: "acc_new_charge_7193"
+      false_positive_rate: 0.01
+
+  # Velocity: unique source IPs seen for this account in last 10 min.
+  # HyperLogLog estimates cardinality in bounded memory — ~0.8% error at
+  # precision=10, ideal for "is this account being probed?"
+  ip_velocity:
+    skill: hyperloglog
+    args:
+      operation: estimate
+      items: ["192.168.1.1", "10.0.0.5", "192.168.1.1", "8.8.8.8", "1.1.1.1", "192.168.1.1", "203.0.113.42"]
+      precision: 10
+
+  # Governance leaf: constitutional check on the proposed block-and-freeze
+  # action. Article 1 (Truthfulness), 4 (Proportionality), and 6 (Escalation)
+  # apply here — blocking a transaction affects a real user, so we need
+  # multi-signal consensus + logged justification.
+  fraud_decision:
+    skill: governance.check
+    args:
+      action: "block transaction and freeze account based on multi-signal anomaly score"
+    deps: [amount_profile, behavior_clusters, watchlist_check, ip_velocity]

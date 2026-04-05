@@ -38,6 +38,26 @@ jobs:
       - name: Run tests
         run: cargo test --workspace
 
+      - name: Showcase smoke tests
+        # Runs all 9 advanced pipelines via the ix binary to catch skill
+        # registry regressions end-to-end. ~1s total runtime.
+        shell: bash
+        run: |
+          export IX_ROOT="$PWD"
+          export IX_GOVERNANCE_DIR="$PWD/governance/demerzel"
+          # Locate the ix binary that cargo test just built.
+          IX_BIN="$PWD/target/debug/ix.exe"
+          [[ -f "$IX_BIN" ]] || IX_BIN="$PWD/target/debug/ix"
+          for yaml in examples/showcase/advanced/*.yaml; do
+            name="$(basename "$yaml" .yaml)"
+            tmp="$(mktemp -d)"
+            cp "$yaml" "$tmp/ix.yaml"
+            ( cd "$tmp" && "$IX_BIN" pipeline run --json >/dev/null ) \
+              || { echo "::error::pipeline $name failed"; exit 1; }
+            rm -rf "$tmp"
+            echo "ok $name"
+          done
+
       - name: Build docs
         if: matrix.rust == 'stable'
         run: cargo doc --workspace --no-deps

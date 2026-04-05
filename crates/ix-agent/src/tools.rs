@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 
 use crate::handlers;
+use crate::registry_bridge;
 
 /// An MCP tool definition.
 pub struct Tool {
@@ -15,6 +16,12 @@ pub struct Tool {
 /// Registry of all available tools.
 pub struct ToolRegistry {
     tools: Vec<Tool>,
+}
+
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ToolRegistry {
@@ -41,13 +48,34 @@ impl ToolRegistry {
     }
 
     /// Call a tool by name with the given arguments.
+    ///
+    /// Registry-backed tools (handler == `registry_handler_marker`) are
+    /// dispatched via `registry_bridge::dispatch`, which routes through
+    /// `ix_registry::invoke`. Manual tools are called directly.
     pub fn call(&self, name: &str, arguments: Value) -> Result<Value, String> {
         let tool = self
             .tools
             .iter()
             .find(|t| t.name == name)
             .ok_or_else(|| format!("Unknown tool: {}", name))?;
-        (tool.handler)(arguments)
+        if registry_bridge::is_registry_backed(tool.handler) {
+            registry_bridge::dispatch(name, arguments)
+        } else {
+            (tool.handler)(arguments)
+        }
+    }
+
+    /// Merge registry-sourced skills into the tool list, with registry
+    /// taking precedence over any manual entry of the same name. Called at
+    /// the end of [`Self::register_all`].
+    fn merge_registry_tools(&mut self) {
+        let registry_tools = registry_bridge::all_registry_tools();
+        let registry_names: std::collections::HashSet<&str> =
+            registry_tools.iter().map(|t| t.name).collect();
+        // Drop manual tools that have been migrated to the registry.
+        self.tools.retain(|t| !registry_names.contains(t.name));
+        // Append the registry-sourced tools.
+        self.tools.extend(registry_tools);
     }
 
     fn register_all(&mut self) {
@@ -1246,5 +1274,8 @@ impl ToolRegistry {
             }),
             handler: handlers::ga_bridge,
         });
+
+        // Merge registry-sourced skills. Registry wins on name collision.
+        self.merge_registry_tools();
     }
 }

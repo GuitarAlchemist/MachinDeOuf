@@ -16,6 +16,10 @@ path = "src/main.rs"
 [dependencies]
 eframe = "0.31"
 egui_plot = "0.31"
+egui-snarl = { version = "0.7", features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 ndarray = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
@@ -43,3 +47,7 @@ ix-number-theory = { workspace = true }
 ix-topo = { workspace = true }
 ix-category = { workspace = true }
 ix-governance = { workspace = true }
+ix-registry = { workspace = true }
+ix-types = { workspace = true }
+ix-pipeline = { workspace = true }
+ix-agent = { workspace = true }

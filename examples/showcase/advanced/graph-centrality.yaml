@@ -1,0 +1,82 @@
+version: "1"
+
+# ── Graph centrality + routing ────────────────────────────────────────────
+#
+# Real-world problem: you have a 6-node service mesh. You need:
+#   1. which service is most central (PageRank)?
+#   2. what's the shortest path from API gateway (node 0) to database (node 5)?
+#   3. is the deployment order valid (topological sort)?
+#
+# All three run against the same graph; the governance leaf decides
+# whether the deployment plan is safe to execute.
+#
+# Service mesh graph (directed, edge weights = latency ms):
+#
+#   0 (api_gw) ─5→ 1 (auth) ─3→ 2 (user_svc) ─2→ 5 (db)
+#   │                              │
+#   4ms                            7ms
+#   ▼                              ▼
+#   3 (logger) ─8→ 4 (metrics) ──10→ 5 (db)
+
+stages:
+
+  # Which node is most "central" in the mesh? PageRank weights nodes by
+  # incoming influence, with damping=0.85 (standard).
+  centrality:
+    skill: graph
+    args:
+      operation: pagerank
+      n_nodes: 6
+      edges:
+        - [0, 1, 5.0]
+        - [0, 3, 4.0]
+        - [1, 2, 3.0]
+        - [2, 5, 2.0]
+        - [2, 4, 7.0]
+        - [3, 4, 8.0]
+        - [4, 5, 10.0]
+      directed: true
+      damping: 0.85
+      iterations: 100
+
+  # Minimum-latency path from API gateway to database using Dijkstra.
+  request_path:
+    skill: graph
+    args:
+      operation: dijkstra
+      n_nodes: 6
+      edges:
+        - [0, 1, 5.0]
+        - [0, 3, 4.0]
+        - [1, 2, 3.0]
+        - [2, 5, 2.0]
+        - [2, 4, 7.0]
+        - [3, 4, 8.0]
+        - [4, 5, 10.0]
+      source: 0
+      target: 5
+      directed: true
+
+  # Valid deployment order: the DAG's topological sort gives us the
+  # bring-up sequence so no service starts before its dependencies.
+  deploy_order:
+    skill: graph
+    args:
+      operation: topological_sort
+      n_nodes: 6
+      edges:
+        - [0, 1, 1.0]
+        - [0, 3, 1.0]
+        - [1, 2, 1.0]
+        - [2, 5, 1.0]
+        - [2, 4, 1.0]
+        - [3, 4, 1.0]
+        - [4, 5, 1.0]
+      directed: true
+
+  # Governance: verify the deployment plan before rolling out.
+  deployment_plan_review:
+    skill: governance.check
+    args:
+      action: "deploy services in topological order with request routing through lowest-latency path"
+    deps: [centrality, request_path, deploy_order]

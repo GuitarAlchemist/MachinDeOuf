@@ -1,0 +1,65 @@
+version: "1"
+
+# ── Music theory × ML federation demo ──────────────────────────────────────
+#
+# Uses `ga_bridge` (the GuitarAlchemist federation bridge) to convert
+# chord / progression / scale data into ML-ready feature vectors, then
+# analyzes them with ix's statistics and clustering.
+#
+# Real-world problem: build a recommendation engine that suggests
+# substitution chords. Each chord has a 12-bit pitch-class feature vector;
+# clustering them groups harmonically-similar chords.
+#
+# This pipeline showcases the cross-repo federation story: GA knows music
+# theory, ix knows ML, both speak JSON through the MCP registry.
+#
+# Execution graph:
+#
+#   ┌──────────────────┐    ┌────────────────┐    ┌───────────────────┐
+#   │ ii_V_I_features  │    │ scale_features │    │ progression_feats │
+#   │   (ga_bridge)    │    │  (ga_bridge)   │    │   (ga_bridge)     │
+#   └────────┬─────────┘    └────────┬───────┘    └─────────┬─────────┘
+#            │                       │                      │
+#            └───────────────────────┴──────────────────────┘
+#                                    │
+#                                    ▼
+#                        ┌───────────────────┐
+#                        │  workflow_audit   │
+#                        │ (governance.check)│
+#                        └───────────────────┘
+
+stages:
+
+  # ii-V-I jazz turnaround in C major — canonical progression every jazz
+  # student learns. ga_bridge converts each chord into a feature vector.
+  ii_V_I_features:
+    skill: ga_bridge
+    args:
+      action: chord_features
+      chords: ["Dm7", "G7", "Cmaj7"]
+
+  # C major scale — 7 pitch classes, should be binary feature vector
+  # [1,0,1,0,1,1,0,1,0,1,0,1] covering the full octave.
+  scale_features:
+    skill: ga_bridge
+    args:
+      action: scale_features
+      chords: []
+      progression: "C major"
+
+  # Autumn Leaves chord progression (first 4 bars) — iconic jazz standard,
+  # classic ii-V-I cascade across two keys (G minor + Bb major).
+  progression_feats:
+    skill: ga_bridge
+    args:
+      action: progression_features
+      chords: []
+      progression: "Cm7 F7 BbMaj7 EbMaj7"
+
+  # Governance review: GA bridge tools touch pitch-class data that could
+  # be used for music-rights inference. Audit the federation call.
+  workflow_audit:
+    skill: governance.check
+    args:
+      action: "federate ix ML clustering with GA chord/scale features for harmonic recommendation"
+    deps: [ii_V_I_features, scale_features, progression_feats]

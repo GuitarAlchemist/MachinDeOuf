@@ -20,3 +20,4 @@ pub mod sedenion;
 pub mod topology;
 pub mod category;
 pub mod governance;
+pub mod pipeline_editor;

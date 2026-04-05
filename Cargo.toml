@@ -36,6 +36,9 @@ members = [
     "crates/ix-code",
     "crates/ix-dashboard",
     "crates/memristive-markov",
+    "crates/ix-types",
+    "crates/ix-registry",
+    "crates/ix-skill-macros",
 ]
 
 [workspace.package]
@@ -94,8 +97,18 @@ ix-fractal = { path = "crates/ix-fractal", version = "0.1.0" }
 ix-number-theory = { path = "crates/ix-number-theory", version = "0.1.0" }
 ix-governance = { path = "crates/ix-governance", version = "0.1.0" }
 ix-code = { path = "crates/ix-code", version = "0.1.0" }
+ix-types = { path = "crates/ix-types", version = "0.1.0" }
+ix-registry = { path = "crates/ix-registry", version = "0.1.0" }
+ix-skill-macros = { path = "crates/ix-skill-macros", version = "0.1.0" }
 serde_yaml = "0.9"
 parking_lot = "0.12"
+
+# Registry infrastructure
+linkme = "0.3"
+schemars = "0.8"
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
 
 # Testing & benchmarking
 proptest = "1"

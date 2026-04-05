@@ -5,6 +5,13 @@
 
 mod demos;
 
+// Force-link ix-agent's skills module so `linkme::distributed_slice`
+// registrations (batch1 + batch2 = 34 skills) survive LTO dead-code
+// elimination. Without this the `Run ix.yaml` + live-execution paths see
+// an empty registry. See ix-skill/src/lib.rs for the same pattern.
+#[allow(unused_imports)]
+use ix_agent::skills as _force_link_registry;
+
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
@@ -45,6 +52,7 @@ enum Tab {
     Topology,
     Category,
     Governance,
+    PipelineEditor,
 }
 
 impl Tab {
@@ -72,6 +80,7 @@ impl Tab {
             Tab::Topology => "Topology",
             Tab::Category => "Category",
             Tab::Governance => "Governance",
+            Tab::PipelineEditor => "Pipeline",
         }
     }
 }
@@ -100,6 +109,7 @@ struct IxApp {
     topology_demo: demos::topology::TopologyDemo,
     category_demo: demos::category::CategoryDemo,
     governance_demo: demos::governance::GovernanceDemo,
+    pipeline_editor: demos::pipeline_editor::PipelineEditor,
 }
 
 impl Default for IxApp {
@@ -128,6 +138,7 @@ impl Default for IxApp {
             topology_demo: demos::topology::TopologyDemo::default(),
             category_demo: demos::category::CategoryDemo::default(),
             governance_demo: demos::governance::GovernanceDemo::default(),
+            pipeline_editor: demos::pipeline_editor::PipelineEditor::default(),
         }
     }
 }
@@ -161,10 +172,20 @@ impl eframe::App for IxApp {
                 for tab in [Tab::Chaos, Tab::Signal, Tab::IKChain, Tab::Search, Tab::GameTheory, Tab::Probabilistic, Tab::GpuKernels, Tab::Governance] {
                     ui.selectable_value(&mut self.active_tab, tab, tab.label());
                 }
+                ui.separator();
+                // Pipelines
+                ui.label(egui::RichText::new("Pipelines").strong().small());
+                ui.selectable_value(&mut self.active_tab, Tab::PipelineEditor, Tab::PipelineEditor.label());
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // PipelineEditor manages its own pan/zoom via snarl — don't wrap
+            // it in a ScrollArea or the canvas becomes unusable.
+            if self.active_tab == Tab::PipelineEditor {
+                self.pipeline_editor.ui(ui);
+                return;
+            }
             egui::ScrollArea::both().show(ui, |ui| {
                 match self.active_tab {
                     Tab::Stats => self.stats_demo.ui(ui),
@@ -189,6 +210,7 @@ impl eframe::App for IxApp {
                     Tab::Topology => self.topology_demo.ui(ui),
                     Tab::Category => self.category_demo.ui(ui),
                     Tab::Governance => self.governance_demo.ui(ui),
+                    Tab::PipelineEditor => unreachable!("routed above"),
                 }
             });
         });

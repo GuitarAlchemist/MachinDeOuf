@@ -3,15 +3,11 @@
 //! Communicates over stdio using JSON-RPC 2.0.
 //! Reads requests from stdin, writes responses to stdout, logs to stderr.
 
-mod handlers;
-mod ml_pipeline;
-mod tools;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{self, BufRead, Write};
 
-use tools::ToolRegistry;
+use ix_agent::tools::ToolRegistry;
 
 /// JSON-RPC 2.0 request.
 #[derive(Deserialize)]

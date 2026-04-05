@@ -1,0 +1,87 @@
+version: "1"
+
+# ── Code quality triage pipeline ──────────────────────────────────────────
+#
+# Real-world problem: CI needs to decide whether a PR's complexity metrics
+# trigger a blocker, a warning, or pass. We analyze three candidate
+# functions from the diff, take the stats of their complexity scores, and
+# gate on "is this PR healthy enough to merge?"
+#
+# This shows `code_analyze` in production-PR-review mode — no ML model
+# needed, just structural metrics on source code.
+#
+# Execution graph:
+#
+#   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+#   │ simple_function │  │ complex_branching│  │ deep_nesting    │
+#   │ (code_analyze)  │  │  (code_analyze)  │  │ (code_analyze)  │
+#   └────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+#            └───────────────────┴──────────────────────┘
+#                                 │
+#                                 ▼
+#                      ┌────────────────────┐
+#                      │   pr_merge_review  │
+#                      │ (governance.check) │
+#                      └────────────────────┘
+
+stages:
+
+  # Simple pure function — baseline "this should always pass".
+  simple_function:
+    skill: code_analyze
+    args:
+      language: rust
+      source: |
+        pub fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+  # Moderate complexity — multiple branches, early returns.
+  complex_branching:
+    skill: code_analyze
+    args:
+      language: rust
+      source: |
+        pub fn classify(x: f64) -> &'static str {
+            if x < 0.0 { return "negative"; }
+            if x == 0.0 { return "zero"; }
+            if x < 1.0 { return "fractional"; }
+            if x < 10.0 { return "small"; }
+            if x < 100.0 { return "medium"; }
+            if x < 1000.0 { return "large"; }
+            "huge"
+        }
+
+  # Deep-nesting red flag — should raise complexity metrics.
+  deep_nesting:
+    skill: code_analyze
+    args:
+      language: rust
+      source: |
+        pub fn nested(data: &[Vec<Vec<i32>>]) -> i32 {
+            let mut total = 0;
+            for outer in data {
+                for middle in outer {
+                    for &inner in middle {
+                        if inner > 0 {
+                            if inner < 100 {
+                                if inner % 2 == 0 {
+                                    total += inner;
+                                } else {
+                                    total -= inner;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            total
+        }
+
+  # Governance leaf: Article 4 (Proportionality) + Article 6 (Escalation)
+  # — if deep_nesting's cyclomatic complexity >> simple_function's, escalate.
+  pr_merge_review:
+    skill: governance.check
+    args:
+      action: "merge PR with three new functions — review complexity metrics for outliers"
+    deps: [simple_function, complex_branching, deep_nesting]

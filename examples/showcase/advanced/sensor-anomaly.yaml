@@ -1,0 +1,76 @@
+version: "1"
+
+# ── Industrial sensor anomaly + regime detection ──────────────────────────
+#
+# Real-world problem: a monitoring system watches 16-sample sliding windows
+# from an industrial sensor. For every window it asks:
+#
+#   • What's in the spectrum? (fft)        → frequency anomalies
+#   • Are we in chaos regime? (lyapunov)   → system instability
+#   • Baseline statistics?   (stats)       → out-of-spec excursions
+#   • Seen this fingerprint? (bloom_filter) → known-bad signature match
+#
+# If enough signals fire, the governance leaf decides whether to page
+# the on-call SRE. This is a realistic multi-signal alerting flow.
+#
+# Execution graph (4 parallel roots → 1 governance leaf):
+#
+#   ┌──────────┐  ┌──────────────┐  ┌──────────┐  ┌─────────────┐
+#   │ spectrum │  │ chaos_probe  │  │ baseline │  │ known_anom  │
+#   │  (fft)   │  │  (lyapunov)  │  │ (stats)  │  │(bloom_filter│
+#   └────┬─────┘  └──────┬───────┘  └────┬─────┘  └──────┬──────┘
+#        └───────────────┴────────────────┴───────────────┘
+#                              │
+#                              ▼
+#                   ┌─────────────────────┐
+#                   │   alert_decision    │
+#                   │ (governance.check)  │
+#                   └─────────────────────┘
+
+stages:
+
+  # 16-sample sinusoid-with-drift: amplitude shifts at position 8.
+  # An FFT should show both the fundamental and drift sidebands.
+  spectrum:
+    skill: fft
+    args:
+      signal: [1.0, 1.5, 2.0, 1.8, 1.2, 0.5, -0.5, -1.2, -1.8, -1.5, -0.5, 0.5, 1.2, 1.8, 2.1, 1.9]
+      inverse: false
+
+  # Lyapunov probe on the logistic map near r=3.57 — the "edge of chaos"
+  # parameter. Positive lambda indicates chaotic dynamics; near-zero
+  # indicates marginal stability (the regime change we're hunting for).
+  chaos_probe:
+    skill: chaos.lyapunov
+    args:
+      map: logistic
+      parameter: 3.57
+      iterations: 500
+
+  # Descriptive statistics over the window's first 10 samples — if the
+  # mean or std_dev jumps sharply versus a prior window, that's an excursion.
+  baseline_stats:
+    skill: stats
+    args:
+      data: [1.0, 1.5, 2.0, 1.8, 1.2, 0.5, -0.5, -1.2, -1.8, -1.5]
+
+  # Bloom-filter lookup: does this window's signature match one of our
+  # known-anomaly fingerprints? O(1) check across a potentially-huge
+  # catalog of past incidents.
+  known_anomaly_patterns:
+    skill: bloom_filter
+    args:
+      operation: check
+      items: ["sensor_001_spike", "sensor_044_dropout", "sensor_117_drift", "sensor_093_oscillation"]
+      query: "sensor_042_drift"
+      false_positive_rate: 0.005
+
+  # Governance gate: "should we page the on-call engineer right now?"
+  # Article 3 (Reversibility) + Article 6 (Escalation) both apply —
+  # waking someone up at 3am is high-cost but necessary if signals
+  # converge.
+  alert_decision:
+    skill: governance.check
+    args:
+      action: "page on-call SRE: chaotic regime + matched known-anomaly fingerprint + baseline excursion"
+    deps: [spectrum, chaos_probe, baseline_stats, known_anomaly_patterns]

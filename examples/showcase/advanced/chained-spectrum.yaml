@@ -1,0 +1,64 @@
+version: "1"
+
+# ── Chained data-flow pipeline: signal → spectrum → spectrum stats ────────
+#
+# Demonstrates `{from:}` references — the `spectrum_stats` stage extracts
+# the `magnitudes` array from upstream `spectrum`'s JSON output and feeds
+# it as its own `data` input. Real cross-stage dataflow, not just ordering.
+#
+# Use case: you have a raw sensor signal, want to know
+#   (a) raw stats (time-domain mean/std)
+#   (b) FFT spectrum
+#   (c) spectrum statistics — is the magnitude distribution flat or spiky?
+# Flat = broadband noise, spiky = narrowband resonance. The ratio of
+# spectrum-std to spectrum-mean ("spectral flatness") tells you which.
+#
+# Execution graph:
+#
+#   ┌──────────────┐     ┌──────────────┐
+#   │ time_domain  │     │   spectrum   │
+#   │   (stats)    │     │    (fft)     │
+#   └───────┬──────┘     └──────┬───────┘
+#           │                   │
+#           │                   ▼
+#           │          ┌──────────────────┐
+#           │          │ spectrum_stats   │
+#           │          │ (stats)          │
+#           │          │ data = {from:    │
+#           │          │   spectrum       │
+#           │          │   .magnitudes}   │
+#           │          └────────┬─────────┘
+#           │                   │
+#           └─────────┬─────────┘
+#                     ▼
+#           ┌──────────────────┐
+#           │ flatness_review  │
+#           │(governance.check)│
+#           └──────────────────┘
+
+stages:
+
+  time_domain:
+    skill: stats
+    args:
+      data: [1.0, 1.5, 2.0, 1.8, 1.2, 0.5, -0.5, -1.2, -1.8, -1.5, -0.5, 0.5, 1.2, 1.8, 2.1, 1.9]
+
+  spectrum:
+    skill: fft
+    args:
+      signal: [1.0, 1.5, 2.0, 1.8, 1.2, 0.5, -0.5, -1.2, -1.8, -1.5, -0.5, 0.5, 1.2, 1.8, 2.1, 1.9]
+      inverse: false
+
+  # ✦ The chained reference: pull `spectrum.magnitudes` (an array of floats)
+  #   out of the upstream FFT result and feed it as `data` to stats.
+  spectrum_stats:
+    skill: stats
+    args:
+      data:
+        from: spectrum.magnitudes
+
+  flatness_review:
+    skill: governance.check
+    args:
+      action: "assess spectral flatness: spiky (resonant) or flat (broadband)?"
+    deps: [time_domain, spectrum_stats]

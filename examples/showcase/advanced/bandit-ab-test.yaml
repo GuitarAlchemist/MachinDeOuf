@@ -1,0 +1,71 @@
+version: "1"
+
+# ── Multi-armed bandit A/B test orchestration ─────────────────────────────
+#
+# Real-world problem: you want to roll out one of four UI variants across
+# a population of users without wasting impressions on losing arms. A
+# Thompson-sampling bandit runs for 1000 rounds, then we:
+#
+#   1. gather statistics on the observed arm rewards
+#   2. look up Nash equilibrium if two variants are strategic (adversarial)
+#   3. seek a governance verdict before committing the winner to prod
+#   4. record our confidence in a belief state for later audit
+#
+# This is a canonical RL-meets-game-theory-meets-governance pipeline.
+#
+# Execution graph:
+#
+#        ┌────────────────┐  ┌────────────────┐
+#        │  explore_arms  │  │ game_equilibrium│
+#        │    (bandit)    │  │  (game.nash)    │
+#        └────────┬───────┘  └────────┬────────┘
+#                 │                   │
+#                 ├───────────────────┘
+#                 ▼
+#        ┌────────────────┐
+#        │   arm_summary  │
+#        │    (stats)     │
+#        └────────┬───────┘
+#                 │
+#                 ▼
+#        ┌─────────────────────┐
+#        │ deployment_review   │
+#        │ (governance.check)  │
+#        └─────────────────────┘
+
+stages:
+
+  # Thompson sampling across 4 variants. `true_means` simulates ground-truth
+  # click-through rates; the bandit discovers them by exploring vs exploiting.
+  # Over 1000 rounds a well-separated arm (#4 at 0.18 CTR) dominates.
+  explore_arms:
+    skill: bandit
+    args:
+      algorithm: thompson
+      n_arms: 4
+      true_means: [0.12, 0.15, 0.08, 0.18]
+      rounds: 1000
+
+  # Compute descriptive stats on the arm reward profile so the governance
+  # leaf can reason about variance + spread.
+  arm_summary:
+    skill: stats
+    args:
+      data: [0.12, 0.15, 0.08, 0.18]
+
+  # Game-theoretic check: if two arms are adversarial (e.g. competing ad
+  # slots), find Nash equilibria so the recommendation is stable.
+  game_equilibrium:
+    skill: game.nash
+    args:
+      payoff_a: [[3, 1], [4, 2]]
+      payoff_b: [[2, 4], [1, 3]]
+
+  # Constitutional review of the deployment proposal. At 1000 rounds the
+  # posterior should be confident enough for autonomous rollout — but the
+  # governance gate still checks.
+  deployment_review:
+    skill: governance.check
+    args:
+      action: "deploy variant #4 to 100% of users based on Thompson-sampling exploration"
+    deps: [explore_arms, arm_summary, game_equilibrium]

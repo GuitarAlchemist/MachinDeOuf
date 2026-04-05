@@ -1,0 +1,55 @@
+version: "1"
+
+# ── Signal processing chain ────────────────────────────────────────────────
+#
+# Demonstrates a signal-analytics pipeline with three independent analyses
+# of a square-wave test signal, gated by a constitutional check that's
+# context-aware: the action text references the analysis being performed.
+#
+# Execution graph:
+#
+#            ┌──────────┐    ┌────────────┐    ┌──────────────────┐
+#            │ spectrum │    │   chaos    │    │     envelope     │
+#            │  (fft)   │    │ (lyapunov) │    │     (stats)      │
+#            └────┬─────┘    └─────┬──────┘    └────────┬─────────┘
+#                 │                │                    │
+#                 └────────────────┴────────────────────┘
+#                                  │
+#                                  ▼
+#                        ┌──────────────────┐
+#                        │ analysis_review  │
+#                        │(governance.check)│
+#                        └──────────────────┘
+
+stages:
+
+  # Frequency decomposition of an 8-sample square wave (fundamental + 3rd + 5th).
+  spectrum:
+    skill: fft
+    args:
+      signal: [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]
+      inverse: false
+
+  # Lyapunov exponent probe of the logistic map in the chaotic regime
+  # (r = 3.9 → positive lambda, hallmark of chaos).
+  chaos:
+    skill: chaos.lyapunov
+    args:
+      map: logistic
+      parameter: 3.9
+      iterations: 1000
+
+  # Basic statistics on the envelope (abs values) of the same signal.
+  envelope:
+    skill: stats
+    args:
+      data: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+  # Governance review — "we ran chaos analysis" is information the auditor
+  # should be aware of when deciding whether this batch of results is safe
+  # to publish.
+  analysis_review:
+    skill: governance.check
+    args:
+      action: "publish signal-processing results including chaos Lyapunov exponent"
+    deps: [spectrum, chaos, envelope]

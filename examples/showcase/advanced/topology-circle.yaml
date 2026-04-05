@@ -1,0 +1,91 @@
+version: "1"
+
+# ── Topology detects the hole ─────────────────────────────────────────────
+#
+# Real-world problem: shape classification from point-cloud samples. Given
+# 8 points on a unit circle, persistent homology should report:
+#   • 8 connected components at birth=0 (every point is its own cluster)
+#   • 1 connected component after merging (as the filtration radius grows)
+#   • 1 one-dimensional hole (the circle) that appears and persists
+#
+# The Betti curve computed alongside shows β₀ and β₁ as the filtration
+# radius varies — classic "persistence diagram" analysis.
+#
+# Execution graph:
+#
+#   ┌────────────────┐   ┌────────────────┐   ┌──────────────────┐
+#   │  persistence   │   │  betti_curve   │   │ betti_at_radius  │
+#   │     (topo)     │   │    (topo)      │   │     (topo)       │
+#   └───────┬────────┘   └───────┬────────┘   └─────────┬────────┘
+#           └────────────────────┴─────────────────────┘
+#                                │
+#                                ▼
+#                     ┌──────────────────────┐
+#                     │  shape_audit         │
+#                     │ (governance.check)   │
+#                     └──────────────────────┘
+
+stages:
+
+  # Persistent homology: track how topological features are born and die
+  # as the filtration radius grows. The circle should yield exactly one
+  # long-lived 1-dimensional hole.
+  persistence:
+    skill: topo
+    args:
+      operation: persistence
+      points:
+        - [1.0, 0.0]
+        - [0.707, 0.707]
+        - [0.0, 1.0]
+        - [-0.707, 0.707]
+        - [-1.0, 0.0]
+        - [-0.707, -0.707]
+        - [0.0, -1.0]
+        - [0.707, -0.707]
+      max_dim: 1
+      max_radius: 2.0
+
+  # Betti curve: plot β₀ (components) + β₁ (holes) as continuous functions
+  # of the filtration radius. Great for visualizing topology stability.
+  betti_curve:
+    skill: topo
+    args:
+      operation: betti_curve
+      points:
+        - [1.0, 0.0]
+        - [0.707, 0.707]
+        - [0.0, 1.0]
+        - [-0.707, 0.707]
+        - [-1.0, 0.0]
+        - [-0.707, -0.707]
+        - [0.0, -1.0]
+        - [0.707, -0.707]
+      max_dim: 1
+      max_radius: 2.0
+      n_steps: 40
+
+  # Specific Betti numbers at radius 0.8 — should be β₀=1 (one connected
+  # component) and β₁=1 (one hole, because the circle is closed).
+  betti_at_radius:
+    skill: topo
+    args:
+      operation: betti_at_radius
+      points:
+        - [1.0, 0.0]
+        - [0.707, 0.707]
+        - [0.0, 1.0]
+        - [-0.707, 0.707]
+        - [-1.0, 0.0]
+        - [-0.707, -0.707]
+        - [0.0, -1.0]
+        - [0.707, -0.707]
+      max_dim: 1
+      radius: 0.8
+
+  # Governance leaf: did our shape classifier behave as expected?
+  shape_audit:
+    skill: governance.check
+    args:
+      action: "classify input point cloud as 1-hole 2D shape based on persistent homology"
+    deps: [persistence, betti_curve, betti_at_radius]

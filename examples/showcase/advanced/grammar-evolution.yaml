@@ -1,0 +1,63 @@
+version: "1"
+
+# ── Grammar evolution — replicator dynamics over rule competition ─────────
+#
+# Real-world problem: you have three competing grammar rules for a
+# code-gen system. Each has a fitness score (how well it produces working
+# code). Run replicator dynamics for 200 steps to see which rule
+# dominates — and whether the ESS (evolutionarily stable strategy) is
+# one-hot or mixed.
+#
+# Then cross-check with a Bayesian weight update and MCTS search over
+# a toy grammar, to triangulate the recommended rule.
+
+stages:
+
+  # Replicator dynamics: three candidate rules compete over 200 steps.
+  # Rule "if_expr" has highest fitness → should dominate by the end.
+  rule_competition:
+    skill: grammar.evolve
+    args:
+      species:
+        - { id: "if_expr",     proportion: 0.33, fitness: 0.85, is_stable: false }
+        - { id: "match_expr",  proportion: 0.33, fitness: 0.72, is_stable: false }
+        - { id: "ternary",     proportion: 0.34, fitness: 0.58, is_stable: false }
+      steps: 200
+      dt: 0.05
+      prune_threshold: 0.01
+
+  # Bayesian update: observe that "if_expr" succeeded in production usage.
+  # The Beta-Binomial posterior should bump its weight.
+  weight_update:
+    skill: grammar.weights
+    args:
+      rules:
+        - { id: "if_expr",    alpha: 4, beta: 1, weight: 0.5, level: 0, source: "production" }
+        - { id: "match_expr", alpha: 2, beta: 2, weight: 0.3, level: 0, source: "production" }
+        - { id: "ternary",    alpha: 1, beta: 3, weight: 0.2, level: 0, source: "production" }
+      observation:
+        rule_id: "if_expr"
+        success: true
+      temperature: 1.0
+
+  # MCTS derivation search over a tiny expression grammar — finds a
+  # reasonable sentence within the time budget.
+  grammar_search:
+    skill: grammar.search
+    args:
+      grammar_ebnf: |
+        expr ::= cond | number
+        cond ::= "if" number "then" number "else" number
+        number ::= "0" | "1" | "2"
+      max_iterations: 200
+      exploration: 1.41
+      max_depth: 6
+      seed: 42
+
+  # Governance: before promoting a grammar rule to "recommended", verify
+  # that evolutionary dynamics + Bayesian update + search agree.
+  rule_promotion_review:
+    skill: governance.check
+    args:
+      action: "promote 'if_expr' to recommended rule based on converged replicator dynamics + posterior bump"
+    deps: [rule_competition, weight_update, grammar_search]

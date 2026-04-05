@@ -14,6 +14,16 @@ name = "ix"
 path = "src/main.rs"
 
 [dependencies]
+# Direct lib access: pulls in all #[ix_skill]-annotated wrappers so the
+# capability registry is populated at link time.
+ix-agent = { workspace = true }
+ix-registry = { workspace = true }
+ix-types = { workspace = true }
+ix-governance = { workspace = true }
+ix-pipeline = { workspace = true }
+
+# Kept for the deprecated `train`/`cluster`/`optimize`/`grammar` aliases
+# while migration completes.
 ix-math = { workspace = true }
 ix-optimize = { workspace = true }
 ix-supervised = { workspace = true }
@@ -26,7 +36,13 @@ ix-grammar = { workspace = true }
 ix-graph = { workspace = true }
 ix-probabilistic = { workspace = true }
 ix-io = { workspace = true }
+
 ndarray = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"

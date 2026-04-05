@@ -1,0 +1,61 @@
+version: "1"
+
+# ── ML classification showcase ─────────────────────────────────────────────
+#
+# Trains three classifiers on the same training set and benchmarks them
+# against a held-out test set. The governance leaf audits the deployment
+# decision once all three candidate models have been scored.
+#
+# Execution graph:
+#
+#     ┌────────────┐   ┌─────────────────┐   ┌────────────────────┐
+#     │ rf_train   │   │  supervised_svm │   │ gradient_boosting  │
+#     │(random_for)│   │   (supervised)  │   │    (ensemble)      │
+#     └─────┬──────┘   └────────┬────────┘   └──────────┬─────────┘
+#           │                   │                       │
+#           └───────────────────┴───────────────────────┘
+#                                │
+#                                ▼
+#                       ┌─────────────────┐
+#                       │ deployment_gate │
+#                       │(governance.check)│
+#                       └─────────────────┘
+#
+# All three learners share the same XOR-style toy dataset so the governance
+# gate can compare their relative fitness.
+
+stages:
+
+  rf_train:
+    skill: random_forest
+    args:
+      x_train: [[0, 0], [0, 1], [1, 0], [1, 1], [0.1, 0.1], [0.9, 0.9]]
+      y_train: [0, 1, 1, 0, 0, 0]
+      x_test:  [[0.2, 0.8], [0.8, 0.2], [0.5, 0.5]]
+      n_trees: 15
+      max_depth: 4
+
+  supervised_svm:
+    skill: supervised
+    args:
+      operation: svm
+      x_train: [[0, 0], [0, 1], [1, 0], [1, 1]]
+      y_train: [0, 1, 1, 0]
+      x_test:  [[0.2, 0.8], [0.8, 0.2], [0.5, 0.5]]
+      c: 1.0
+
+  gradient_boosting:
+    skill: gradient_boosting
+    args:
+      x_train: [[0, 0], [0, 1], [1, 0], [1, 1], [0.1, 0.1], [0.9, 0.9]]
+      y_train: [0, 1, 1, 0, 0, 0]
+      x_test:  [[0.2, 0.8], [0.8, 0.2], [0.5, 0.5]]
+      n_estimators: 20
+      learning_rate: 0.1
+      max_depth: 3
+
+  deployment_gate:
+    skill: governance.check
+    args:
+      action: "deploy best-performing classifier to staging — random_forest / svm / gradient_boosting candidates compared"
+    deps: [rf_train, supervised_svm, gradient_boosting]
