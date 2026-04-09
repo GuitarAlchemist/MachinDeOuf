@@ -5,6 +5,7 @@
 //! reach into these modules to inspect the tool registry, drive the bridge
 //! between `ix-registry` and MCP, and call handlers directly.
 
+pub mod demo;
 pub mod handlers;
 pub mod ml_pipeline;
 pub mod registry_bridge;

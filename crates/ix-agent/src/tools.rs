@@ -1275,6 +1275,38 @@ impl ToolRegistry {
             handler: handlers::ga_bridge,
         });
 
+        self.tools.push(Tool {
+            name: "ix_demo",
+            description: "Run curated real-world demo scenarios that chain multiple ix tools. \
+                          Use action='list' to see available scenarios, action='describe' for \
+                          details, or action='run' to execute a scenario end-to-end.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "run", "describe"],
+                        "description": "list = catalog scenarios; run = execute; describe = show steps without executing"
+                    },
+                    "scenario": {
+                        "type": "string",
+                        "description": "Scenario id (required for run/describe, ignored for list)"
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "description": "RNG seed for reproducible data generation (default: 42)"
+                    },
+                    "verbosity": {
+                        "type": "integer",
+                        "enum": [0, 1, 2],
+                        "description": "0 = terse, 1 = normal (default), 2 = verbose"
+                    }
+                },
+                "required": ["action"]
+            }),
+            handler: crate::demo::ix_demo,
+        });
+
         // Merge registry-sourced skills. Registry wins on name collision.
         self.merge_registry_tools();
     }
