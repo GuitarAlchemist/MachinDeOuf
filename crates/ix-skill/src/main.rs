@@ -1,7 +1,7 @@
 //! ix — Claude Code ML skill CLI.
 //!
-//! Seven-verb noun-verb grammar:
-//! `run | pipeline | list | describe | check | beliefs | serve`.
+//! Eight-verb noun-verb grammar:
+//! `run | pipeline | list | describe | check | beliefs | demo | serve`.
 //!
 //! Global flags:
 //! - `--format {auto,table,json,jsonl,yaml}` (default: auto — table on TTY, json on pipe)
@@ -86,10 +86,38 @@ enum Verb {
         noun: PipelineNoun,
     },
 
+    /// Run curated demo scenarios showcasing ix capabilities
+    Demo {
+        #[command(subcommand)]
+        noun: DemoNoun,
+    },
+
     /// Long-running services (stub — MCP server, REPL, etc.)
     Serve {
         #[command(subcommand)]
         noun: ServeNoun,
+    },
+}
+
+#[derive(Subcommand)]
+enum DemoNoun {
+    /// List all available demo scenarios
+    List,
+    /// Show scenario details and steps without executing
+    Describe {
+        /// Scenario id (e.g. "chaos-detective")
+        scenario: String,
+    },
+    /// Execute a demo scenario end-to-end
+    Run {
+        /// Scenario id (e.g. "chaos-detective")
+        scenario: String,
+        /// RNG seed for reproducible data (default: 42)
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+        /// Verbosity: 0=terse, 1=normal, 2=verbose
+        #[arg(long, short = 'V', default_value_t = 1)]
+        verbosity: u8,
     },
 }
 
@@ -284,6 +312,18 @@ fn dispatch(cli: Cli) -> i32 {
             PipelineNoun::Run { file, json } => {
                 try_or(verbs::pipeline::run(file.as_deref(), json, fmt))
             }
+        },
+
+        Verb::Demo { noun } => match noun {
+            DemoNoun::List => try_or(verbs::demo::list(fmt)),
+            DemoNoun::Describe { scenario } => {
+                try_or(verbs::demo::describe(&scenario, fmt))
+            }
+            DemoNoun::Run {
+                scenario,
+                seed,
+                verbosity,
+            } => try_or(verbs::demo::run(&scenario, seed, verbosity, fmt)),
         },
 
         Verb::Serve { noun } => {

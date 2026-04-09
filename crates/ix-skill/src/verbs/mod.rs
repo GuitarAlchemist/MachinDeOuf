@@ -2,6 +2,7 @@
 
 pub mod beliefs;
 pub mod check;
+pub mod demo;
 pub mod describe;
 pub mod list;
 pub mod pipeline;
