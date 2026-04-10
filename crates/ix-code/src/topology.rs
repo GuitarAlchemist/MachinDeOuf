@@ -19,9 +19,17 @@ use ix_topo::simplex::{Simplex, SimplexStream};
 use serde::{Deserialize, Serialize};
 
 /// Hard cap on graph size. Rips at dimension 1 is O(n^2) in edges and the
-/// persistence reduction is roughly O(m^3) in simplex count — we reject
-/// anything above this threshold to avoid runaway computations.
-pub const MAX_NODES: usize = 500;
+/// persistence reduction is roughly O(m^3) in simplex count. At n=300 we
+/// have ~45,000 edges and the boundary-matrix reduction runs in well
+/// under a second; at n=500 we were hitting multi-second stalls in the
+/// review, so this cap is intentionally conservative. Tighten further
+/// if persistent homology ends up on a hot path.
+pub const MAX_NODES: usize = 300;
+
+/// Hard cap on edge count, independent of node count. Pathological call
+/// graphs with dense cross-module coupling can produce O(n^2) edges even
+/// when n is comfortably below MAX_NODES.
+pub const MAX_EDGES: usize = 10_000;
 
 /// Minimum distance floor. Prevents division-by-zero and keeps extremely
 /// heavy edges from collapsing to radius 0.
@@ -90,6 +98,11 @@ impl CodeTopology {
 pub fn compute_code_topology(call_graph: &CallGraph) -> CodeTopology {
     let n = call_graph.nodes.len();
     if n == 0 || n > MAX_NODES {
+        return CodeTopology::empty();
+    }
+    // Independent edge-count guard: pathological graphs with dense cross
+    // coupling can exceed the reduction budget even when n is small.
+    if call_graph.edges.len() > MAX_EDGES {
         return CodeTopology::empty();
     }
 

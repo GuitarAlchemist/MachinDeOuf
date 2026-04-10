@@ -293,14 +293,27 @@ pub struct CodeEvolutionModel {
     pub current_state: usize,
 }
 
+/// Upper bound on `n_states` for the Markov code-evolution model. A square
+/// transition matrix at this size takes ~2 MB of f64 storage and O(n^3)
+/// time to build — well within limits for any reasonable code-quality
+/// analysis but small enough to block OOM exploits from unchecked input.
+const MAX_MARKOV_STATES: usize = 512;
+
 /// Build a Markov model from a quality history by discretizing into `n_states`
 /// equal-width bins between the min and max of the series.
+///
+/// `n_states` is clamped to the range `[2, MAX_MARKOV_STATES]` to prevent
+/// OOM on unchecked user input (a caller passing `n_states = usize::MAX`
+/// would otherwise allocate a matrix of `usize::MAX^2` floats).
 #[cfg(feature = "physics")]
 pub fn model_code_evolution(quality_history: &[f64], n_states: usize) -> CodeEvolutionModel {
     use ix_graph::markov::MarkovChain;
     use ndarray::Array2;
 
-    assert!(n_states >= 2, "n_states must be at least 2");
+    // Clamp to the supported range. The original implementation asserted
+    // a lower bound but had no upper bound — an OOM vector under the
+    // multi-AI review (Gemini finding #10).
+    let n_states = n_states.clamp(2, MAX_MARKOV_STATES);
 
     if quality_history.len() < 2 {
         let n = n_states;

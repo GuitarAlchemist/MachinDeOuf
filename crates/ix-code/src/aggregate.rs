@@ -128,17 +128,25 @@ pub fn gini_coefficient(values: &[f64]) -> f64 {
     (2.0 * weighted) / (n * sum) - (n + 1.0) / n
 }
 
+/// Maximum allowed bin count for [`shannon_entropy`]. 1024 equal-width
+/// bins is far more than any realistic code-quality histogram needs, and
+/// caps the allocation at ~8 KB to block OOM exploits from user-supplied
+/// bin counts.
+pub const MAX_HISTOGRAM_BINS: usize = 1024;
+
 /// Normalized Shannon entropy of a histogram over `values`.
 ///
 /// Bins `values` into `bins` equal-width buckets between `min` and `max`,
 /// converts counts to a probability distribution, then returns the Shannon
 /// entropy divided by `log2(bins)`. Output is in [0, 1]: 0 means all mass
 /// sits in one bin, 1 means uniform. Returns 0.0 when `values` is empty,
-/// `bins < 2`, or the range is degenerate.
+/// `bins < 2`, or the range is degenerate. `bins` is clamped to
+/// [`MAX_HISTOGRAM_BINS`] to prevent OOM on unchecked input.
 pub fn shannon_entropy(values: &[f64], bins: usize) -> f64 {
     if values.is_empty() || bins < 2 {
         return 0.0;
     }
+    let bins = bins.min(MAX_HISTOGRAM_BINS);
     let min = values
         .iter()
         .cloned()

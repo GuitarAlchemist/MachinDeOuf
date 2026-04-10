@@ -34,6 +34,12 @@ use crate::metrics::CodeMetrics;
 /// non-zero confidence trajectory.
 pub const MIN_COMMITS: usize = 5;
 
+/// Maximum blob size (bytes) accepted when walking history. Blobs larger
+/// than this are skipped — a trajectory on a multi-GB file is useless
+/// anyway and would OOM the analyzer. 8 MB comfortably covers any
+/// real-world source file while blocking adversarial mislabeled data.
+pub const MAX_BLOB_SIZE: u64 = 8 * 1024 * 1024;
+
 /// Default EWMA smoothing factor.
 pub const DEFAULT_ALPHA: f64 = 0.3;
 
@@ -175,6 +181,14 @@ pub fn compute_trajectory(
             Ok(b) => b,
             Err(_) => continue,
         };
+        // Reject blobs larger than MAX_BLOB_SIZE bytes. A multi-GB file
+        // (e.g. a mislabeled data file with a .rs extension) would
+        // otherwise allocate bytes + UTF-8 string copies and OOM the
+        // analyzer. Trajectory analysis of very large files is neither
+        // fast nor informative, so skipping them is both safe and sound.
+        if (blob.size() as u64) > MAX_BLOB_SIZE {
+            continue;
+        }
         let content = match std::str::from_utf8(blob.content()) {
             Ok(s) => s,
             Err(_) => continue,
