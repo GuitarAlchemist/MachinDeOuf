@@ -44,8 +44,8 @@
 use ndarray::{Array1, Array2};
 use std::collections::BTreeMap;
 
+use ix_math::eigen::symmetric_eigen;
 use ix_math::error::MathError;
-use ix_math::linalg::inverse;
 
 /// Linear Discriminant Analysis model.
 ///
@@ -157,25 +157,57 @@ impl LinearDiscriminantAnalysis {
             sw[[i, i]] += 1e-10;
         }
 
-        // Solve standard eigenvalue problem for M = S_W^{-1} S_B.
-        let sw_inv = inverse(&sw)?;
-        let m = sw_inv.dot(&sb);
+        // The naive formulation solves the generalized eigenvalue problem
+        // `S_B v = lambda S_W v` by inverting to `(S_W^{-1} S_B) v = lambda v`.
+        // But `S_W^{-1} S_B` is generally *not* symmetric, so deflation-based
+        // eigensolvers silently produce wrong or duplicated components on
+        // repeated eigenvalues. We symmetrize the problem instead:
+        //
+        //   Let S_W^{-1/2} be the symmetric inverse square root of S_W.
+        //   Define  M = S_W^{-1/2} S_B S_W^{-1/2}  which IS symmetric.
+        //   Solve M u = lambda u by standard symmetric eigendecomposition.
+        //   The LDA direction is  v = S_W^{-1/2} u.
+        //
+        // This gives the same eigenvalues as the generalized problem with
+        // correct eigenvectors even under spectral degeneracy.
 
-        // Extract top eigenvectors via power iteration + deflation.
+        // Step 1: symmetric eigendecomposition of S_W -> U diag(d) U^T
+        let (sw_eigenvalues, sw_eigenvectors) = symmetric_eigen(&sw)?;
+
+        // Step 2: S_W^{-1/2} = U diag(1/sqrt(d)) U^T
+        let mut sw_inv_sqrt = Array2::<f64>::zeros((n_features, n_features));
+        for k in 0..n_features {
+            let dk = sw_eigenvalues[k];
+            if dk <= 0.0 {
+                return Err(MathError::InvalidParameter(
+                    "within-class scatter matrix is not positive definite".into(),
+                ));
+            }
+            let inv_sqrt_dk = 1.0 / dk.sqrt();
+            for i in 0..n_features {
+                for j in 0..n_features {
+                    sw_inv_sqrt[[i, j]] +=
+                        inv_sqrt_dk * sw_eigenvectors[[i, k]] * sw_eigenvectors[[j, k]];
+                }
+            }
+        }
+
+        // Step 3: M = S_W^{-1/2} S_B S_W^{-1/2}  (symmetric by construction)
+        let m = sw_inv_sqrt.dot(&sb).dot(&sw_inv_sqrt);
+
+        // Step 4: symmetric eigendecomposition of M
+        let (m_eigenvalues, m_eigenvectors) = symmetric_eigen(&m)?;
+
+        // Step 5: LDA directions are v_k = S_W^{-1/2} u_k.
+        //         m_eigenvalues/vectors are already sorted descending.
         let mut components = Array2::<f64>::zeros((n_features, self.n_components));
         let mut explained = Array1::<f64>::zeros(self.n_components);
-        let mut current = m.clone();
         for k in 0..self.n_components {
-            let (lambda, v) = power_iteration(&current, 500, 1e-10);
+            explained[k] = m_eigenvalues[k].max(0.0);
+            let u_k = m_eigenvectors.column(k);
+            let v_k = sw_inv_sqrt.dot(&u_k);
             for i in 0..n_features {
-                components[[i, k]] = v[i];
-            }
-            explained[k] = lambda.max(0.0);
-            // Deflate: M' = M - lambda v v^T (works for diagonalizable M).
-            for a in 0..n_features {
-                for b in 0..n_features {
-                    current[[a, b]] -= lambda * v[a] * v[b];
-                }
+                components[[i, k]] = v_k[i];
             }
         }
 
@@ -213,29 +245,6 @@ impl LinearDiscriminantAnalysis {
         self.fit(x, y)?;
         self.transform(x)
     }
-}
-
-/// Power iteration on a (possibly non-symmetric) matrix.
-/// Returns (dominant eigenvalue, normalized eigenvector).
-fn power_iteration(m: &Array2<f64>, max_iter: usize, tol: f64) -> (f64, Array1<f64>) {
-    let n = m.nrows();
-    let mut v = Array1::<f64>::from_elem(n, 1.0 / (n as f64).sqrt());
-    let mut lambda = 0.0;
-    for _ in 0..max_iter {
-        let v_new = m.dot(&v);
-        let new_lambda = v.dot(&v_new);
-        let norm = v_new.dot(&v_new).sqrt();
-        if norm < 1e-15 {
-            return (0.0, v);
-        }
-        v = v_new / norm;
-        if (new_lambda - lambda).abs() < tol {
-            lambda = new_lambda;
-            break;
-        }
-        lambda = new_lambda;
-    }
-    (lambda, v)
 }
 
 #[cfg(test)]
@@ -305,6 +314,66 @@ mod tests {
         // 2 classes allow max 1 component
         let mut lda = LinearDiscriminantAnalysis::new(2);
         assert!(lda.fit(&x, &y).is_err());
+    }
+
+    #[test]
+    fn test_lda_three_classes_axis_aligned_repeated_eigenvalues() {
+        // Three class clusters aligned on the three coordinate axes of a
+        // 3D feature space. In the naive power-iteration-plus-deflation
+        // formulation, the non-symmetric S_W^-1 S_B has repeated eigenvalues
+        // and deflation silently produces duplicated components.
+        //
+        // After the symmetrization fix, LDA should return two distinct
+        // components whose projections separate all three classes.
+        let x = array![
+            // class 0: along +x
+            [5.0, 0.0, 0.0],
+            [5.1, 0.1, 0.0],
+            [4.9, 0.0, 0.1],
+            // class 1: along +y
+            [0.0, 5.0, 0.0],
+            [0.1, 5.1, 0.0],
+            [0.0, 4.9, 0.1],
+            // class 2: along +z
+            [0.0, 0.0, 5.0],
+            [0.0, 0.1, 5.1],
+            [0.1, 0.0, 4.9],
+        ];
+        let y = array![0usize, 0, 0, 1, 1, 1, 2, 2, 2];
+        let mut lda = LinearDiscriminantAnalysis::new(2);
+        let projected = lda.fit_transform(&x, &y).unwrap();
+
+        // All 3 class centroids should be distinct in the 2D projection.
+        let centroid = |start: usize| -> (f64, f64) {
+            let mut cx = 0.0;
+            let mut cy = 0.0;
+            for i in start..(start + 3) {
+                cx += projected[[i, 0]];
+                cy += projected[[i, 1]];
+            }
+            (cx / 3.0, cy / 3.0)
+        };
+        let c0 = centroid(0);
+        let c1 = centroid(3);
+        let c2 = centroid(6);
+
+        let dist = |a: (f64, f64), b: (f64, f64)| {
+            ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
+        };
+        // Each pair should be meaningfully separated in the projection.
+        assert!(
+            dist(c0, c1) > 1.0 && dist(c0, c2) > 1.0 && dist(c1, c2) > 1.0,
+            "class centroids too close: c0={:?} c1={:?} c2={:?}",
+            c0,
+            c1,
+            c2
+        );
+
+        // The two explained values should both be significantly positive —
+        // the old deflation bug would collapse one of them to near zero.
+        let explained = lda.explained.as_ref().unwrap();
+        assert!(explained[0] > 1.0);
+        assert!(explained[1] > 1.0);
     }
 
     #[test]
