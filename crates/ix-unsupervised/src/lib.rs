@@ -9,3 +9,4 @@ pub mod pca;
 pub mod tsne;
 pub mod gmm;
 pub mod lda;
+pub mod nmf;
