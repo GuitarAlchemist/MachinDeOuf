@@ -119,6 +119,11 @@ pub fn svd_with_opts(
     let mut work = a.clone();
     let mut v = Array2::<f64>::eye(n);
 
+    // Frobenius norm squared of A, used for scale-invariant convergence.
+    // (||A||_F^2 = sum of squared singular values = sum of diagonal of A^T A.)
+    let a_frob_sq: f64 = a.iter().map(|x| x * x).sum();
+    let a_frob_sq = a_frob_sq.max(f64::MIN_POSITIVE);
+
     for _sweep in 0..max_sweeps {
         let mut off_diag_sum_sq = 0.0;
         for p in 0..(n.saturating_sub(1)) {
@@ -164,7 +169,13 @@ pub fn svd_with_opts(
             }
         }
 
-        if off_diag_sum_sq.sqrt() < tol {
+        // Scale-invariant stopping criterion: the off-diagonal Frobenius
+        // mass should be a small fraction of the matrix's total Frobenius
+        // mass. Using an absolute threshold (the old behavior) meant that
+        // well-scaled matrices converged in 1-2 sweeps while any matrix
+        // with entries much larger than `tol` stayed above the threshold
+        // indefinitely.
+        if off_diag_sum_sq < tol * tol * a_frob_sq {
             break;
         }
     }
@@ -319,6 +330,45 @@ mod tests {
         let svs = singular_values(&a).unwrap();
         assert!((svs[0] - 3.0).abs() < 1e-9);
         assert!((svs[1] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_svd_scale_invariance() {
+        // Large-scale matrix: the absolute-tolerance convergence criterion
+        // would have required many more sweeps to converge (or failed to
+        // converge within the default 50). The relative criterion should
+        // produce the same relative accuracy regardless of scale.
+        let base = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+        let scale = 1e6_f64;
+        let scaled = &base * scale;
+
+        let res_small = svd(&base).unwrap();
+        let res_large = svd(&scaled).unwrap();
+
+        // Singular values should scale linearly with the input
+        for i in 0..res_small.singular_values.len() {
+            let ratio = res_large.singular_values[i] / res_small.singular_values[i];
+            assert!(
+                (ratio - scale).abs() / scale < 1e-9,
+                "sv ratio {} differs from expected scale {}",
+                ratio,
+                scale
+            );
+        }
+
+        // Both should reconstruct within machine precision relative to scale
+        let recon_large = res_large.reconstruct();
+        let rel_err: f64 = (&scaled - &recon_large)
+            .iter()
+            .map(|x| x * x)
+            .sum::<f64>()
+            .sqrt()
+            / scale;
+        assert!(
+            rel_err < 1e-8,
+            "relative reconstruction error on scaled matrix: {}",
+            rel_err
+        );
     }
 
     #[test]
