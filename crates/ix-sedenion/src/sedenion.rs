@@ -133,6 +133,63 @@ impl Sedenion {
         assert!(ns > 1e-15, "Cannot invert zero sedenion");
         self.conjugate().scale(1.0 / ns)
     }
+
+    /// Sedenion exponential via scalar+vector decomposition.
+    ///
+    /// For `s = a + v` where `a` is the scalar part (`e_0` component) and
+    /// `v` is the 15-component "vector" part, `exp(s) = exp(a) * (cos|v| +
+    /// (v/|v|) * sin|v|)`. This is the direct generalization of the
+    /// quaternion exponential, extended to 16 dimensions.
+    ///
+    /// Ported from TARS v1's `HyperComplexGeometricDSL::SedenionOps::exp`.
+    pub fn exp(&self) -> Sedenion {
+        let scalar = self.components[0];
+        let vec_norm_sq: f64 = self.components[1..].iter().map(|x| x * x).sum();
+        let vec_norm = vec_norm_sq.sqrt();
+        let exp_scalar = scalar.exp();
+
+        let mut out = [0.0_f64; 16];
+        if vec_norm < 1e-12 {
+            // Pure-scalar sedenion: exp reduces to real exponential.
+            out[0] = exp_scalar;
+        } else {
+            let cos_vn = vec_norm.cos();
+            let sin_vn = vec_norm.sin();
+            let factor = exp_scalar * sin_vn / vec_norm;
+            out[0] = exp_scalar * cos_vn;
+            for (i, slot) in out.iter_mut().enumerate().skip(1) {
+                *slot = factor * self.components[i];
+            }
+        }
+        Sedenion::new(out)
+    }
+
+    /// Sedenion logarithm via scalar+vector decomposition.
+    ///
+    /// For `s = a + v` with norm `r = |s|` and vector-part norm `|v|`,
+    /// `log(s) = log(r) + (v/|v|) * atan2(|v|, a)`. This is the inverse of
+    /// `exp` for sedenions with small vector-part norm. Returns a sedenion
+    /// whose components are NaN/Inf if `self` is zero.
+    ///
+    /// Ported from TARS v1's `HyperComplexGeometricDSL::SedenionOps::log`.
+    pub fn log(&self) -> Sedenion {
+        let scalar = self.components[0];
+        let vec_norm_sq: f64 = self.components[1..].iter().map(|x| x * x).sum();
+        let vec_norm = vec_norm_sq.sqrt();
+        let norm = self.norm();
+
+        let mut out = [0.0_f64; 16];
+        out[0] = norm.ln();
+
+        if vec_norm >= 1e-12 {
+            let angle = vec_norm.atan2(scalar);
+            let factor = angle / vec_norm;
+            for (i, slot) in out.iter_mut().enumerate().skip(1) {
+                *slot = factor * self.components[i];
+            }
+        }
+        Sedenion::new(out)
+    }
 }
 
 impl Add for Sedenion {
@@ -287,5 +344,64 @@ mod tests {
 
         let e5 = Sedenion::basis(5);
         assert!((e5.norm() - 1.0).abs() < EPS);
+    }
+
+    #[test]
+    fn test_exp_of_zero_is_one() {
+        let z = Sedenion::zero();
+        let e = z.exp();
+        assert!((e.components[0] - 1.0).abs() < EPS);
+        for i in 1..16 {
+            assert!(e.components[i].abs() < EPS);
+        }
+    }
+
+    #[test]
+    fn test_exp_pure_scalar() {
+        let mut comps = [0.0; 16];
+        comps[0] = 2.0;
+        let s = Sedenion::new(comps);
+        let e = s.exp();
+        assert!((e.components[0] - 2.0_f64.exp()).abs() < EPS);
+        for i in 1..16 {
+            assert!(e.components[i].abs() < EPS);
+        }
+    }
+
+    #[test]
+    fn test_exp_pure_vector_norm_is_one() {
+        // Pure imaginary unit (e_1): exp(e_1) should have norm 1
+        let e1 = Sedenion::basis(1);
+        let e = e1.exp();
+        assert!((e.norm() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_log_of_one_is_zero() {
+        let one = Sedenion::one();
+        let l = one.log();
+        for i in 0..16 {
+            assert!(l.components[i].abs() < EPS);
+        }
+    }
+
+    #[test]
+    fn test_log_exp_roundtrip_small_vector() {
+        // For small vector parts, log(exp(s)) = s
+        let mut comps = [0.0; 16];
+        comps[0] = 0.3;
+        comps[1] = 0.1;
+        comps[2] = 0.05;
+        let s = Sedenion::new(comps);
+        let roundtrip = s.exp().log();
+        for i in 0..16 {
+            assert!(
+                (roundtrip.components[i] - s.components[i]).abs() < 1e-9,
+                "mismatch at component {}: got {}, want {}",
+                i,
+                roundtrip.components[i],
+                s.components[i]
+            );
+        }
     }
 }
