@@ -2311,27 +2311,35 @@ pub fn ga_bridge(params: Value) -> Result<Value, String> {
 
 // ── ix_explain_algorithm ────────────────────────────────────────────
 //
-// TODO(mcp-sampling): This tool is designed to delegate selection to the
-// client's LLM via MCP `sampling/createMessage` (spec 2025-06-18). The
-// current stdio dispatcher in `main.rs` is strictly request/response —
-// it owns stdin in a blocking line loop and has no mechanism to send a
-// server-initiated request and await a correlated client response.
+// Delegates algorithm selection to the client's LLM via MCP
+// `sampling/createMessage` (spec 2025-06-18). The bidirectional
+// dispatcher in `main.rs` routes server-initiated requests through
+// [`ServerContext`]; see `server_context.rs`.
 //
-// Implementing bidirectional JSON-RPC requires:
-//   1. A shared outbound writer (Arc<Mutex<Stdout>>) so tool handlers can
-//      emit `sampling/createMessage` requests with unique ids.
-//   2. A pending-request map (id → oneshot sender) so the main read loop
-//      can route incoming `result`/`error` envelopes back to the waiter.
-//   3. Reworking the dispatcher to distinguish inbound requests from
-//      inbound responses to server-initiated calls.
-//   4. A per-call timeout and error propagation.
-//
-// Until that lands, this tool returns a static algorithm catalog that
-// the *calling* LLM (Claude, etc.) can reason over directly. The contract
-// and catalog are established now so the eventual sampling upgrade is a
-// pure implementation swap with no schema change.
+// The static catalog below is now shipped to the client LLM as part of
+// the user prompt so the model can pick from the actual ix surface area
+// rather than inventing crate names.
 
-pub fn explain_algorithm(params: Value) -> Result<Value, String> {
+/// Back-compat stub: this tool MUST be routed through the context-aware
+/// path ([`explain_algorithm_with_ctx`]). The plain `fn(Value)` handler
+/// is retained to keep the [`crate::tools::Tool`] struct shape intact for
+/// all other tools.
+pub fn explain_algorithm(_params: Value) -> Result<Value, String> {
+    Err(
+        "ix_explain_algorithm must be dispatched via ServerContext \
+         (bidirectional JSON-RPC). This codepath should be intercepted by \
+         ToolRegistry::call_with_ctx."
+            .into(),
+    )
+}
+
+/// Context-aware implementation. Builds an algorithm catalog, asks the
+/// client LLM to pick one via `sampling/createMessage`, and returns the
+/// model's recommendation text.
+pub fn explain_algorithm_with_ctx(
+    params: Value,
+    ctx: &crate::server_context::ServerContext,
+) -> Result<Value, String> {
     let problem = parse_str(&params, "problem")?;
 
     // Curated static catalog of ix algorithms grouped by task family.
@@ -2449,46 +2457,29 @@ pub fn explain_algorithm(params: Value) -> Result<Value, String> {
         ]
     });
 
+    let catalog_pretty = serde_json::to_string_pretty(&catalog)
+        .unwrap_or_else(|_| "<catalog unavailable>".into());
+
+    let user_text = format!(
+        "Given this problem: \"{}\"\n\n\
+         Pick the best ix algorithm from the catalog below and justify the choice. \
+         State suggested hyperparameters and one alternative.\n\n\
+         ix algorithm catalog (JSON):\n{}",
+        problem, catalog_pretty
+    );
+
+    let system_prompt = "You are an ML algorithm selector for the ix crate family. \
+                         Recommend one primary algorithm and one alternative from the \
+                         supplied catalog, with a brief rationale and suggested \
+                         hyperparameters. Do not invent crate names that are not in \
+                         the catalog.";
+
+    let recommendation = ctx.sample(&user_text, system_prompt, 512)?;
+
     Ok(json!({
-        "status": "sampling_pending",
+        "status": "ok",
         "problem": problem,
-        "message": "This tool is designed to delegate algorithm selection to the \
-                    client's LLM via MCP sampling (sampling/createMessage, spec \
-                    2025-06-18). Bidirectional JSON-RPC over stdio is not yet \
-                    wired in the ix-mcp dispatcher — see TODO(mcp-sampling) in \
-                    crates/ix-agent/src/handlers.rs. Until then, here is the \
-                    static ix algorithm catalog; the calling LLM can pick from it.",
-        "how_to_use": "Match the problem to a task family (clustering, supervised, \
-                       optimization, signal_and_sequence, graph, \
-                       approximate_data_structures, chaos_and_dynamics), then \
-                       pick the entry whose 'use_when' best fits the described \
-                       data scale, noise level, and constraints.",
+        "recommendation": recommendation,
         "catalog": catalog,
-        "sampling_request_preview": {
-            "note": "Once bidirectional JSON-RPC lands, this tool will emit the \
-                     following sampling/createMessage request to the client.",
-            "jsonrpc": "2.0",
-            "method": "sampling/createMessage",
-            "params": {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": {
-                            "type": "text",
-                            "text": format!(
-                                "Given this problem: \"{}\"\n\nPick the best ix algorithm \
-                                 from the provided catalog and justify the choice. State \
-                                 suggested hyperparameters and one alternative.",
-                                problem
-                            )
-                        }
-                    }
-                ],
-                "maxTokens": 512,
-                "systemPrompt": "You are an ML algorithm selector for the ix crate family. \
-                                 Recommend one primary algorithm and one alternative, with \
-                                 a brief rationale and suggested hyperparameters."
-            }
-        }
     }))
 }

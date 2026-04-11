@@ -65,6 +65,24 @@ impl ToolRegistry {
         }
     }
 
+    /// Call a tool with a [`ServerContext`] available. Tools that need
+    /// server-initiated JSON-RPC (e.g. MCP sampling) are intercepted by
+    /// name and routed to their context-aware handler; everything else
+    /// falls through to [`Self::call`]. Keeping this as a separate entry
+    /// point avoids touching the `Tool` struct shape and the registry
+    /// bridge's fn-pointer marker protocol.
+    pub fn call_with_ctx(
+        &self,
+        name: &str,
+        arguments: Value,
+        ctx: &crate::server_context::ServerContext,
+    ) -> Result<Value, String> {
+        match name {
+            "ix_explain_algorithm" => handlers::explain_algorithm_with_ctx(arguments, ctx),
+            _ => self.call(name, arguments),
+        }
+    }
+
     /// Merge registry-sourced skills into the tool list, with registry
     /// taking precedence over any manual entry of the same name. Called at
     /// the end of [`Self::register_all`].

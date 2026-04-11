@@ -9,5 +9,6 @@ pub mod demo;
 pub mod handlers;
 pub mod ml_pipeline;
 pub mod registry_bridge;
+pub mod server_context;
 pub mod skills;
 pub mod tools;
