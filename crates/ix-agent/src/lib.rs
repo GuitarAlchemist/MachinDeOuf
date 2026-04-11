@@ -9,6 +9,7 @@ pub mod demo;
 pub mod flywheel;
 pub mod handlers;
 pub mod ml_pipeline;
+pub mod projection;
 pub mod registry_bridge;
 pub mod server_context;
 pub mod skills;
