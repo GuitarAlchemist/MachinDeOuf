@@ -105,6 +105,8 @@ pub fn classify_action_kind(tool_name: &str) -> ActionKind {
         // Code + context analysis
         "ix_code_analyze",
         "ix_context_walk",
+        // Fuzzy distribution eval (deterministic, no side effects)
+        "ix_fuzzy_eval",
         // Governance reads
         "ix_governance_check",
         "ix_governance_persona",

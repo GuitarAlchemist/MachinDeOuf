@@ -2032,6 +2032,83 @@ pub fn trace_ingest(params: Value) -> Result<Value, String> {
     }))
 }
 
+// ── ix_fuzzy_eval ─────────────────────────────────────────────
+//
+// Primitive #5: fuzzy distribution operations. Takes a hexavalent
+// distribution and an operation name and returns the result plus
+// derived diagnostics (argmax, escalation flag, sharpen result).
+//
+// Params:
+//   distribution: { "T": f, "P": f, "U": f, "D": f, "F": f, "C": f }
+//     — every field optional; missing variants default to 0.0
+//   operation:   "info" | "not" | "and" | "or"
+//   other:       another distribution (required for "and" and "or")
+pub fn fuzzy_eval(params: Value) -> Result<Value, String> {
+    use ix_fuzzy::hexavalent::{
+        escalation_triggered, hexavalent_argmax, hexavalent_from_tpudfc, hexavalent_not,
+        try_sharpen, ESCALATION_THRESHOLD, SHARPEN_THRESHOLD,
+    };
+    use ix_fuzzy::HexavalentDistribution;
+
+    fn parse_dist(v: &Value) -> Result<HexavalentDistribution, String> {
+        let get = |k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0);
+        hexavalent_from_tpudfc(
+            get("T"),
+            get("P"),
+            get("U"),
+            get("D"),
+            get("F"),
+            get("C"),
+        )
+        .map_err(|e| format!("invalid distribution: {e}"))
+    }
+
+    let op = params
+        .get("operation")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
+
+    let dist_value = params
+        .get("distribution")
+        .ok_or_else(|| "'distribution' is required".to_string())?;
+    let dist = parse_dist(dist_value)?;
+
+    let result: HexavalentDistribution = match op {
+        "info" => dist.clone(),
+        "not" => hexavalent_not(&dist).map_err(|e| format!("hexavalent_not: {e}"))?,
+        "and" => {
+            let other = params
+                .get("other")
+                .ok_or_else(|| "'other' required for 'and'".to_string())?;
+            let b = parse_dist(other)?;
+            dist.and(&b).map_err(|e| format!("and: {e}"))?
+        }
+        "or" => {
+            let other = params
+                .get("other")
+                .ok_or_else(|| "'other' required for 'or'".to_string())?;
+            let b = parse_dist(other)?;
+            dist.or(&b).map_err(|e| format!("or: {e}"))?
+        }
+        other => return Err(format!("unknown operation: {other}")),
+    };
+
+    let argmax = hexavalent_argmax(&result);
+    let argmax_mass = result.get(&argmax);
+    let escalation = escalation_triggered(&result);
+    let sharpen = try_sharpen(&result);
+
+    Ok(json!({
+        "distribution": result,
+        "argmax": argmax.to_string(),
+        "argmax_mass": argmax_mass,
+        "escalation_triggered": escalation,
+        "escalation_threshold": ESCALATION_THRESHOLD,
+        "sharpen": sharpen.map(|v| v.to_string()),
+        "sharpen_threshold": SHARPEN_THRESHOLD,
+    }))
+}
+
 // ── ix_session_flywheel_export ────────────────────────────────
 //
 // Primitive #6: the trace flywheel. Converts a persisted

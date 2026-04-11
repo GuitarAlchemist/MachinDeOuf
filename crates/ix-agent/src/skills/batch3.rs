@@ -73,6 +73,37 @@ fn trace_ingest_schema() -> Value {
 #[ix_skill(domain = "trace", name = "trace.ingest", governance = "empirical", schema_fn = "crate::skills::batch3::trace_ingest_schema")]
 pub fn trace_ingest(p: Value) -> Result<Value, String> { handlers::trace_ingest(p) }
 
+// ---- fuzzy.eval (primitive #5) -----------------------------------------
+fn fuzzy_eval_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "operation": {"type": "string", "enum": ["info", "not", "and", "or"]},
+            "distribution": {
+                "type": "object",
+                "properties": {
+                    "T": {"type": "number"}, "P": {"type": "number"},
+                    "U": {"type": "number"}, "D": {"type": "number"},
+                    "F": {"type": "number"}, "C": {"type": "number"}
+                }
+            },
+            "other": {
+                "type": "object",
+                "description": "Second distribution for and/or",
+                "properties": {
+                    "T": {"type": "number"}, "P": {"type": "number"},
+                    "U": {"type": "number"}, "D": {"type": "number"},
+                    "F": {"type": "number"}, "C": {"type": "number"}
+                }
+            }
+        },
+        "required": ["distribution"]
+    })
+}
+/// Evaluate hexavalent fuzzy distribution ops: info / not / and / or.
+#[ix_skill(domain = "fuzzy", name = "fuzzy.eval", governance = "deterministic", schema_fn = "crate::skills::batch3::fuzzy_eval_schema")]
+pub fn fuzzy_eval(p: Value) -> Result<Value, String> { handlers::fuzzy_eval(p) }
+
 // ---- session.flywheel_export (primitive #6) -----------------------------
 fn session_flywheel_export_schema() -> Value {
     json!({

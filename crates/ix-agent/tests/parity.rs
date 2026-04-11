@@ -1,4 +1,4 @@
-//! 49-tool parity test — protects the MCP surface during the manual→registry
+//! 50-tool parity test — protects the MCP surface during the manual→registry
 //! migration.
 //!
 //! Every tool name in `EXPECTED` must remain reachable through
@@ -9,7 +9,7 @@
 use ix_agent::tools::ToolRegistry;
 use std::collections::HashSet;
 
-/// The 49 MCP tools exposed by ix-agent (47 registry + ix_demo and
+/// The 50 MCP tools exposed by ix-agent (48 registry + ix_demo and
 /// ix_explain_algorithm, both manual).
 const EXPECTED: &[&str] = &[
     "ix_adversarial_fgsm",
@@ -27,6 +27,7 @@ const EXPECTED: &[&str] = &[
     "ix_federation_discover",
     "ix_fft",
     "ix_fractal",
+    "ix_fuzzy_eval",
     "ix_ga_bridge",
     "ix_game_nash",
     "ix_governance_belief",
@@ -106,10 +107,10 @@ fn parity_all_44_tools_reachable() {
 
 #[test]
 fn parity_expected_count() {
-    // Sanity: 47 registry tools + ix_demo + ix_explain_algorithm = 49.
+    // Sanity: 48 registry tools + ix_demo + ix_explain_algorithm = 50.
     // Both ix_demo and ix_explain_algorithm are manually registered.
     // If this drifts, update both EXPECTED and this assertion in the same commit.
-    assert_eq!(EXPECTED.len(), 49);
+    assert_eq!(EXPECTED.len(), 50);
 }
 
 #[test]
@@ -240,8 +241,8 @@ fn parity_all_43_registry_backed() {
     // algorithm tools are registry-backed. ix_demo is manual.
     let registry_count = ix_registry::count();
     assert_eq!(
-        registry_count, 47,
-        "expected 47 registry skills, got {registry_count}"
+        registry_count, 48,
+        "expected 48 registry skills, got {registry_count}"
     );
 }
 
