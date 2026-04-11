@@ -1,0 +1,93 @@
+// Project-local Zed tasks for the ix workspace.
+//
+// Run via Command Palette → "task: spawn" or bind a key to
+// zed::Spawn in your global keymap.json:
+//   { "ctrl-shift-b": ["task::Spawn", { "task_name": "cargo build --workspace" }] }
+//
+// $ZED_FILE and $ZED_STEM are expanded at spawn time.
+[
+  // ── Cargo surface ───────────────────────────────────────────
+  {
+    "label": "cargo build --workspace",
+    "command": "cargo build --workspace",
+    "reveal": "always",
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "cargo test --workspace",
+    "command": "cargo test --workspace",
+    "reveal": "always",
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "cargo clippy --workspace -D warnings",
+    "command": "cargo clippy --workspace -- -D warnings",
+    "reveal": "always",
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "cargo test current crate",
+    "command": "cargo test -p $ZED_STEM",
+    "reveal": "always"
+  },
+  {
+    "label": "cargo doc --no-deps",
+    "command": "cargo doc --workspace --no-deps",
+    "reveal": "always"
+  },
+  {
+    "label": "cargo build release (ix-mcp)",
+    "command": "cargo build --release -p ix-agent",
+    "reveal": "always"
+  },
+
+  // ── Multi-AI CLIs — same binaries the /octo:brainstorm skill
+  //    shells out to from Claude Code. Prompt appears in the
+  //    integrated terminal so you can iterate interactively.
+  // ── codex is OpenAI's Codex CLI; gemini is the Google CLI.
+  {
+    "label": "codex — one-shot prompt",
+    "command": "codex exec --full-auto \"$ZED_CUSTOM_PROMPT\"",
+    "env": {
+      "ZED_CUSTOM_PROMPT": "Explain what the current file does and suggest one improvement."
+    },
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "codex — review current file",
+    "command": "codex exec --full-auto \"Review $ZED_FILE for correctness, idiomatic Rust, and potential bugs. Report concisely.\"",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "gemini — one-shot prompt",
+    "command": "gemini -p \"\" -o text --approval-mode yolo",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "gemini — review current file",
+    "command": "printf '%s' \"Review $ZED_FILE as a lateral thinker. What non-obvious issues or alternative designs apply?\" | gemini -p \"\" -o text --approval-mode yolo",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+
+  // ── Governance / harness smoke checks ───────────────────────
+  {
+    "label": "ix-mcp — run locally",
+    "command": "./target/release/ix-mcp.exe",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "parity test (ix-agent)",
+    "command": "cargo test -p ix-agent --test parity",
+    "reveal": "always"
+  },
+  {
+    "label": "harness integration tests",
+    "command": "cargo test -p ix-agent --test session_log_wiring --test loop_detect --test parity",
+    "reveal": "always"
+  }
+]

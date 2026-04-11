@@ -1,0 +1,71 @@
+// Project-local Zed settings for the ix workspace.
+//
+// Overrides the user-level ~/AppData/Roaming/Zed/settings.json for
+// anything file-scoped here. Keep this minimal — the agent panel,
+// theme, and context servers all inherit from user settings.
+{
+  // ──────────────────────────────────────────────────────────────
+  // rust-analyzer — tuned for the 33-crate ix workspace.
+  // The full-workspace check on save is expensive; we restrict
+  // to the current crate and let `cargo clippy --workspace` in
+  // the tasks.json cover the full surface on demand.
+  // ──────────────────────────────────────────────────────────────
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        // Use clippy on save — same lint surface as our CI gate.
+        "check": {
+          "command": "clippy",
+          // Check only the crate you're editing, not the whole
+          // workspace. Huge wins on large multi-crate repos.
+          "workspace": false,
+          // Match the CLAUDE.md contract: -D warnings is our bar.
+          "extraArgs": ["--", "-D", "warnings"]
+        },
+        "cargo": {
+          // Enable all features so conditionally-compiled code
+          // (e.g. the wgpu GPU path in ix-gpu, or the optional
+          // tokio bits in ix-io) gets type-checked.
+          "allFeatures": true,
+          // Check only the current target; no benches/examples.
+          "allTargets": false
+        },
+        "procMacro": {
+          // Required for ix-skill-macros (#[ix_skill]) and linkme.
+          "enable": true
+        },
+        "diagnostics": {
+          "experimental": {
+            // Surfaces borrow-checker hints from the next-gen
+            // trait solver early.
+            "enable": true
+          },
+          // Silence the "unlinked file" spam when we've got
+          // generated sources or #[cfg(test)] modules that the
+          // server can't reach.
+          "disabled": ["unlinked-file"]
+        },
+        "inlayHints": {
+          // Less visual noise — default shows everything.
+          "parameterHints": { "enable": false },
+          "typeHints": { "enable": true },
+          "chainingHints": { "enable": true }
+        }
+      }
+    }
+  },
+
+  // Format Rust files on save via rust-analyzer + rustfmt.
+  "languages": {
+    "Rust": {
+      "format_on_save": "on",
+      "tab_size": 4
+    },
+    "TOML": {
+      "tab_size": 2
+    },
+    "Markdown": {
+      "format_on_save": "off"
+    }
+  }
+}
