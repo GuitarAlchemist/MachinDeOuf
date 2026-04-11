@@ -45,6 +45,7 @@ ix-context = { workspace = true }
 ix-loop-detect = { workspace = true }
 ix-agent-core = { workspace = true }
 ix-approval = { workspace = true }
+ix-session = { workspace = true }
 ix-types = { workspace = true }
 ix-registry = { workspace = true }
 ix-skill-macros = { workspace = true }
@@ -55,3 +56,6 @@ thiserror = { workspace = true }
 ndarray = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

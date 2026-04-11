@@ -16,15 +16,16 @@
 
 use crate::tools::Tool;
 use ix_agent_core::{
-    ActionError, ActionOutcome, ActionResult, AgentAction, AgentHandler, MiddlewareChain,
-    ReadContext, VecEventSink, WriteContext,
+    ActionError, ActionOutcome, ActionResult, AgentAction, AgentHandler, EventSink,
+    MiddlewareChain, ReadContext, VecEventSink, WriteContext,
 };
 use ix_approval::ApprovalMiddleware;
 use ix_loop_detect::{LoopDetector, LoopVerdict};
 use ix_registry::SkillDescriptor;
+use ix_session::SessionLog;
 use ix_types::Value as IxValue;
 use serde_json::Value as JsonValue;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 /// Process-wide loop detector for MCP tool dispatch.
 ///
@@ -73,6 +74,73 @@ fn middleware_chain() -> &'static Mutex<MiddlewareChain> {
 /// callers should not mutate the chain at runtime.
 pub fn shared_middleware_chain() -> &'static Mutex<MiddlewareChain> {
     middleware_chain()
+}
+
+// ---------------------------------------------------------------------------
+// Optional persistent session log for dispatch_action
+// ---------------------------------------------------------------------------
+
+/// Process-wide session log slot used by [`dispatch_action`].
+///
+/// When populated, every dispatched action routes its emitted
+/// [`ix_agent_core::SessionEvent`]s through an [`ix_session::SessionSink`]
+/// so middleware verdicts and handler outcomes survive the process.
+/// When empty, dispatch falls back to an in-memory [`VecEventSink`] and
+/// events are discarded after the call — preserving the existing test
+/// behavior.
+///
+/// Bootstrap order:
+///   1. On first access, read the `IX_SESSION_LOG` environment variable.
+///      If set and the file can be opened, install that log.
+///   2. Otherwise start empty; callers (typically the `ix-mcp` main or
+///      tests) can explicitly install a log via [`install_session_log`].
+fn session_log_slot() -> &'static Mutex<Option<Arc<SessionLog>>> {
+    static SLOT: OnceLock<Mutex<Option<Arc<SessionLog>>>> = OnceLock::new();
+    SLOT.get_or_init(|| {
+        let initial = std::env::var("IX_SESSION_LOG")
+            .ok()
+            .and_then(|path| SessionLog::open(&path).ok())
+            .map(Arc::new);
+        Mutex::new(initial)
+    })
+}
+
+/// Install a [`SessionLog`] as the process-wide event sink target for
+/// [`dispatch_action`]. Replaces any previously installed log.
+///
+/// Typical callers:
+/// - `ix-mcp` main, after parsing config, to route production events
+///   to a durable JSONL file.
+/// - Integration tests that want to assert events survive dispatch.
+///
+/// Wrapping in an [`Arc`] lets dispatches clone a handle out of the
+/// slot without holding its mutex across the handler call.
+pub fn install_session_log(log: SessionLog) {
+    let mut slot = session_log_slot()
+        .lock()
+        .expect("session log mutex poisoned");
+    *slot = Some(Arc::new(log));
+}
+
+/// Clear any installed session log, reverting [`dispatch_action`] to
+/// its in-memory [`VecEventSink`] fallback. Primarily useful for tests
+/// that need to tear down state between cases.
+pub fn clear_session_log() {
+    let mut slot = session_log_slot()
+        .lock()
+        .expect("session log mutex poisoned");
+    *slot = None;
+}
+
+/// Snapshot the currently installed log (if any) as a cloned [`Arc`].
+/// Used internally by [`dispatch_action`] to release the slot mutex
+/// before running the handler.
+fn current_session_log() -> Option<Arc<SessionLog>> {
+    session_log_slot()
+        .lock()
+        .expect("session log mutex poisoned")
+        .as_ref()
+        .map(Arc::clone)
 }
 
 /// Terminal handler that looks up the tool by name in the registry at
@@ -133,25 +201,32 @@ impl AgentHandler for RegistryLookupHandler {
 /// Returns the handler's output value on success, or an `ActionError`
 /// on any failure from the middleware chain or the handler.
 pub fn dispatch_action(cx: &ReadContext, action: AgentAction) -> ActionResult {
-    let mut sink = VecEventSink::default();
+    // Grab an `Arc` handle to the installed log (if any) before
+    // locking the chain. The session log has its own internal mutex,
+    // so holding the `Arc` alone does not block concurrent dispatches.
+    let log = current_session_log();
+    let mut session_sink = log.as_ref().map(|l| l.sink());
+    let mut vec_sink = VecEventSink::default();
+
+    // Narrow to a `&mut dyn EventSink` so WriteContext sees one
+    // uniform type regardless of which backing sink is active.
+    let sink: &mut dyn EventSink = match &mut session_sink {
+        Some(s) => s,
+        None => &mut vec_sink,
+    };
+
     let chain_guard = middleware_chain()
         .lock()
         .expect("middleware chain mutex poisoned");
 
     let result = {
-        let mut wc = WriteContext {
-            read: cx,
-            sink: &mut sink,
-        };
+        let mut wc = WriteContext { read: cx, sink };
         chain_guard.dispatch(&mut wc, action, &RegistryLookupHandler)
     };
 
-    // Drop the chain lock before returning. Events emitted during
-    // dispatch are currently discarded — ix-session (primitive #4)
-    // will replace VecEventSink with a JSONL-backed sink and
-    // preserve them.
     drop(chain_guard);
-    drop(sink);
+    drop(session_sink);
+    drop(vec_sink);
 
     result
 }
