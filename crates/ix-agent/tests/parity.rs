@@ -1,4 +1,4 @@
-//! 48-tool parity test — protects the MCP surface during the manual→registry
+//! 49-tool parity test — protects the MCP surface during the manual→registry
 //! migration.
 //!
 //! Every tool name in `EXPECTED` must remain reachable through
@@ -9,7 +9,7 @@
 use ix_agent::tools::ToolRegistry;
 use std::collections::HashSet;
 
-/// The 48 MCP tools exposed by ix-agent (46 registry + ix_demo and
+/// The 49 MCP tools exposed by ix-agent (47 registry + ix_demo and
 /// ix_explain_algorithm, both manual).
 const EXPECTED: &[&str] = &[
     "ix_adversarial_fgsm",
@@ -54,6 +54,7 @@ const EXPECTED: &[&str] = &[
     "ix_rotation",
     "ix_search",
     "ix_sedenion",
+    "ix_session_flywheel_export",
     "ix_stats",
     "ix_supervised",
     "ix_tars_bridge",
@@ -105,10 +106,10 @@ fn parity_all_44_tools_reachable() {
 
 #[test]
 fn parity_expected_count() {
-    // Sanity: 46 registry tools + ix_demo + ix_explain_algorithm = 48.
+    // Sanity: 47 registry tools + ix_demo + ix_explain_algorithm = 49.
     // Both ix_demo and ix_explain_algorithm are manually registered.
     // If this drifts, update both EXPECTED and this assertion in the same commit.
-    assert_eq!(EXPECTED.len(), 48);
+    assert_eq!(EXPECTED.len(), 49);
 }
 
 #[test]
@@ -234,12 +235,13 @@ fn parity_batch2_tools_are_registry_backed() {
 
 #[test]
 fn parity_all_43_registry_backed() {
-    // After batch1 (6) + batch2 (28) + batch3 (9+1 context.walk) + prime_radiant (2)
-    // migration, all 46 algorithm tools are registry-backed. ix_demo is manual.
+    // After batch1 (6) + batch2 (28) + batch3 (10+1 context.walk +
+    // session.flywheel_export) + prime_radiant (2) migration, all 47
+    // algorithm tools are registry-backed. ix_demo is manual.
     let registry_count = ix_registry::count();
     assert_eq!(
-        registry_count, 46,
-        "expected 46 registry skills (6 + 28 + 10 + 2), got {registry_count}"
+        registry_count, 47,
+        "expected 47 registry skills, got {registry_count}"
     );
 }
 

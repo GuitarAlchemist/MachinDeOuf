@@ -127,6 +127,7 @@ pub fn classify_action_kind(tool_name: &str) -> ActionKind {
         "ix_trace_ingest", // writes trace data
         "ix_governance_belief", // writes to state/beliefs/
         "ix_governance_graph_rescan", // rebuilds graph state
+        "ix_session_flywheel_export", // writes a GA Trace JSON file
     ];
 
     if READ_TOOLS.contains(&tool_name) {

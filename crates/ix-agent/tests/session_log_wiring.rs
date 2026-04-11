@@ -114,6 +114,56 @@ fn blocked_dispatch_still_persists_approval_metadata() {
     clear_session_log();
 }
 
+/// End-to-end trace flywheel (primitive #6): persist events to a
+/// session log via dispatch_action, export it to a GA trace file,
+/// then feed that file back to `ix_trace_ingest` — closing the
+/// self-improvement loop without any hand-edited data.
+#[test]
+fn flywheel_round_trip_session_log_to_trace_ingest() {
+    let dir = tempdir().expect("create tempdir");
+    let log_path = dir.path().join("flywheel.jsonl");
+    let log = SessionLog::open(&log_path).expect("open session log");
+    install_session_log(log);
+
+    shared_loop_detector().clear_key("ix_stats");
+
+    // Drive a couple of real dispatches so the session log has
+    // content to convert.
+    let cx = ReadContext::synthetic_for_legacy();
+    for _ in 0..2 {
+        let action = AgentAction::InvokeTool {
+            tool_name: "ix_stats".to_string(),
+            params: serde_json::json!({ "data": [1.0, 2.0, 3.0] }),
+            ordinal: 0,
+            target_hint: None,
+        };
+        dispatch_action(&cx, action).expect("ix_stats auto-approves");
+    }
+
+    // Flush the sink by clearing the install so the log's Drop
+    // path finalises. The file is already flush-on-emit, so this
+    // is belt-and-suspenders.
+    clear_session_log();
+
+    // Reopen a fresh handle and export via the flywheel.
+    let log = SessionLog::open(&log_path).expect("reopen");
+    let trace_dir = dir.path().join("traces");
+    let written = ix_agent::flywheel::export_session_to_trace_dir(&log, &trace_dir, None)
+        .expect("flywheel export");
+    assert!(written.exists(), "trace file should exist on disk");
+
+    // Now feed the trace directory to ix_trace_ingest via the
+    // registry-backed dispatch path — same code path an agent
+    // would use to close its own loop.
+    let stats = ix_agent::registry_bridge::dispatch(
+        "ix_trace_ingest",
+        serde_json::json!({ "dir": trace_dir.display().to_string() }),
+    )
+    .expect("ix_trace_ingest should succeed");
+    let total = stats["total_traces"].as_u64().unwrap_or(0);
+    assert_eq!(total, 1, "expected one ingested trace, got {stats}");
+}
+
 /// When no log is installed, dispatch falls back to the in-memory
 /// sink and produces no filesystem side effects — protects the
 /// existing `parity.rs` tests which run without a log.

@@ -73,6 +73,22 @@ fn trace_ingest_schema() -> Value {
 #[ix_skill(domain = "trace", name = "trace.ingest", governance = "empirical", schema_fn = "crate::skills::batch3::trace_ingest_schema")]
 pub fn trace_ingest(p: Value) -> Result<Value, String> { handlers::trace_ingest(p) }
 
+// ---- session.flywheel_export (primitive #6) -----------------------------
+fn session_flywheel_export_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "session_log": {"type": "string", "description": "Path to the JSONL session log"},
+            "trace_dir":   {"type": "string", "description": "Destination directory (default ~/.ga/traces)"},
+            "trace_id":    {"type": "string", "description": "Explicit trace id (default: log filename stem)"}
+        },
+        "required": ["session_log"]
+    })
+}
+/// Convert a persisted SessionLog to a GA trace file consumable by ix_trace_ingest.
+#[ix_skill(domain = "session", name = "session.flywheel_export", governance = "deterministic", schema_fn = "crate::skills::batch3::session_flywheel_export_schema")]
+pub fn session_flywheel_export(p: Value) -> Result<Value, String> { handlers::session_flywheel_export(p) }
+
 // ---- ml_pipeline ---------------------------------------------------------
 fn ml_pipeline_schema() -> Value {
     json!({

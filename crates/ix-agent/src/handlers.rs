@@ -2032,6 +2032,55 @@ pub fn trace_ingest(params: Value) -> Result<Value, String> {
     }))
 }
 
+// ── ix_session_flywheel_export ────────────────────────────────
+//
+// Primitive #6: the trace flywheel. Converts a persisted
+// `ix_session::SessionLog` into a GA-flavored Trace JSON file that
+// `ix_trace_ingest` can immediately consume, closing the
+// self-improvement loop.
+//
+// Params:
+// - `session_log` (required): path to the JSONL session log file
+// - `trace_dir`   (optional): destination directory for the Trace
+//                             JSON file. Defaults to
+//                             `ix_io::trace_bridge::default_trace_dir()`
+//                             (typically `~/.ga/traces`).
+// - `trace_id`    (optional): explicit trace id; defaults to the
+//                             session log filename stem.
+pub fn session_flywheel_export(params: Value) -> Result<Value, String> {
+    use crate::flywheel;
+    use ix_session::SessionLog;
+    use std::path::PathBuf;
+
+    let log_path = params
+        .get("session_log")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "'session_log' is required".to_string())?;
+    let trace_dir: PathBuf = params
+        .get("trace_dir")
+        .and_then(|v| v.as_str())
+        .map(PathBuf::from)
+        .unwrap_or_else(ix_io::trace_bridge::default_trace_dir);
+    let trace_id = params
+        .get("trace_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let log = SessionLog::open(log_path).map_err(|e| format!("open session log: {e}"))?;
+    let written = flywheel::export_session_to_trace_dir(&log, &trace_dir, trace_id)
+        .map_err(|e| format!("export trace: {e}"))?;
+
+    let trace_count = log.events()
+        .map(|it| it.count())
+        .unwrap_or(0);
+
+    Ok(json!({
+        "written": written.display().to_string(),
+        "trace_dir": trace_dir.display().to_string(),
+        "event_count": trace_count,
+    }))
+}
+
 // ── ix_ml_pipeline ────────────────────────────────────────────
 
 pub fn ml_pipeline(params: Value) -> Result<Value, String> {
