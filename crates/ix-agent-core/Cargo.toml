@@ -1,0 +1,16 @@
+[package]
+name = "ix-agent-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["development-tools", "algorithms"]
+keywords = ["agent", "context", "middleware", "harness", "replayability"]
+description = "Shared substrate types for the ix harness primitives roadmap — ReadContext, AgentAction, SessionEvent, AgentHandler, Middleware"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ix-types = { workspace = true }
