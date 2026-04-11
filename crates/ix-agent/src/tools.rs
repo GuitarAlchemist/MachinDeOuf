@@ -1307,6 +1307,28 @@ impl ToolRegistry {
             handler: crate::demo::ix_demo,
         });
 
+        self.tools.push(Tool {
+            name: "ix_explain_algorithm",
+            description: "Recommend an ix algorithm for a described problem. Designed to \
+                          delegate selection to the client's LLM via MCP sampling \
+                          (sampling/createMessage, spec 2025-06-18). Bidirectional \
+                          JSON-RPC is not yet wired in the ix-mcp stdio dispatcher, so \
+                          for now this returns a curated static algorithm catalog the \
+                          calling LLM can pick from. Contract is stable — the sampling \
+                          upgrade will be a drop-in swap.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "problem": {
+                        "type": "string",
+                        "description": "Natural-language description of the problem, data shape, scale, and constraints (e.g. '10,000 noisy 2D points, find clusters, unknown k')."
+                    }
+                },
+                "required": ["problem"]
+            }),
+            handler: handlers::explain_algorithm,
+        });
+
         // Merge registry-sourced skills. Registry wins on name collision.
         self.merge_registry_tools();
     }

@@ -2308,3 +2308,187 @@ pub fn ga_bridge(params: Value) -> Result<Value, String> {
         _ => Err(format!("Unknown ga_bridge action: {}. Use: chord_features, progression_features, scale_features, workflow_guide", action)),
     }
 }
+
+// ── ix_explain_algorithm ────────────────────────────────────────────
+//
+// TODO(mcp-sampling): This tool is designed to delegate selection to the
+// client's LLM via MCP `sampling/createMessage` (spec 2025-06-18). The
+// current stdio dispatcher in `main.rs` is strictly request/response —
+// it owns stdin in a blocking line loop and has no mechanism to send a
+// server-initiated request and await a correlated client response.
+//
+// Implementing bidirectional JSON-RPC requires:
+//   1. A shared outbound writer (Arc<Mutex<Stdout>>) so tool handlers can
+//      emit `sampling/createMessage` requests with unique ids.
+//   2. A pending-request map (id → oneshot sender) so the main read loop
+//      can route incoming `result`/`error` envelopes back to the waiter.
+//   3. Reworking the dispatcher to distinguish inbound requests from
+//      inbound responses to server-initiated calls.
+//   4. A per-call timeout and error propagation.
+//
+// Until that lands, this tool returns a static algorithm catalog that
+// the *calling* LLM (Claude, etc.) can reason over directly. The contract
+// and catalog are established now so the eventual sampling upgrade is a
+// pure implementation swap with no schema change.
+
+pub fn explain_algorithm(params: Value) -> Result<Value, String> {
+    let problem = parse_str(&params, "problem")?;
+
+    // Curated static catalog of ix algorithms grouped by task family.
+    // Each entry: crate path, when-to-use, complexity, key hyperparameters.
+    let catalog = json!({
+        "clustering": [
+            {
+                "name": "ix_unsupervised::KMeans",
+                "use_when": "Known k, roughly spherical clusters, low noise",
+                "complexity": "O(n * k * i * d)",
+                "hyperparameters": ["k", "max_iter", "tol", "init (kmeans++)"]
+            },
+            {
+                "name": "ix_unsupervised::DBSCAN",
+                "use_when": "Unknown cluster count, noisy data, arbitrary shapes",
+                "complexity": "O(n log n) with spatial index",
+                "hyperparameters": ["eps", "min_samples", "metric"]
+            },
+            {
+                "name": "ix_unsupervised::HierarchicalClustering",
+                "use_when": "Want a dendrogram or nested cluster structure",
+                "complexity": "O(n^2 log n)",
+                "hyperparameters": ["linkage", "distance_metric"]
+            }
+        ],
+        "supervised": [
+            {
+                "name": "ix_supervised::LinearRegression",
+                "use_when": "Linear relationship, interpretable coefficients",
+                "complexity": "O(n * d^2)",
+                "hyperparameters": ["regularization (ridge/lasso)", "alpha"]
+            },
+            {
+                "name": "ix_supervised::RandomForest",
+                "use_when": "Tabular, mixed feature types, robust baseline",
+                "complexity": "O(n log n * d * trees)",
+                "hyperparameters": ["n_trees", "max_depth", "min_samples_split"]
+            },
+            {
+                "name": "ix_supervised::GradientBoosting",
+                "use_when": "Top accuracy on tabular, willing to tune",
+                "complexity": "O(n log n * d * rounds)",
+                "hyperparameters": ["learning_rate", "n_estimators", "max_depth"]
+            }
+        ],
+        "optimization": [
+            {
+                "name": "ix_optimize::GradientDescent",
+                "use_when": "Differentiable objective, convex or smooth",
+                "complexity": "O(iters * grad_cost)",
+                "hyperparameters": ["learning_rate", "momentum", "max_iter"]
+            },
+            {
+                "name": "ix_optimize::BFGS",
+                "use_when": "Smooth objective, fast convergence on medium problems",
+                "complexity": "O(iters * d^2)",
+                "hyperparameters": ["line_search", "tol"]
+            },
+            {
+                "name": "ix_evolution::GeneticAlgorithm",
+                "use_when": "Non-differentiable, combinatorial, or rugged landscapes",
+                "complexity": "O(gens * pop * fitness_cost)",
+                "hyperparameters": ["population", "mutation_rate", "crossover_rate"]
+            }
+        ],
+        "signal_and_sequence": [
+            {
+                "name": "ix_signal::FFT",
+                "use_when": "Frequency-domain analysis of evenly sampled signal",
+                "complexity": "O(n log n)",
+                "hyperparameters": ["window", "n_points"]
+            },
+            {
+                "name": "ix_probabilistic::HMM (viterbi)",
+                "use_when": "Most likely hidden state sequence given observations",
+                "complexity": "O(n * s^2)",
+                "hyperparameters": ["states", "transition", "emission"]
+            }
+        ],
+        "graph": [
+            {
+                "name": "ix_graph::Dijkstra",
+                "use_when": "Shortest path, non-negative weights",
+                "complexity": "O((V + E) log V)",
+                "hyperparameters": []
+            },
+            {
+                "name": "ix_graph::PageRank",
+                "use_when": "Node importance by link structure",
+                "complexity": "O(iters * E)",
+                "hyperparameters": ["damping", "tol"]
+            }
+        ],
+        "approximate_data_structures": [
+            {
+                "name": "ix_probabilistic::BloomFilter",
+                "use_when": "Set membership with tolerable false positives, low memory",
+                "complexity": "O(k) per op",
+                "hyperparameters": ["capacity", "false_positive_rate"]
+            },
+            {
+                "name": "ix_probabilistic::HyperLogLog",
+                "use_when": "Cardinality estimation on huge streams",
+                "complexity": "O(1) per op",
+                "hyperparameters": ["precision"]
+            }
+        ],
+        "chaos_and_dynamics": [
+            {
+                "name": "ix_chaos::Lyapunov",
+                "use_when": "Quantify sensitivity to initial conditions in a time series",
+                "complexity": "O(n)",
+                "hyperparameters": ["embedding_dim", "delay"]
+            }
+        ]
+    });
+
+    Ok(json!({
+        "status": "sampling_pending",
+        "problem": problem,
+        "message": "This tool is designed to delegate algorithm selection to the \
+                    client's LLM via MCP sampling (sampling/createMessage, spec \
+                    2025-06-18). Bidirectional JSON-RPC over stdio is not yet \
+                    wired in the ix-mcp dispatcher — see TODO(mcp-sampling) in \
+                    crates/ix-agent/src/handlers.rs. Until then, here is the \
+                    static ix algorithm catalog; the calling LLM can pick from it.",
+        "how_to_use": "Match the problem to a task family (clustering, supervised, \
+                       optimization, signal_and_sequence, graph, \
+                       approximate_data_structures, chaos_and_dynamics), then \
+                       pick the entry whose 'use_when' best fits the described \
+                       data scale, noise level, and constraints.",
+        "catalog": catalog,
+        "sampling_request_preview": {
+            "note": "Once bidirectional JSON-RPC lands, this tool will emit the \
+                     following sampling/createMessage request to the client.",
+            "jsonrpc": "2.0",
+            "method": "sampling/createMessage",
+            "params": {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": format!(
+                                "Given this problem: \"{}\"\n\nPick the best ix algorithm \
+                                 from the provided catalog and justify the choice. State \
+                                 suggested hyperparameters and one alternative.",
+                                problem
+                            )
+                        }
+                    }
+                ],
+                "maxTokens": 512,
+                "systemPrompt": "You are an ML algorithm selector for the ix crate family. \
+                                 Recommend one primary algorithm and one alternative, with \
+                                 a brief rationale and suggested hyperparameters."
+            }
+        }
+    }))
+}
