@@ -212,6 +212,7 @@ impl<'a> Walker<'a> {
 
     // ── Callers-transitive ──────────────────────────────────────────────
 
+    #[allow(clippy::too_many_arguments)]
     fn walk_callers(
         &self,
         root_id: &str,
@@ -292,6 +293,7 @@ impl<'a> Walker<'a> {
 
     // ── Callees-transitive ──────────────────────────────────────────────
 
+    #[allow(clippy::too_many_arguments)]
     fn walk_callees(
         &self,
         root_id: &str,
