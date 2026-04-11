@@ -171,3 +171,87 @@ fn ga_bridge_schema() -> Value {
 /// Convert GA music theory data into ML-ready feature matrices.
 #[ix_skill(domain = "federation", name = "ga_bridge", governance = "safety", schema_fn = "crate::skills::batch3::ga_bridge_schema")]
 pub fn ga_bridge(p: Value) -> Result<Value, String> { handlers::ga_bridge(p) }
+
+// ---- context.walk --------------------------------------------------------
+//
+// Deterministic structural retrieval over a Rust workspace via the
+// ix-context crate. See docs/brainstorms/2026-04-10-context-dag.md and
+// crates/ix-context/src/lib.rs for the full design.
+//
+// Stateless handler: builds a fresh ProjectIndex from the current working
+// directory on every call. This is slower than caching the index across
+// calls but keeps the skill pattern uniform with every other batch entry.
+// A future optimization can introduce a shared index cache at the
+// ix-agent level.
+fn context_walk_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "target": {
+                "type": "string",
+                "description": "Fully-qualified free-function path to walk from, e.g. \"ix_math::eigen::symmetric_eigen\""
+            },
+            "strategy": {
+                "type": "string",
+                "enum": ["callers", "callees", "siblings", "cochange",
+                         "callers_transitive", "callees_transitive",
+                         "module_siblings", "git_cochange"],
+                "description": "Walk strategy. Short and long names accepted."
+            },
+            "strategy_params": {
+                "type": "object",
+                "properties": {
+                    "max_depth": {"type": "integer", "minimum": 1, "maximum": 64, "default": 3},
+                    "min_commits_shared": {"type": "integer", "minimum": 1, "default": 2}
+                }
+            },
+            "budget": {
+                "type": "object",
+                "properties": {
+                    "max_nodes": {"type": "integer", "minimum": 1, "default": 1024},
+                    "max_edges": {"type": "integer", "minimum": 1, "default": 4096},
+                    "timeout_ms": {"type": "integer", "minimum": 1, "default": 30000}
+                }
+            },
+            "workspace_root": {
+                "type": "string",
+                "description": "Optional absolute path to the workspace root. Defaults to the current working directory."
+            }
+        },
+        "required": ["target", "strategy"]
+    })
+}
+
+/// Deterministic structural context DAG walker over a Rust workspace.
+/// Returns a replayable ContextBundle with nodes, edges, and a walk_trace
+/// that reconstructs the walker's exact informational state.
+#[ix_skill(
+    domain = "context",
+    name = "context.walk",
+    governance = "deterministic",
+    schema_fn = "crate::skills::batch3::context_walk_schema"
+)]
+pub fn context_walk(p: Value) -> Result<Value, String> {
+    // Optional workspace_root override: pluck it out of the params before
+    // handing the rest to ix-context's handler.
+    let workspace_root = match p.get("workspace_root").and_then(|v| v.as_str()) {
+        Some(path) => std::path::PathBuf::from(path),
+        None => std::env::current_dir()
+            .map_err(|e| format!("failed to read current dir: {e}"))?,
+    };
+
+    let index = ix_context::index::ProjectIndex::build(&workspace_root)
+        .map_err(|e| format!("failed to build ProjectIndex at {}: {e}", workspace_root.display()))?;
+
+    // Strip workspace_root from the params before forwarding — the ix-context
+    // WalkRequest schema doesn't know about it.
+    let mut forwarded = p;
+    if let Some(obj) = forwarded.as_object_mut() {
+        obj.remove("workspace_root");
+    }
+
+    match ix_context::mcp::handle_json_request(&index, forwarded) {
+        Ok(v) => Ok(v),
+        Err(e) => Err(format!("{e}")),
+    }
+}
