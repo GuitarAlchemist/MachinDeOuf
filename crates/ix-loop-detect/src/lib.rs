@@ -2,16 +2,13 @@
 //!
 //! First concrete primitive of the `ix-middleware` stack (see
 //! `docs/brainstorms/2026-04-10-ix-harness-primitives.md`, item 2).
-//! Ships as its own crate rather than inside a full middleware
-//! abstraction so it can land *today*, without waiting for the
-//! `ToolAction` / `AgentContext` types the generic trait requires.
 //!
 //! ## What it does
 //!
-//! Tracks how many times a given **key** (typically a tool name or a
-//! `tool:target` composite) has been recorded within a sliding time
-//! window. When the count exceeds a configured threshold, subsequent
-//! [`LoopDetector::record`] calls return
+//! Tracks how many times a given `AgentAction` (keyed by
+//! [`ix_agent_core::AgentAction::loop_key`]) has been recorded within a
+//! sliding time window. When the count exceeds a configured threshold,
+//! subsequent [`LoopDetector::record`] calls return
 //! [`LoopVerdict::TooManyEdits`] until enough events age out of the
 //! window.
 //!
@@ -22,17 +19,27 @@
 //!
 //! > "10 edits to same file in 5 min → reconsider"
 //!
+//! ## Breaking change in v2
+//!
+//! The v1 API took `&str` keys directly. v2 takes `&AgentAction` and
+//! lets the action's own `loop_key()` decide granularity — bare tool
+//! name for coarse loop detection, `tool:target_hint` composite for
+//! fine-grained. This migration keeps the detector stateless wrt
+//! action semantics while letting consumers upgrade granularity by
+//! populating `target_hint` in their `AgentAction::InvokeTool` rather
+//! than teaching the detector new tricks.
+//!
+//! Non-invoke actions (observations, returns, approvals) have
+//! `loop_key() == None` and are always [`LoopVerdict::Ok`] — they
+//! cannot loop.
+//!
 //! ## Scope
 //!
 //! - Pure library — no async, no global state, no side effects
 //! - `Send + Sync` via a single `Mutex<HashMap<String, VecDeque<Instant>>>`
-//! - Keys are opaque strings — callers decide what granularity matters
-//!   (bare tool name for coarse loop detection, `tool:target` for
-//!   fine-grained, `tool:arg_hash` for anything in between)
+//! - Keyed by [`AgentAction::loop_key`] output
 //! - Window is wall-clock (`std::time::Instant`), not logical time
-//! - No persistence across process restarts — loops that span
-//!   restarts are not detected (consistent with the ephemeral nature
-//!   of the MCP tool-call surface)
+//! - No persistence across process restarts
 //!
 //! ## Non-goals
 //!
@@ -40,13 +47,13 @@
 //! - Not a request counter (no total-call accounting across windows)
 //! - Not a middleware framework (see `ix-middleware` when it lands)
 //! - Not belief-aware — verdicts are plain structural counts, not
-//!   hexavalent truth values. A future `ix-middleware` wrapper can
-//!   translate `TooManyEdits` → `Hexavalent::Doubtful` or similar.
+//!   hexavalent truth values
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use ix_agent_core::AgentAction;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -133,24 +140,39 @@ impl LoopDetector {
         self.config
     }
 
-    /// Record an event under `key` and return the verdict.
+    /// Record an action and return the verdict.
+    ///
+    /// The detector calls [`AgentAction::loop_key`] to derive the
+    /// window key. Actions whose `loop_key()` returns `None`
+    /// (observations, returns, approvals) are always
+    /// [`LoopVerdict::Ok`] — only tool invocations can loop.
     ///
     /// Internally:
-    /// 1. Acquires the mutex (one shared Mutex for the whole
-    ///    detector — cheap for typical tool-call rates, not
-    ///    suitable for microsecond-scale contention).
-    /// 2. Drops events older than `now - window` from the key's
-    ///    deque.
-    /// 3. Appends `now` to the deque.
-    /// 4. Returns `TooManyEdits` if the resulting length exceeds
+    /// 1. Compute the key via `action.loop_key()`. If `None`, return
+    ///    `Ok` without mutating state.
+    /// 2. Acquire the mutex.
+    /// 3. Drop events older than `now - window` from the key's deque.
+    /// 4. Append `now` to the deque.
+    /// 5. Return `TooManyEdits` if the resulting length exceeds
     ///    `threshold`, otherwise `Ok`.
-    pub fn record(&self, key: &str) -> LoopVerdict {
-        self.record_at(key, Instant::now())
+    pub fn record(&self, action: &AgentAction) -> LoopVerdict {
+        self.record_at(action, Instant::now())
     }
 
     /// Like [`Self::record`] but uses a caller-supplied `now` — used
     /// by tests to exercise window expiration deterministically.
-    pub fn record_at(&self, key: &str, now: Instant) -> LoopVerdict {
+    pub fn record_at(&self, action: &AgentAction, now: Instant) -> LoopVerdict {
+        let Some(key) = action.loop_key() else {
+            return LoopVerdict::Ok;
+        };
+        self.record_key_at(&key, now)
+    }
+
+    /// Internal helper that runs the sliding-window counter logic for
+    /// an already-computed string key. Private so the public surface
+    /// stays limited to [`AgentAction`] inputs — callers cannot
+    /// smuggle in arbitrary keys.
+    fn record_key_at(&self, key: &str, now: Instant) -> LoopVerdict {
         let mut guard = self
             .windows
             .lock()
@@ -237,13 +259,25 @@ mod tests {
         })
     }
 
+    /// Test helper: construct an AgentAction::InvokeTool with the given
+    /// tool name. Uses an empty params object and ordinal 0 — loop
+    /// detection ignores both, so defaults keep the test body readable.
+    fn action(tool: &str) -> AgentAction {
+        AgentAction::InvokeTool {
+            tool_name: tool.to_string(),
+            params: serde_json::json!({}),
+            ordinal: 0,
+            target_hint: None,
+        }
+    }
+
     // ── Basic counting ─────────────────────────────────────────────────
 
     #[test]
     fn ok_below_threshold() {
         let d = short();
         for _ in 0..3 {
-            assert_eq!(d.record("x"), LoopVerdict::Ok);
+            assert_eq!(d.record(&action("x")), LoopVerdict::Ok);
         }
         assert_eq!(d.count("x"), 3);
     }
@@ -252,9 +286,9 @@ mod tests {
     fn fires_on_exceeding_threshold() {
         let d = short();
         for _ in 0..3 {
-            assert_eq!(d.record("x"), LoopVerdict::Ok);
+            assert_eq!(d.record(&action("x")), LoopVerdict::Ok);
         }
-        match d.record("x") {
+        match d.record(&action("x")) {
             LoopVerdict::TooManyEdits { count, threshold, window: _ } => {
                 assert_eq!(count, 4);
                 assert_eq!(threshold, 3);
@@ -275,19 +309,66 @@ mod tests {
         assert!(blocked.is_blocked());
     }
 
+    #[test]
+    fn non_invoke_actions_never_loop() {
+        // Observations, returns, and approvals have loop_key() == None
+        // and should always be Ok, no matter how many times they fire.
+        let d = short();
+        let obs = AgentAction::EmitObservation {
+            stream: "progress".into(),
+            payload: serde_json::json!({}),
+            ordinal: 0,
+        };
+        for _ in 0..100 {
+            assert_eq!(d.record(&obs), LoopVerdict::Ok);
+        }
+        assert_eq!(d.tracked_keys(), 0);
+    }
+
+    #[test]
+    fn target_hint_creates_distinct_keys() {
+        let d = short();
+        let bare = AgentAction::InvokeTool {
+            tool_name: "ix_context_walk".into(),
+            params: serde_json::json!({}),
+            ordinal: 0,
+            target_hint: None,
+        };
+        let targeted_a = AgentAction::InvokeTool {
+            tool_name: "ix_context_walk".into(),
+            params: serde_json::json!({}),
+            ordinal: 0,
+            target_hint: Some("fn_a".into()),
+        };
+        let targeted_b = AgentAction::InvokeTool {
+            tool_name: "ix_context_walk".into(),
+            params: serde_json::json!({}),
+            ordinal: 0,
+            target_hint: Some("fn_b".into()),
+        };
+        // Bare, targeted_a, and targeted_b all key differently.
+        d.record(&bare);
+        d.record(&targeted_a);
+        d.record(&targeted_b);
+        assert_eq!(d.tracked_keys(), 3);
+        assert_eq!(d.count("ix_context_walk"), 1);
+        assert_eq!(d.count("ix_context_walk:fn_a"), 1);
+        assert_eq!(d.count("ix_context_walk:fn_b"), 1);
+    }
+
     // ── Key isolation ──────────────────────────────────────────────────
 
     #[test]
     fn different_keys_are_independent() {
         let d = short();
         for _ in 0..3 {
-            assert_eq!(d.record("a"), LoopVerdict::Ok);
+            assert_eq!(d.record(&action("a")), LoopVerdict::Ok);
         }
         // Key `a` is at threshold; key `b` is untouched.
         assert_eq!(d.count("a"), 3);
         assert_eq!(d.count("b"), 0);
         // Recording `b` should still be Ok — its window is empty.
-        assert_eq!(d.record("b"), LoopVerdict::Ok);
+        assert_eq!(d.record(&action("b")), LoopVerdict::Ok);
         // And `a` is still at 3, not bumped.
         assert_eq!(d.count("a"), 3);
     }
@@ -297,13 +378,10 @@ mod tests {
     #[test]
     fn old_events_age_out_of_window() {
         let d = short();
-        // Fake time base. Record 3 events, then advance past the window,
-        // then record a fourth — the first three should have aged out
-        // and the new record should be Ok.
         let t0 = Instant::now();
         for i in 0..3 {
             assert_eq!(
-                d.record_at("x", t0 + Duration::from_secs(i)),
+                d.record_at(&action("x"), t0 + Duration::from_secs(i)),
                 LoopVerdict::Ok
             );
         }
@@ -311,7 +389,7 @@ mod tests {
 
         // Jump 120 seconds ahead — past the 60s window.
         let later = t0 + Duration::from_secs(120);
-        assert_eq!(d.record_at("x", later), LoopVerdict::Ok);
+        assert_eq!(d.record_at(&action("x"), later), LoopVerdict::Ok);
         // Only the new event should remain.
         assert_eq!(d.count("x"), 1);
     }
@@ -320,16 +398,13 @@ mod tests {
     fn partial_window_expiration_keeps_live_events() {
         let d = short();
         let t0 = Instant::now();
-        // Two events at t0+0 and t0+1, two more at t0+65 (past window).
-        d.record_at("x", t0);
-        d.record_at("x", t0 + Duration::from_secs(1));
+        d.record_at(&action("x"), t0);
+        d.record_at(&action("x"), t0 + Duration::from_secs(1));
         assert_eq!(d.count("x"), 2);
 
-        // At t0+65, the first two events (at t0 and t0+1) are both
-        // 64+ seconds old — past the 60s window. They should age out.
-        let v = d.record_at("x", t0 + Duration::from_secs(65));
+        // At t0+65, the first two events are past the 60s window.
+        let v = d.record_at(&action("x"), t0 + Duration::from_secs(65));
         assert_eq!(v, LoopVerdict::Ok);
-        // Only the new event survives.
         assert_eq!(d.count("x"), 1);
     }
 
@@ -338,9 +413,9 @@ mod tests {
     #[test]
     fn clear_key_resets_one_key() {
         let d = short();
-        d.record("a");
-        d.record("a");
-        d.record("b");
+        d.record(&action("a"));
+        d.record(&action("a"));
+        d.record(&action("b"));
         assert_eq!(d.count("a"), 2);
         assert_eq!(d.count("b"), 1);
 
@@ -352,9 +427,9 @@ mod tests {
     #[test]
     fn clear_all_resets_everything() {
         let d = short();
-        d.record("a");
-        d.record("b");
-        d.record("c");
+        d.record(&action("a"));
+        d.record(&action("b"));
+        d.record(&action("c"));
         assert_eq!(d.tracked_keys(), 3);
 
         d.clear_all();
@@ -368,12 +443,12 @@ mod tests {
     fn keeps_firing_while_over_threshold() {
         let d = short();
         for _ in 0..3 {
-            d.record("x");
+            d.record(&action("x"));
         }
         // All subsequent records inside the window should report
         // TooManyEdits — not just the first crossing.
         for expected_count in 4..=6 {
-            match d.record("x") {
+            match d.record(&action("x")) {
                 LoopVerdict::TooManyEdits { count, .. } => {
                     assert_eq!(count, expected_count);
                 }
@@ -416,8 +491,8 @@ mod tests {
                 let d = Arc::clone(&d);
                 thread::spawn(move || {
                     for j in 0..100 {
-                        let key = format!("t{}", j % 3);
-                        let _ = d.record(&key);
+                        let tool = format!("t{}", j % 3);
+                        let _ = d.record(&action(&tool));
                         if i == 0 && j == 50 {
                             d.clear_key("t0");
                         }
@@ -432,7 +507,7 @@ mod tests {
         // tracking some keys and the Mutex isn't poisoned.
         assert!(d.tracked_keys() >= 1);
         // Sanity: new records still work after the contention.
-        assert_eq!(d.record("sanity"), LoopVerdict::Ok);
+        assert_eq!(d.record(&action("sanity")), LoopVerdict::Ok);
     }
 
     // ── Verdict serde ─────────────────────────────────────────────────

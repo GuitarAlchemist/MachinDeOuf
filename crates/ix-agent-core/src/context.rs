@@ -407,7 +407,7 @@ mod tests {
         let cx = ReadContext::synthetic_for_legacy();
         let mut sink = VecEventSink::default();
         {
-            let mut wc = WriteContext {
+            let wc = WriteContext {
                 read: &cx,
                 sink: &mut sink,
             };

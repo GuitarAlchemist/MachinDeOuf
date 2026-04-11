@@ -15,6 +15,7 @@
 //! but the MCP schema returned to clients is the original hand-written one.
 
 use crate::tools::Tool;
+use ix_agent_core::AgentAction;
 use ix_loop_detect::{LoopDetector, LoopVerdict};
 use ix_registry::SkillDescriptor;
 use ix_types::Value as IxValue;
@@ -59,9 +60,22 @@ pub fn mcp_name(skill_name: &str) -> String {
 /// The error message is structured so a runaway agent sees a clear halt
 /// signal and can escalate rather than burn more tokens on the loop.
 pub fn dispatch(mcp_tool_name: &str, params: JsonValue) -> Result<JsonValue, String> {
-    // Circuit breaker — record this call and check the verdict before doing
-    // any work. See `loop_detector()` for configuration.
-    let verdict = loop_detector().record(mcp_tool_name);
+    // Synthesize an AgentAction::InvokeTool for the loop detector. We
+    // deliberately use target_hint=None here — the dispatcher sees only
+    // the raw params blob and cannot parse per-tool target semantics.
+    // Downstream consumers that want finer-grained loop keying should
+    // construct actions with target_hint populated and use the new
+    // action-shaped API directly.
+    let action = AgentAction::InvokeTool {
+        tool_name: mcp_tool_name.to_string(),
+        params: params.clone(),
+        ordinal: 0,
+        target_hint: None,
+    };
+
+    // Circuit breaker — record this call and check the verdict before
+    // doing any work. See `loop_detector()` for configuration.
+    let verdict = loop_detector().record(&action);
     if let LoopVerdict::TooManyEdits {
         count,
         window,

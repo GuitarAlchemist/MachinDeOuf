@@ -12,6 +12,7 @@ description = "Sliding-window loop detector for agent tool calls — first primi
 [dependencies]
 serde = { workspace = true }
 thiserror = { workspace = true }
+ix-agent-core = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

@@ -167,6 +167,7 @@ impl Default for MiddlewareChain {
 mod tests {
     use super::*;
     use crate::context::{ReadContext, VecEventSink};
+    use crate::event::ActionOutcome;
     use serde_json::json;
 
     // ── Test fixtures ──────────────────────────────────────────────────
