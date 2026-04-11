@@ -108,8 +108,14 @@ impl HexObservation {
 
     /// Split the `claim_key` into `(action_key, aspect)`. Returns
     /// the full claim_key as action_key if there's no `::` separator.
+    ///
+    /// Uses `rfind` so claim keys whose action_key contains `::`
+    /// (common for Rust test names like `test:my_module::test_fn`)
+    /// split correctly: the aspect is the text after the LAST `::`,
+    /// not the first. See `demerzel/logic/harness-cargo.md` §"Worked
+    /// example" for the motivating case.
     pub fn action_and_aspect(&self) -> (&str, &str) {
-        match self.claim_key.find("::") {
+        match self.claim_key.rfind("::") {
             Some(idx) => (&self.claim_key[..idx], &self.claim_key[idx + 2..]),
             None => (self.claim_key.as_str(), "valuable"),
         }
@@ -877,20 +883,33 @@ mod tests {
         assert_eq!(action, "ix_stats");
         assert_eq!(aspect, "valuable");
 
+        // Rust test names contain `::` in their module paths. With
+        // `rfind`, the LAST `::` is the aspect separator, so the
+        // full test path becomes the action_key and the trailing
+        // aspect parses cleanly.
         let o2 = obs(
             "s", "d", 0, 0,
-            "ix_context_walk:ix_math::eigen::jacobi::valuable",
+            "test:ix_math::eigen::jacobi::valuable",
             Hexavalent::True, 1.0,
         );
         let (action, aspect) = o2.action_and_aspect();
-        // First "::" splits: action = before first ::
-        assert_eq!(action, "ix_context_walk:ix_math");
-        // This is a known limitation: target_hint containing "::"
-        // confuses the naive split. Canonical target_hints should
-        // not contain "::"; the Rust target_hint convention uses
-        // single ":" for crate::module paths, but the claim_key
-        // itself uses "::" as its aspect delimiter. Document.
-        assert_eq!(aspect, "eigen::jacobi::valuable");
+        assert_eq!(action, "test:ix_math::eigen::jacobi");
+        assert_eq!(aspect, "valuable");
+    }
+
+    #[test]
+    fn action_and_aspect_handles_deep_module_paths_in_test_names() {
+        // Regression guard for the cargo adapter case: test names
+        // with multiple `::` must parse so the aspect is always the
+        // final segment.
+        let o = obs(
+            "cargo", "d", 0, 0,
+            "test:foo::bar::baz::qux::timely",
+            Hexavalent::Doubtful, 0.6,
+        );
+        let (action, aspect) = o.action_and_aspect();
+        assert_eq!(action, "test:foo::bar::baz::qux");
+        assert_eq!(aspect, "timely");
     }
 
     #[test]
