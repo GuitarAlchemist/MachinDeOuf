@@ -51,6 +51,7 @@ pub mod builder;
 pub mod distribution;
 pub mod error;
 pub mod hexavalent;
+pub mod observations;
 pub mod ops;
 
 pub use builder::{Combiner, FuzzyBuilder};
