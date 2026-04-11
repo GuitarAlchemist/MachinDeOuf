@@ -321,3 +321,141 @@ fn refuses_without_installed_session_log() {
         "expected log requirement error, got {err}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Prior observations: cross-source contradiction triggers escalation
+// ---------------------------------------------------------------------------
+
+/// Verifies Step 5 integration: a plan that would normally dispatch
+/// cleanly (T-confident ix_stats call) gets escalated when a
+/// prior_observations payload carries a contradicting F observation
+/// on the same claim_key. This is the whole point of the Path C
+/// merge — cross-source disagreement visible to the escalation gate.
+#[test]
+fn prior_observations_escalate_on_cross_source_contradiction() {
+    let _guard = test_lock().lock().unwrap_or_else(|p| p.into_inner());
+    reset();
+    let dir = tempdir().expect("tempdir");
+    let log = seed_session_log(dir.path());
+    install_session_log(log);
+
+    // Plan: LLM is confident ix_stats is valuable.
+    let canned = json!([
+        {
+            "tool_name": "ix_stats",
+            "params": {"data": [1.0, 2.0, 3.0]},
+            "confidence": "T",
+            "reason": "baseline"
+        }
+    ])
+    .to_string();
+
+    let (ctx, rx) = ServerContext::new();
+    spawn_stub_client(ctx.clone(), rx, canned);
+
+    // Prior observation: tars (or any other source) says the same
+    // action was refuted in a previous round.
+    let prior = json!([
+        {
+            "source": "tars",
+            "diagnosis_id": "previous-round-diagnosis",
+            "round": 0,
+            "ordinal": 0,
+            "claim_key": "ix_stats::valuable",
+            "variant": "F",
+            "weight": 1.0,
+            "evidence": "tars saw this fail last round"
+        }
+    ]);
+
+    let params = json!({
+        "focus": "cross-source test",
+        "max_actions": 3,
+        "learn": false,
+        "round": 1,
+        "prior_observations": prior,
+    });
+    let result = triage_session_with_ctx(params, &ctx).expect("triage returns Ok");
+
+    // Expected: the merge synthesizes a C observation from T (plan)
+    // + F (prior), the merged distribution's C mass exceeds the
+    // escalation threshold, and the handler returns escalated
+    // status instead of dispatching.
+    assert_eq!(
+        result["status"], "escalated",
+        "expected escalation due to cross-source contradiction, got {result:#}"
+    );
+    let merged_dist = &result["merged_distribution"];
+    let c_mass = merged_dist["C"].as_f64().unwrap();
+    assert!(
+        c_mass > 0.3,
+        "expected merged C mass > 0.3, got {c_mass}: {result:#}"
+    );
+
+    // The response should surface the specific contradiction so the
+    // caller can see what disagreed with what.
+    let contradictions = result["contradictions"].as_array().unwrap();
+    assert!(
+        !contradictions.is_empty(),
+        "expected at least one synthesized contradiction"
+    );
+    assert!(
+        contradictions[0]["claim_key"]
+            .as_str()
+            .unwrap()
+            .contains("ix_stats::valuable"),
+        "expected contradiction on ix_stats::valuable"
+    );
+
+    // Observation counts should reflect all three sources.
+    let counts = &result["observation_counts"];
+    assert_eq!(counts["plan"], 1, "one plan observation");
+    assert_eq!(counts["prior"], 1, "one prior observation");
+    assert!(
+        counts["synthesized"].as_u64().unwrap() >= 1,
+        "at least one synthesized contradiction"
+    );
+
+    reset();
+}
+
+/// Verifies that an EMPTY prior_observations payload doesn't break
+/// the happy path — backward-compat for callers that haven't been
+/// updated to emit observations yet.
+#[test]
+fn empty_prior_observations_preserves_happy_path() {
+    let _guard = test_lock().lock().unwrap_or_else(|p| p.into_inner());
+    reset();
+    let dir = tempdir().expect("tempdir");
+    let log = seed_session_log(dir.path());
+    install_session_log(log);
+
+    let canned = json!([
+        {
+            "tool_name": "ix_stats",
+            "params": {"data": [1.0]},
+            "confidence": "T",
+            "reason": "baseline"
+        }
+    ])
+    .to_string();
+
+    let (ctx, rx) = ServerContext::new();
+    spawn_stub_client(ctx.clone(), rx, canned);
+
+    let params = json!({
+        "focus": "empty prior test",
+        "learn": false,
+        "prior_observations": [],
+    });
+    let result = triage_session_with_ctx(params, &ctx).expect("triage returns Ok");
+
+    // Should dispatch normally — no prior observations, no
+    // contradictions, not escalated.
+    assert_eq!(result["status"], "dispatched");
+    assert_eq!(result["escalated"], false);
+    let counts = &result["observation_counts"];
+    assert_eq!(counts["prior"], 0, "zero prior observations");
+
+    reset();
+}

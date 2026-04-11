@@ -2666,12 +2666,14 @@ pub fn triage_session_with_ctx(
     params: Value,
     ctx: &crate::server_context::ServerContext,
 ) -> Result<Value, String> {
+    use crate::projection::events_to_observations;
     use crate::registry_bridge;
     use crate::triage::{
         build_distribution, parse_plan, sort_plan_by_priority, TriagePlanItem,
     };
     use ix_agent_core::{AgentAction, ReadContext, SessionEvent};
     use ix_fuzzy::escalation_triggered;
+    use ix_fuzzy::observations::{merge_with_default_staleness, HexObservation};
 
     // ── 1. Inputs ─────────────────────────────────────────────────
     let focus = params
@@ -2688,6 +2690,25 @@ pub fn triage_session_with_ctx(
         .get("learn")
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
+    let round = params
+        .get("round")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+
+    // Parse optional `prior_observations` — typically populated by
+    // the main-agent shuttle with tars-emitted diagnosis observations
+    // from the previous remediation round. Format: JSON array of
+    // HexObservation-shaped objects. Invalid entries are silently
+    // dropped to keep the triage call robust against partial data.
+    let prior_observations: Vec<HexObservation> = params
+        .get("prior_observations")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(parse_prior_observation)
+                .collect()
+        })
+        .unwrap_or_default();
 
     // ── 2. Read the installed session log ─────────────────────────
     let log = registry_bridge::current_session_log().ok_or_else(|| {
@@ -2769,23 +2790,65 @@ pub fn triage_session_with_ctx(
     plan.truncate(max_actions as usize);
     sort_plan_by_priority(&mut plan);
 
-    // ── 5. Plan-level escalation gate ─────────────────────────────
-    let distribution = build_distribution(&plan)
-        .map_err(|e| format!("distribution build failed: {e}"))?;
-    let escalate = escalation_triggered(&distribution);
+    // ── 5. Build unified observation set ──────────────────────────
+    //
+    // Three streams feed the merge:
+    //   1. Plan observations — projected from the parsed plan items
+    //      with source="triage-plan" and claim_key="<tool>::valuable"
+    //   2. Session history observations — projected from the events
+    //      we already read above, so ix's own recent execution
+    //      outcomes count toward the escalation decision
+    //   3. Prior observations from the params — typically
+    //      cross-repo observations delivered by the main-agent
+    //      shuttle (e.g., tars diagnosis from the previous round)
+    //
+    // All three streams merge through the G-Set CRDT defined in
+    // ix-fuzzy::observations (see demerzel/logic/hex-merge.md).
+    // Contradictions are synthesized automatically; the merged
+    // distribution feeds escalation_triggered.
+    let plan_diagnosis_id = format!("triage-plan:{focus}");
+    let plan_observations: Vec<HexObservation> = plan
+        .iter()
+        .enumerate()
+        .map(|(i, item)| plan_item_to_observation(item, &plan_diagnosis_id, round, i as u32))
+        .collect();
+
+    let session_observations = events_to_observations(&events, "ix", "ix-session-log", round);
+
+    let mut all_observations = Vec::with_capacity(
+        plan_observations.len() + session_observations.len() + prior_observations.len(),
+    );
+    all_observations.extend(plan_observations.iter().cloned());
+    all_observations.extend(session_observations);
+    all_observations.extend(prior_observations.iter().cloned());
+
+    let merged = merge_with_default_staleness(&all_observations, round)
+        .map_err(|e| format!("observation merge failed: {e}"))?;
+
+    // Preserve the plan-only distribution for backward-compat output
+    // so callers that used to read the plan distribution still see
+    // it. The merged distribution is what drives escalation.
+    let plan_only_distribution = build_distribution(&plan)
+        .map_err(|e| format!("plan distribution build failed: {e}"))?;
+    let escalate = escalation_triggered(&merged.distribution);
 
     if escalate {
         return Ok(json!({
             "status": "escalated",
-            "reason": "plan-level contradiction mass exceeds 0.3 threshold",
+            "reason": if merged.contradictions.is_empty() {
+                "plan-level contradiction mass exceeds 0.3 threshold"
+            } else {
+                "cross-source contradiction detected"
+            },
             "plan": plan_as_json(&plan),
-            "distribution": {
-                "T": distribution.get(&ix_types::Hexavalent::True),
-                "P": distribution.get(&ix_types::Hexavalent::Probable),
-                "U": distribution.get(&ix_types::Hexavalent::Unknown),
-                "D": distribution.get(&ix_types::Hexavalent::Doubtful),
-                "F": distribution.get(&ix_types::Hexavalent::False),
-                "C": distribution.get(&ix_types::Hexavalent::Contradictory),
+            "distribution": distribution_as_json(&plan_only_distribution),
+            "merged_distribution": distribution_as_json(&merged.distribution),
+            "contradictions": contradictions_as_json(&merged.contradictions),
+            "observation_counts": {
+                "plan": plan_observations.len(),
+                "session": merged.observations.iter().filter(|o| o.source == "ix").count(),
+                "prior": prior_observations.len(),
+                "synthesized": merged.contradictions.len(),
             },
             "events_read": events.len(),
         }));
@@ -2873,21 +2936,122 @@ pub fn triage_session_with_ctx(
         "status": "dispatched",
         "focus": focus,
         "max_actions": max_actions,
+        "round": round,
         "events_read": events.len(),
         "plan": plan_as_json(&plan),
-        "distribution": {
-            "T": distribution.get(&ix_types::Hexavalent::True),
-            "P": distribution.get(&ix_types::Hexavalent::Probable),
-            "U": distribution.get(&ix_types::Hexavalent::Unknown),
-            "D": distribution.get(&ix_types::Hexavalent::Doubtful),
-            "F": distribution.get(&ix_types::Hexavalent::False),
-            "C": distribution.get(&ix_types::Hexavalent::Contradictory),
+        "distribution": distribution_as_json(&plan_only_distribution),
+        "merged_distribution": distribution_as_json(&merged.distribution),
+        "contradictions": contradictions_as_json(&merged.contradictions),
+        "observation_counts": {
+            "plan": plan_observations.len(),
+            "session": merged.observations.iter().filter(|o| o.source == "ix").count(),
+            "prior": prior_observations.len(),
+            "synthesized": merged.contradictions.len(),
         },
         "escalated": escalate,
         "dispatched": dispatched_results,
         "trace_dir": trace_dir_value,
         "trace_ingest": trace_ingest_value,
     }))
+}
+
+/// Parse a JSON value into a [`HexObservation`]. Silently drops
+/// malformed entries — the triage session prefers partial data
+/// over a hard failure when the caller's observations list has
+/// typos or stale fields.
+fn parse_prior_observation(
+    value: &Value,
+) -> Option<ix_fuzzy::observations::HexObservation> {
+    use ix_fuzzy::observations::HexObservation;
+    let obj = value.as_object()?;
+    let variant_label = obj.get("variant").and_then(|v| v.as_str())?;
+    let variant = crate::triage::parse_hexavalent_label(variant_label)?;
+    Some(HexObservation {
+        source: obj.get("source").and_then(|v| v.as_str())?.to_string(),
+        diagnosis_id: obj
+            .get("diagnosis_id")
+            .and_then(|v| v.as_str())?
+            .to_string(),
+        round: obj.get("round").and_then(|v| v.as_u64())? as u32,
+        ordinal: obj.get("ordinal").and_then(|v| v.as_u64())? as u32,
+        claim_key: obj.get("claim_key").and_then(|v| v.as_str())?.to_string(),
+        variant,
+        weight: obj.get("weight").and_then(|v| v.as_f64())?,
+        evidence: obj.get("evidence").and_then(|v| v.as_str()).map(String::from),
+    })
+}
+
+/// Project a triage plan item into a [`HexObservation`]. The
+/// source is always `"triage-plan"` so the merge function can
+/// distinguish these from ix session observations and tars prior
+/// observations. The claim_key is always `<tool>::valuable` — plan
+/// items assert the value of calling a tool, not its safety.
+fn plan_item_to_observation(
+    item: &crate::triage::TriagePlanItem,
+    diagnosis_id: &str,
+    round: u32,
+    ordinal: u32,
+) -> ix_fuzzy::observations::HexObservation {
+    use ix_fuzzy::observations::HexObservation;
+    // Derive target_hint from item.params.target if present, matching
+    // the existing dispatch path in the handler above.
+    let target_hint = item
+        .params
+        .get("target")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
+    let action_key = match target_hint {
+        Some(t) => format!("{}:{t}", item.tool_name),
+        None => item.tool_name.clone(),
+    };
+    HexObservation {
+        source: "triage-plan".to_string(),
+        diagnosis_id: diagnosis_id.to_string(),
+        round,
+        ordinal,
+        claim_key: format!("{action_key}::valuable"),
+        variant: item.confidence,
+        weight: 1.0,
+        evidence: if item.reason.is_empty() {
+            None
+        } else {
+            Some(item.reason.clone())
+        },
+    }
+}
+
+/// Render a [`HexavalentDistribution`] as a JSON object with
+/// per-variant keys. Extracted so both the escalation-path and the
+/// dispatch-path output share one formatting rule.
+fn distribution_as_json(dist: &ix_fuzzy::HexavalentDistribution) -> Value {
+    json!({
+        "T": dist.get(&ix_types::Hexavalent::True),
+        "P": dist.get(&ix_types::Hexavalent::Probable),
+        "U": dist.get(&ix_types::Hexavalent::Unknown),
+        "D": dist.get(&ix_types::Hexavalent::Doubtful),
+        "F": dist.get(&ix_types::Hexavalent::False),
+        "C": dist.get(&ix_types::Hexavalent::Contradictory),
+    })
+}
+
+/// Render a list of synthesized contradictions as JSON objects.
+/// Used in both the escalation-path and dispatch-path output so
+/// callers can always see why the merge flagged a disagreement.
+fn contradictions_as_json(
+    contradictions: &[ix_fuzzy::observations::HexObservation],
+) -> Value {
+    Value::Array(
+        contradictions
+            .iter()
+            .map(|o| {
+                json!({
+                    "claim_key": o.claim_key,
+                    "weight": o.weight,
+                    "evidence": o.evidence,
+                })
+            })
+            .collect(),
+    )
 }
 
 /// Compact string summary of a slice of session events, used inside
