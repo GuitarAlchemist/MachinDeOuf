@@ -31,7 +31,9 @@ pub use traits::{FromValue, IntoValue};
 ///
 /// Serialized as the single-letter symbol (`"T"` / `"P"` / …) for cross-repo
 /// wire compatibility with Demerzel's `hexavalent-state.schema.json`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 pub enum Hexavalent {
     #[serde(rename = "T")]
     True,

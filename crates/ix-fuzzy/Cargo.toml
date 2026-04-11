@@ -1,0 +1,16 @@
+[package]
+name = "ix-fuzzy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["algorithms", "mathematics", "science"]
+keywords = ["fuzzy-logic", "hexavalent", "governance", "belief-state", "demerzel"]
+description = "Fuzzy distributions over discrete variants with hexavalent-aware ops — primitive #5 of the harness primitives roadmap"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ix-types = { workspace = true }
