@@ -18,6 +18,7 @@ thiserror = { workspace = true }
 # Tree-sitter for project-wide AST walk (beyond ix-code's per-file scope)
 tree-sitter = { workspace = true }
 tree-sitter-rust = { workspace = true }
+streaming-iterator = "0.1"
 
 # Git trajectory bridge
 git2 = { workspace = true }
