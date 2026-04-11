@@ -20,7 +20,7 @@ use ix_agent_core::{
     MiddlewareChain, ReadContext, VecEventSink, WriteContext,
 };
 use ix_approval::ApprovalMiddleware;
-use ix_loop_detect::{LoopDetector, LoopVerdict};
+use ix_loop_detect::{LoopDetectMiddleware, LoopDetector, LoopVerdict};
 use ix_registry::SkillDescriptor;
 use ix_session::SessionLog;
 use ix_types::Value as IxValue;
@@ -29,23 +29,24 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 /// Process-wide loop detector for MCP tool dispatch.
 ///
-/// Every registry-backed dispatch records the MCP tool name here before
-/// invoking the skill. If the same tool is called more than the configured
-/// threshold within the sliding window, the dispatch returns a structured
-/// error instead of calling the tool — giving a runaway agent a hard
-/// circuit-break signal.
+/// Shared by **both** the legacy [`dispatch`] path (which records
+/// inline) and the new [`dispatch_action`] path (via
+/// [`LoopDetectMiddleware`]) so repeated calls through either API
+/// contribute to one unified sliding window. Without this sharing,
+/// an agent could sidestep the circuit breaker by bouncing between
+/// the two dispatch entry points.
 ///
-/// The detector uses the brainstorm's default configuration
-/// (10 calls / 5 minutes per tool) and is lazily initialized.
-fn loop_detector() -> &'static LoopDetector {
-    static DETECTOR: OnceLock<LoopDetector> = OnceLock::new();
-    DETECTOR.get_or_init(LoopDetector::with_defaults)
+/// Uses the brainstorm's default configuration (10 calls / 5 minutes
+/// per tool) and is lazily initialized.
+fn loop_detector() -> Arc<LoopDetector> {
+    static DETECTOR: OnceLock<Arc<LoopDetector>> = OnceLock::new();
+    Arc::clone(DETECTOR.get_or_init(|| Arc::new(LoopDetector::with_defaults())))
 }
 
 /// Expose a handle to the shared detector so the `ix-mcp` binary (or tests)
 /// can reset state between sessions. Normal skill callers should not touch
 /// the detector directly — `dispatch` manages it.
-pub fn shared_loop_detector() -> &'static LoopDetector {
+pub fn shared_loop_detector() -> Arc<LoopDetector> {
     loop_detector()
 }
 
@@ -64,6 +65,11 @@ fn middleware_chain() -> &'static Mutex<MiddlewareChain> {
     static CHAIN: OnceLock<Mutex<MiddlewareChain>> = OnceLock::new();
     CHAIN.get_or_init(|| {
         let mut chain = MiddlewareChain::new();
+        // Loop detection runs first — a runaway agent should be
+        // short-circuited before any classification or handler work.
+        // Shares the process-wide detector with the legacy `dispatch`
+        // path so both entry points count against one sliding window.
+        chain.push(Box::new(LoopDetectMiddleware::from_shared(loop_detector())));
         chain.push(Box::new(ApprovalMiddleware::with_defaults()));
         Mutex::new(chain)
     })

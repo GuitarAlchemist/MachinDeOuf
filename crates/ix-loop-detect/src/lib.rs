@@ -56,6 +56,9 @@ use std::time::{Duration, Instant};
 use ix_agent_core::AgentAction;
 use serde::{Deserialize, Serialize};
 
+pub mod middleware;
+pub use middleware::LoopDetectMiddleware;
+
 // ---------------------------------------------------------------------------
 // Verdict
 // ---------------------------------------------------------------------------
