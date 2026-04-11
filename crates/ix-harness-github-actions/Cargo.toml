@@ -1,0 +1,22 @@
+[package]
+name = "ix-harness-github-actions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["command-line-utilities", "development-tools::build-utils"]
+keywords = ["governance", "harness", "github", "actions", "demerzel"]
+description = "Harness adapter: GitHub Actions workflow run summary → HexObservation JSONL for the Path C substrate"
+
+[[bin]]
+name = "ix-harness-github-actions"
+path = "src/main.rs"
+
+[dependencies]
+ix-agent-core = { workspace = true }
+ix-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"

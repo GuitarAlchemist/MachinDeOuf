@@ -48,6 +48,10 @@ members = [
     "crates/ix-memory",
     "crates/ix-harness-tars",
     "crates/ix-harness-cargo",
+    "crates/ix-harness-signing",
+    "crates/ix-harness-clippy",
+    "crates/ix-harness-github-actions",
+    "crates/ix-harness-ga",
 ]
 
 [workspace.package]
