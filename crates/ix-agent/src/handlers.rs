@@ -2609,3 +2609,364 @@ pub fn explain_algorithm_with_ctx(
         "catalog": catalog,
     }))
 }
+
+// ─── ix_triage_session ─────────────────────────────────────────────
+//
+// End-to-end harness scenario tool. Exercises every shipped primitive
+// in one call:
+//   #1 Context DAG (indirectly, if LLM proposes ix_context_walk)
+//   #2 Loop detector (via dispatch_action middleware chain)
+//   #2b Substrate (AgentAction construction, SessionEvent emission)
+//   #3 Approval / blast-radius (auto-approves Tier 1/2, blocks Tier 3+)
+//   #4 Session log (reads recent events, writes dispatched outcomes)
+//   #5 Fuzzy / HexavalentDistribution (plan confidence aggregation,
+//      escalation_triggered check)
+//   #6 Trace flywheel (optional export → ix_trace_ingest round-trip)
+//   #7 MCP sampling (ctx.sample is the whole triage decision)
+//
+// Design doc: docs/brainstorms/2026-04-11-triage-session-scenario.md
+
+/// Back-compat stub for the plain handler table. The real
+/// implementation lives in [`triage_session_with_ctx`] and is routed
+/// there by [`crate::tools::ToolRegistry::call_with_ctx`].
+pub fn triage_session(_params: Value) -> Result<Value, String> {
+    Err(
+        "ix_triage_session must be dispatched via ServerContext \
+         (bidirectional JSON-RPC). This codepath should be intercepted by \
+         ToolRegistry::call_with_ctx."
+            .into(),
+    )
+}
+
+/// Context-aware implementation of `ix_triage_session`.
+///
+/// 1. Reads the last N events from the installed [`ix_session::SessionLog`]
+///    (returns an error if no log is installed — triage without history
+///    has no input to work with).
+/// 2. Builds a compact summary of recent tool calls, blocks, and
+///    observations.
+/// 3. Asks the client LLM (via MCP sampling) to propose up to
+///    `max_actions` ix tool invocations as a JSON array. Parses and
+///    validates the response via [`crate::triage::parse_plan`].
+/// 4. Builds a [`ix_fuzzy::HexavalentDistribution`] from the plan's
+///    aggregated confidences. If the plan-level contradiction mass
+///    exceeds the escalation threshold (0.3), returns without
+///    dispatching — the plan is too uncertain to run autonomously.
+/// 5. Otherwise sorts the plan by hexavalent priority
+///    (`C > U > D > P > T > F`) and dispatches each item through
+///    [`crate::registry_bridge::dispatch_action`], collecting
+///    per-item results. Blocked or failed actions are captured, not
+///    thrown — the caller gets a full picture.
+/// 6. If `learn == true`, exports the session log via the flywheel
+///    and invokes `ix_trace_ingest` on the resulting directory for
+///    self-improvement statistics.
+/// 7. Returns a synthesis: the plan, the dispatched outcomes, whether
+///    escalation triggered, and (optionally) the ingested trace stats.
+pub fn triage_session_with_ctx(
+    params: Value,
+    ctx: &crate::server_context::ServerContext,
+) -> Result<Value, String> {
+    use crate::registry_bridge;
+    use crate::triage::{
+        build_distribution, parse_plan, sort_plan_by_priority, TriagePlanItem,
+    };
+    use ix_agent_core::{AgentAction, ReadContext, SessionEvent};
+    use ix_fuzzy::escalation_triggered;
+
+    // ── 1. Inputs ─────────────────────────────────────────────────
+    let focus = params
+        .get("focus")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let max_actions = params
+        .get("max_actions")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(3)
+        .clamp(1, 8);
+    let learn = params
+        .get("learn")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    // ── 2. Read the installed session log ─────────────────────────
+    let log = registry_bridge::current_session_log().ok_or_else(|| {
+        "ix_triage_session requires an installed SessionLog. \
+         Set IX_SESSION_LOG=<path> or call install_session_log() \
+         before dispatching this tool."
+            .to_string()
+    })?;
+
+    // Flush any buffered writes so we see our own recent history.
+    if let Err(e) = log.flush() {
+        return Err(format!("failed to flush session log before read: {e}"));
+    }
+
+    let events: Vec<SessionEvent> = log
+        .events()
+        .map_err(|e| format!("failed to read session log: {e}"))?
+        .filter_map(Result::ok)
+        .collect();
+
+    // Take the last 20 events as the "recent history" the LLM reasons
+    // about. Older events are out of scope for a single triage call.
+    let recent: Vec<&SessionEvent> = events.iter().rev().take(20).collect::<Vec<_>>();
+    let recent: Vec<&SessionEvent> = recent.into_iter().rev().collect();
+    let summary = summarize_events(&recent);
+
+    // ── 3. Sample the LLM for a structured plan ───────────────────
+    let system_prompt =
+        "You are the ix harness triage agent. Given recent session events, propose up to \
+         MAX_ACTIONS ix tool invocations that would advance the current investigation. \
+         Respond with ONLY a JSON array (no prose, no code fences) matching this schema:\n\
+         [\n  {\n    \"tool_name\": \"ix_<tool>\",\n    \"params\": { ... },\n    \
+         \"confidence\": one of T/P/U/D/F/C,\n    \"reason\": \"short justification\"\n  }\n]\n\
+         \n\
+         Confidence legend (Demerzel hexavalent logic):\n\
+         - T (True): you are verified this action will help\n\
+         - P (Probable): evidence leans toward helpful\n\
+         - U (Unknown): insufficient evidence — action would be exploratory\n\
+         - D (Doubtful): evidence leans against usefulness\n\
+         - F (False): refuted — do NOT propose F-confidence actions\n\
+         - C (Contradictory): conflicting signals — the plan should be escalated if most items are C\n\
+         \n\
+         HARD CONSTRAINT: do NOT propose ix_triage_session. That would recurse.";
+
+    let user_text = format!(
+        "Recent session events (up to 20, oldest first):\n\
+         {summary}\n\
+         \n\
+         Focus hint: {focus}\n\
+         Max actions in plan: {max_actions}\n\
+         \n\
+         Emit the JSON array now.",
+        summary = summary,
+        focus = if focus.is_empty() { "none" } else { &focus },
+        max_actions = max_actions,
+    );
+
+    let plan_text = ctx
+        .sample(&user_text, system_prompt, 1024)
+        .map_err(|e| format!("sampling failed: {e}"))?;
+
+    // ── 4. Parse, validate, rank ──────────────────────────────────
+    let mut plan: Vec<TriagePlanItem> = match parse_plan(&plan_text) {
+        Ok(p) => p,
+        Err(e) => {
+            // Non-destructive failure: return the raw LLM text plus
+            // the parse error so the caller can see what went wrong.
+            return Ok(json!({
+                "status": "parse_failed",
+                "error": e.to_string(),
+                "raw_response": plan_text,
+                "events_read": events.len(),
+            }));
+        }
+    };
+
+    // Clamp to max_actions in case the LLM emitted more than
+    // requested (prompt is a hint, not a contract).
+    plan.truncate(max_actions as usize);
+    sort_plan_by_priority(&mut plan);
+
+    // ── 5. Plan-level escalation gate ─────────────────────────────
+    let distribution = build_distribution(&plan)
+        .map_err(|e| format!("distribution build failed: {e}"))?;
+    let escalate = escalation_triggered(&distribution);
+
+    if escalate {
+        return Ok(json!({
+            "status": "escalated",
+            "reason": "plan-level contradiction mass exceeds 0.3 threshold",
+            "plan": plan_as_json(&plan),
+            "distribution": {
+                "T": distribution.get(&ix_types::Hexavalent::True),
+                "P": distribution.get(&ix_types::Hexavalent::Probable),
+                "U": distribution.get(&ix_types::Hexavalent::Unknown),
+                "D": distribution.get(&ix_types::Hexavalent::Doubtful),
+                "F": distribution.get(&ix_types::Hexavalent::False),
+                "C": distribution.get(&ix_types::Hexavalent::Contradictory),
+            },
+            "events_read": events.len(),
+        }));
+    }
+
+    // ── 6. Dispatch each item through the governed chain ─────────
+    let cx = ReadContext::synthetic_for_legacy();
+    let mut dispatched_results: Vec<Value> = Vec::with_capacity(plan.len());
+    for item in &plan {
+        let action = AgentAction::InvokeTool {
+            tool_name: item.tool_name.clone(),
+            params: item.params.clone(),
+            ordinal: 0, // dispatch_action assigns
+            target_hint: item
+                .params
+                .get("target")
+                .and_then(|v| v.as_str())
+                .map(str::to_string),
+        };
+
+        let outcome = registry_bridge::dispatch_action(&cx, action);
+        let result_entry = match outcome {
+            Ok(action_outcome) => json!({
+                "tool_name": item.tool_name,
+                "ok": true,
+                "confidence": hexavalent_label(&item.confidence),
+                "value": action_outcome.value,
+                "reason": item.reason,
+            }),
+            Err(err) => json!({
+                "tool_name": item.tool_name,
+                "ok": false,
+                "confidence": hexavalent_label(&item.confidence),
+                "error": err.to_string(),
+                "reason": item.reason,
+            }),
+        };
+        dispatched_results.push(result_entry);
+    }
+
+    // ── 7. Optional self-learning via the flywheel ───────────────
+    let (trace_dir_value, trace_ingest_value) = if learn {
+        // Ensure our own dispatch events are visible to the export.
+        let _ = log.flush();
+
+        // Export to a sibling `traces/` directory next to the log
+        // file. Using a deterministic directory makes the trace
+        // discoverable by other tools.
+        let trace_dir = log
+            .path()
+            .parent()
+            .map(|p| p.join("traces"))
+            .unwrap_or_else(|| std::path::PathBuf::from("traces"));
+
+        match crate::flywheel::export_session_to_trace_dir(&log, &trace_dir, None) {
+            Ok(written_path) => {
+                // Now invoke ix_trace_ingest on the directory through
+                // the legacy dispatch path (which also runs through
+                // the middleware chain — governed recursion is a
+                // feature).
+                let ingest = registry_bridge::dispatch(
+                    "ix_trace_ingest",
+                    json!({ "dir": trace_dir.display().to_string() }),
+                );
+                let ingest_value = match ingest {
+                    Ok(v) => json!({ "ok": true, "stats": v }),
+                    Err(e) => json!({ "ok": false, "error": e }),
+                };
+                (
+                    Value::String(written_path.display().to_string()),
+                    ingest_value,
+                )
+            }
+            Err(e) => (
+                Value::Null,
+                json!({ "ok": false, "error": format!("flywheel export failed: {e}") }),
+            ),
+        }
+    } else {
+        (Value::Null, Value::Null)
+    };
+
+    // ── 8. Synthesis ──────────────────────────────────────────────
+    Ok(json!({
+        "status": "dispatched",
+        "focus": focus,
+        "max_actions": max_actions,
+        "events_read": events.len(),
+        "plan": plan_as_json(&plan),
+        "distribution": {
+            "T": distribution.get(&ix_types::Hexavalent::True),
+            "P": distribution.get(&ix_types::Hexavalent::Probable),
+            "U": distribution.get(&ix_types::Hexavalent::Unknown),
+            "D": distribution.get(&ix_types::Hexavalent::Doubtful),
+            "F": distribution.get(&ix_types::Hexavalent::False),
+            "C": distribution.get(&ix_types::Hexavalent::Contradictory),
+        },
+        "escalated": escalate,
+        "dispatched": dispatched_results,
+        "trace_dir": trace_dir_value,
+        "trace_ingest": trace_ingest_value,
+    }))
+}
+
+/// Compact string summary of a slice of session events, used inside
+/// the triage sampling prompt. One line per event, keeping only the
+/// fields the LLM needs for triage decisions.
+fn summarize_events(events: &[&ix_agent_core::SessionEvent]) -> String {
+    use ix_agent_core::SessionEvent;
+    if events.is_empty() {
+        return "(no events in session — this is a fresh start)".to_string();
+    }
+    let mut out = String::new();
+    for (i, event) in events.iter().enumerate() {
+        use std::fmt::Write;
+        let line = match event {
+            SessionEvent::ActionProposed { ordinal, action } => match action {
+                ix_agent_core::AgentAction::InvokeTool { tool_name, .. } => {
+                    format!("#{ordinal} proposed invoke_tool({tool_name})")
+                }
+                _ => format!("#{ordinal} proposed {:?}", action),
+            },
+            SessionEvent::ActionCompleted { ordinal, .. } => {
+                format!("#{ordinal} completed")
+            }
+            SessionEvent::ActionBlocked {
+                ordinal,
+                code,
+                reason,
+                emitted_by,
+            } => format!(
+                "#{ordinal} BLOCKED by {emitted_by} ({code:?}): {reason}"
+            ),
+            SessionEvent::ActionReplaced {
+                ordinal, emitted_by, ..
+            } => format!("#{ordinal} replaced by {emitted_by}"),
+            SessionEvent::ActionFailed { ordinal, error } => {
+                format!("#{ordinal} FAILED: {error}")
+            }
+            SessionEvent::MetadataMounted {
+                ordinal,
+                path,
+                emitted_by,
+                ..
+            } => format!("#{ordinal} metadata {path} (from {emitted_by})"),
+            SessionEvent::BeliefChanged {
+                ordinal,
+                proposition,
+                ..
+            } => format!("#{ordinal} belief changed: {proposition}"),
+        };
+        let _ = writeln!(out, "{i:>3}. {line}");
+    }
+    out
+}
+
+/// Serialize a plan to a JSON-friendly shape for the synthesis output.
+fn plan_as_json(plan: &[crate::triage::TriagePlanItem]) -> Value {
+    Value::Array(
+        plan.iter()
+            .map(|item| {
+                json!({
+                    "tool_name": item.tool_name,
+                    "params": item.params,
+                    "confidence": hexavalent_label(&item.confidence),
+                    "reason": item.reason,
+                })
+            })
+            .collect(),
+    )
+}
+
+/// Map a [`ix_types::Hexavalent`] to its single-letter label for
+/// readable output.
+fn hexavalent_label(h: &ix_types::Hexavalent) -> &'static str {
+    match h {
+        ix_types::Hexavalent::True => "T",
+        ix_types::Hexavalent::Probable => "P",
+        ix_types::Hexavalent::Unknown => "U",
+        ix_types::Hexavalent::Doubtful => "D",
+        ix_types::Hexavalent::False => "F",
+        ix_types::Hexavalent::Contradictory => "C",
+    }
+}

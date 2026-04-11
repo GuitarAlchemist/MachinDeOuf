@@ -79,6 +79,7 @@ impl ToolRegistry {
     ) -> Result<Value, String> {
         match name {
             "ix_explain_algorithm" => handlers::explain_algorithm_with_ctx(arguments, ctx),
+            "ix_triage_session" => handlers::triage_session_with_ctx(arguments, ctx),
             _ => self.call(name, arguments),
         }
     }
@@ -1345,6 +1346,42 @@ impl ToolRegistry {
                 "required": ["problem"]
             }),
             handler: handlers::explain_algorithm,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_triage_session",
+            description: "End-to-end harness triage: read recent session events, ask the \
+                          client LLM (via MCP sampling) to propose up to max_actions ix tool \
+                          invocations with hexavalent confidence labels, rank by the Demerzel \
+                          tiebreak order (C>U>D>P>T>F), check plan-level escalation via \
+                          HexavalentDistribution, and dispatch each action through the \
+                          governed middleware chain. Optionally exports the resulting trace \
+                          via the flywheel and re-ingests it via ix_trace_ingest for \
+                          self-improvement statistics. Requires an installed SessionLog \
+                          (set IX_SESSION_LOG env var or call install_session_log). \
+                          Exercises all 7 harness primitives in one call.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "focus": {
+                        "type": "string",
+                        "description": "Optional free-text hint describing what the triage should focus on (e.g. 'unblock the stats investigation')"
+                    },
+                    "max_actions": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "default": 3,
+                        "description": "Maximum number of actions the LLM may propose in the plan"
+                    },
+                    "learn": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "If true, export the session log via the flywheel and invoke ix_trace_ingest on the result after dispatch"
+                    }
+                }
+            }),
+            handler: handlers::triage_session,
         });
 
         // Merge registry-sourced skills. Registry wins on name collision.
