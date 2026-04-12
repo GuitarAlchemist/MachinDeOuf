@@ -50,6 +50,23 @@ pub trait Middleware: Send + Sync + 'static {
     /// events via `cx.sink` — these are appended to the session log
     /// regardless of the verdict.
     fn pre(&self, cx: &mut WriteContext<'_>, action: &AgentAction) -> MiddlewareVerdict;
+
+    /// Observe the outcome of an action AFTER the handler has run
+    /// (or after a Block prevented the handler from running). The
+    /// `post` hook cannot change the result — it can only emit
+    /// events into the session log via `cx.sink`.
+    ///
+    /// Primary consumer: [`crate::beliefs::BeliefMiddleware`],
+    /// which emits [`SessionEvent::BeliefChanged`] when an action
+    /// succeeds or fails, updating the agent's belief state about
+    /// tool availability or parameter correctness.
+    ///
+    /// Default implementation is a no-op so existing middleware
+    /// impls (LoopDetectMiddleware, ApprovalMiddleware) don't need
+    /// to change.
+    fn post(&self, _cx: &mut WriteContext<'_>, _action: &AgentAction, _result: &ActionResult) {
+        // no-op by default
+    }
 }
 
 /// A linear chain of middlewares that wraps a terminal [`AgentHandler`].
@@ -149,7 +166,18 @@ impl MiddlewareChain {
         }
 
         // Every middleware returned Continue. Invoke the handler.
-        handler.run(cx.read, &current)
+        let result = handler.run(cx.read, &current);
+
+        // Post-dispatch observation pass — gives every middleware a
+        // chance to observe the outcome and emit events. The result
+        // is immutable at this point; post hooks can only observe
+        // and emit, not modify. Runs in the same order as pre so
+        // middleware authors can pair pre/post logic by position.
+        for mw in &self.middlewares {
+            mw.post(cx, &current, &result);
+        }
+
+        result
     }
 }
 

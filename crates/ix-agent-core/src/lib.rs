@@ -57,6 +57,7 @@
 //! signature changes.
 
 pub mod action;
+pub mod beliefs;
 pub mod context;
 pub mod error;
 pub mod event;
@@ -68,4 +69,5 @@ pub use context::{AgentCapabilities, EventSink, ReadContext, VecEventSink, Write
 pub use error::{ActionError, ActionResult};
 pub use event::{ActionOutcome, BlockCode, MiddlewareVerdict, SessionEvent};
 pub use handler::{AgentHandler, LegacyAdapter};
+pub use beliefs::{BeliefMiddleware, project_beliefs, tool_proposition};
 pub use middleware::{Middleware, MiddlewareChain};
