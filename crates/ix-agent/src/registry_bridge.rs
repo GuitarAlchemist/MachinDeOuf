@@ -17,8 +17,8 @@
 use crate::tools::Tool;
 use ix_agent_core::event::BlockCode;
 use ix_agent_core::{
-    ActionError, ActionOutcome, ActionResult, AgentAction, AgentHandler, EventSink,
-    MiddlewareChain, ReadContext, VecEventSink, WriteContext,
+    ActionError, ActionOutcome, ActionResult, AgentAction, AgentHandler, BeliefMiddleware,
+    EventSink, MiddlewareChain, ReadContext, VecEventSink, WriteContext,
 };
 use ix_approval::ApprovalMiddleware;
 use ix_loop_detect::{LoopDetectMiddleware, LoopDetector};
@@ -72,6 +72,13 @@ fn middleware_chain() -> &'static Mutex<MiddlewareChain> {
         // path so both entry points count against one sliding window.
         chain.push(Box::new(LoopDetectMiddleware::from_shared(loop_detector())));
         chain.push(Box::new(ApprovalMiddleware::with_defaults()));
+        // Belief revision runs last — observes action outcomes via
+        // the post hook and emits BeliefChanged events into the
+        // session log so the agent's beliefs track real tool
+        // reliability. Must be after approval (which may block) so
+        // the belief update reflects the actual outcome, not a
+        // pre-flight classification.
+        chain.push(Box::new(BeliefMiddleware::new()));
         Mutex::new(chain)
     })
 }
