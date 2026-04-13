@@ -1,0 +1,23 @@
+{
+  "message_id": "7007e887-6fb6-45de-a554-602ab696b8b5",
+  "origin_repo": "ix",
+  "origin_agent": "claude-opus",
+  "timestamp": "2026-04-13T23:17:57.518026+00:00",
+  "content_hash": "f0dd72fb924063479e3ba7139ad02815e6625acb38fdac27dd9c3e7f9d6dc622",
+  "hash_algorithm": "sha256",
+  "id": "kp-ix-2026-04-13-canonical-showcase-baseline",
+  "layer": "governance",
+  "concept": "The canonical showcase depth baseline — measuring future IX demos against rapport-bracket-genetique-a350-v2.md",
+  "delivery_mode": "narrative",
+  "content": "# IX canonical showcase — depth baseline\n\nAs of 13 April 2026, the richest single artifact in `examples/canonical-showcase/` is:\n\n**`rapport-bracket-genetique-a350-v2.md`** — 26 000 words, 53 pages, French, covering a 13-tool aerospace bracket generative design pipeline (the flagship demo of the IX R7+R1+R2+R3 session).\n\nEvery future showcase demo — whether it's a new HTML dashboard, a new `pipeline.json`, a new standalone example, or a new technical report — should be measured against this baseline for depth, structure, and technical rigor. Not every demo needs to be 26 000 words (cost-anomaly-hunter is rightfully ~200 lines), but every demo claiming to be a \"flagship\" or \"canonical\" artifact should exhibit the same structural properties.\n\n## What the baseline contains\n\n1. **Technical depth.** Full mathematical formulation of every primitive with equations in fenced `math` code blocks, numerical sources cited, finite-diff verification tolerances stated.\n\n2. **Real industry case studies.** Three concrete references: Airbus 2017 Ti ALM pylône bracket (first titanium 3D-printed serial part), A320 bionic partition (Autodesk/The Living 2016), GE LEAP buse de carburant (consolidation 18→1). Each case teaches something directly applicable to the IX pipeline.\n\n3. **Formal risk register.** 5 documented failure modes with explicit mitigations:\n   - Surrogate trap (ML approximation bias)\n   - Unprintable cavities (DFM/SLM constraint violation)\n   - Unmanufacturable overhangs (>45°)\n   - Fatigue undersized (ignored S-N curves)\n   - Qualification rejection (untraced decisions)\n\n4. **MCP JSON-RPC annex.** Complete request/response examples for all 13 tools in the pipeline. A future maintainer can grep a tool name and see exactly how to invoke it.\n\n5. **Bilingual FR/EN glossary.** 44 technical terms mapped across languages for international collaboration.\n\n6. **Explicit certification citations.** EASA CS-25, AS9100D, DO-178C, DO-160G — referenced by section number, not hand-waved.\n\n7. **Math normalized for Zed/GitHub.** Display math in fenced ```math blocks (not bare `$$...$$` which Zed renders inconsistently), inline math in Unicode italic (not `$x$` which is ambiguous with currency). The normalization was done as a v1→v2 revision specifically to fix rendering gaps.\n\n## What the baseline is NOT\n\n- Not a marketing artifact — it's a technical manual, no emojis, no bullet-heavy slide-deck prose\n- Not hand-written — every numeric result is a real output from an actual ix MCP tool call\n- Not exhaustive — it's a *depth* benchmark, not a *breadth* benchmark. Cost-anomaly-hunter is equally canonical at 3 tools.\n\n## Implications for future showcase additions\n\nBefore committing a new demo:\n\n- [ ] Does it have a pipeline spec (JSON or YAML) runnable via `ix_pipeline_run`?\n- [ ] Does it have a corresponding integration test that asserts the expected outcome?\n- [ ] Does it cite real sources for any claimed numbers (not just synthetic data)?\n- [ ] If it claims mathematical content, are equations in fenced `math` blocks?\n- [ ] If it spans multiple languages, is the glossary symmetric?\n- [ ] Does it identify its expected failure modes with mitigations?\n\nA demo that doesn't satisfy these criteria is not \"canonical\"; it's an experiment that belongs in `target/demo/` (git-ignored) or a personal branch, not in `examples/canonical-showcase/`.\n\n## The compounding principle\n\nThe showcase exists so that:\n\n1. A new IX contributor can read one demo end-to-end and understand what IX is for.\n2. A new MCP tool implementer can find a concrete use case to validate against.\n3. A regression in `cargo test -p ix-agent --test showcase_cost_anomaly` fails the build before it reaches production.\n\nTreating the showcase as load-bearing (not as scratch space) is what makes IX \"for\" something instead of \"about\" something.\n",
+  "source": {
+    "artifact": "examples/canonical-showcase/rapport-bracket-genetique-a350-v2.md"
+  },
+  "target_learner": {
+    "type": "human",
+    "identifier": "ix-maintainer"
+  },
+  "taught_by": "seldon",
+  "created_at": "2026-04-13T23:17:57.518026+00:00",
+  "channel": "fuzzy"
+}
