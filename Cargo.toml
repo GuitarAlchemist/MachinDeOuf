@@ -53,6 +53,7 @@ members = [
     "crates/ix-harness-github-actions",
     "crates/ix-harness-ga",
     "crates/ix-sentinel",
+    "crates/ix-autograd",
 ]
 
 [workspace.package]
