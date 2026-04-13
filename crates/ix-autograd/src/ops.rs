@@ -421,6 +421,10 @@ impl DiffContext {
                 "sum" => backward_sum(self, &node_clone, &grad_out)?,
                 "matmul" => backward_matmul(self, &node_clone, &grad_out)?,
                 "div_scalar" => backward_div_scalar(self, &node_clone, &grad_out)?,
+                #[cfg(feature = "fft-autograd")]
+                "rfft_magnitude" => {
+                    crate::ops_fft::backward_rfft_magnitude(self, &node_clone, &grad_out)?
+                }
                 other => {
                     return Err(AutogradError::Numerical(format!(
                         "backward: unknown op `{other}`"

@@ -889,6 +889,62 @@ fn matmul_rejects_non_2d_with_clear_error() {
 // Day 4 — second wrapped tool (StatsVarianceTool) end-to-end test
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Day 5 — FFT backward (feature-gated)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "fft-autograd")]
+#[test]
+fn verify_rfft_magnitude_backward() {
+    // Power-of-2 length signal. Use loss = sum(rfft_magnitude(x)).
+    // Small N so finite-diff is feasible.
+    use ix_autograd::ops_fft;
+    let x = Array::from_shape_vec(IxDyn(&[8]), vec![0.1, 0.4, -0.3, 0.7, 0.2, -0.5, 0.8, 0.0])
+        .expect("x shape");
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let x_h = ops::input(&mut ctx, Tensor::from_array_with_grad(x.clone()));
+    let mag = ops_fft::rfft_magnitude(&mut ctx, x_h).expect("rfft_magnitude");
+    let loss = ops::sum(&mut ctx, mag).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("x".into(), grads[&x_h].clone());
+    let mut inputs = HashMap::new();
+    inputs.insert("x".into(), x);
+
+    verify_gradient(
+        "rfft_magnitude",
+        |ins| {
+            // Recompute |rfft| of perturbed x and sum.
+            let xp = ins.get("x").expect("x");
+            let signal: Vec<f64> = xp.iter().copied().collect();
+            let spectrum = ix_signal::fft::rfft(&signal);
+            spectrum
+                .iter()
+                .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+                .sum()
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-4, // FFT round-off + magnitude sqrt loosen tolerance
+    )
+    .expect("rfft_magnitude verifier");
+}
+
+#[cfg(feature = "fft-autograd")]
+#[test]
+fn rfft_rejects_non_power_of_2() {
+    use ix_autograd::ops_fft;
+    let x = Array::from_shape_vec(IxDyn(&[5]), vec![1.0, 2.0, 3.0, 4.0, 5.0]).expect("x");
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let x_h = ops::input(&mut ctx, Tensor::from_array_with_grad(x));
+    let result = ops_fft::rfft_magnitude(&mut ctx, x_h);
+    assert!(result.is_err(), "non-power-of-2 input should be rejected");
+}
+
 #[test]
 fn verify_stats_variance_tool_backward() {
     // The StatsVarianceTool is the second wrapped DifferentiableTool.

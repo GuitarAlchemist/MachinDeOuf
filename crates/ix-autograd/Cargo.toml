@@ -13,6 +13,14 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 blake3 = "1.5"
+ix-signal = { workspace = true, optional = true }
+
+[features]
+default = []
+# Day 5: FFT forward + Hermitian-mirror backward via ix-signal.
+# Off by default because the backward has subtle DC/Nyquist edge cases
+# and we want explicit opt-in until cross-checked against JAX rfft grad.
+fft-autograd = ["dep:ix-signal"]
 
 [dev-dependencies]
 approx = "0.5"

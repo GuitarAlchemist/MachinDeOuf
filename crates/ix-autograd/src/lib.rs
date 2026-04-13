@@ -60,6 +60,11 @@ pub mod tool;
 /// tools (currently just linear regression).
 pub mod tools;
 
+/// FFT forward and Hermitian-mirror backward. Only available when
+/// the `fft-autograd` feature is enabled (off by default).
+#[cfg(feature = "fft-autograd")]
+pub mod ops_fft;
+
 /// Convenience re-exports: the minimum types a downstream crate needs
 /// to build a forward pass, run `backward`, and extract gradients.
 pub mod prelude {
