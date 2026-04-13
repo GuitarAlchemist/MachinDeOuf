@@ -5,6 +5,7 @@
 
 use crate::mode::ExecutionMode;
 use crate::tensor::Tensor;
+use std::any::Any;
 use std::collections::HashMap;
 
 /// Opaque index into the tape.
@@ -61,11 +62,26 @@ impl Tape {
 /// Runtime context threaded through every `DifferentiableTool::forward`
 /// and `DifferentiableTool::backward` call. Carries the tape, the
 /// execution mode, and a bag of tool-scoped state.
-#[derive(Debug)]
+///
+/// Day 3 refactor (per r7-day2-review.md §3.2): `tool_state` is now a
+/// typed `Box<dyn Any>` map instead of `serde_json::Value`. Tools
+/// serialize concrete state types without JSON round-tripping. The
+/// type parameter on `set_tool_state` / `get_tool_state` ensures the
+/// read side recovers the same type the write side stored.
 pub struct DiffContext {
     pub tape: Tape,
     pub mode: ExecutionMode,
-    pub tool_state: HashMap<String, serde_json::Value>,
+    tool_state: HashMap<String, Box<dyn Any + Send + Sync>>,
+}
+
+impl std::fmt::Debug for DiffContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiffContext")
+            .field("tape", &self.tape)
+            .field("mode", &self.mode)
+            .field("tool_state_keys", &self.tool_state.keys().collect::<Vec<_>>())
+            .finish()
+    }
 }
 
 impl DiffContext {
@@ -74,6 +90,43 @@ impl DiffContext {
             tape: Tape::new(),
             mode,
             tool_state: HashMap::new(),
+        }
+    }
+
+    /// Store a typed value in the tool-state bag. Overwrites any
+    /// previous value stored under the same key.
+    pub fn set_tool_state<T>(&mut self, key: impl Into<String>, value: T)
+    where
+        T: Any + Send + Sync,
+    {
+        self.tool_state.insert(key.into(), Box::new(value));
+    }
+
+    /// Retrieve a typed reference from the tool-state bag. Returns
+    /// `None` if the key is missing or if the stored type does not
+    /// match `T`.
+    pub fn get_tool_state<T>(&self, key: &str) -> Option<&T>
+    where
+        T: Any + Send + Sync,
+    {
+        self.tool_state.get(key).and_then(|b| b.downcast_ref::<T>())
+    }
+
+    /// Remove and return a typed value from the tool-state bag. Returns
+    /// `None` if the key is missing or if the stored type does not
+    /// match `T`.
+    pub fn take_tool_state<T>(&mut self, key: &str) -> Option<T>
+    where
+        T: Any + Send + Sync,
+    {
+        let boxed = self.tool_state.remove(key)?;
+        match boxed.downcast::<T>() {
+            Ok(b) => Some(*b),
+            Err(reinsert) => {
+                // Type mismatch — put it back and return None.
+                self.tool_state.insert(key.to_string(), reinsert);
+                None
+            }
         }
     }
 }

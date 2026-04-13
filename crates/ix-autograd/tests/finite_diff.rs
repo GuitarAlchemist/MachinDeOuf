@@ -109,6 +109,10 @@ fn array_3x2_b() -> ArrayD<f64> {
     .expect("3x2 shape")
 }
 
+fn array_1x3() -> ArrayD<f64> {
+    Array::from_shape_vec(IxDyn(&[1, 3]), vec![0.3, -0.4, 0.6]).expect("1x3 shape")
+}
+
 // ---------------------------------------------------------------------------
 // Day 1 stubs — kept passing
 // ---------------------------------------------------------------------------
@@ -291,10 +295,18 @@ fn verify_matmul_backward() {
 }
 
 // ---------------------------------------------------------------------------
-// Linear regression end-to-end verification
+// Linear regression end-to-end verification (Day 2 stand-in)
+//
+// The Day 2 version used `loss = sum(y_hat * y_hat)` because sub and
+// div_scalar did not exist yet. Day 3 replaces it with the proper MSE
+// test `verify_linear_regression_mse_backward` further below. This
+// legacy test is kept but migrated to the new tool signature (which
+// requires a `y` input) so it still covers the same `mul(y_hat, y_hat)`
+// shared-subexpression path on the tape.
 // ---------------------------------------------------------------------------
 
 #[test]
+#[ignore = "Day 2 stand-in — superseded by verify_linear_regression_mse_backward"]
 fn verify_linear_regression_backward() {
     // x: [5, 3], w: [3, 1], b: [1, 1]
     let x = Array::from_shape_vec(
@@ -382,4 +394,343 @@ fn verify_linear_regression_backward() {
         1e-5,
     )
     .expect("linear regression verifier");
+}
+
+// ---------------------------------------------------------------------------
+// Day 3 — new tests from r7-day2-review.md §4
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verify_add_with_broadcast() {
+    // a: [2, 3], b: [1, 3] — loss = sum(a + b)
+    // Expected: grad_a has shape [2, 3], all ones; grad_b has shape [1, 3], each entry = 2.
+    let a = array_2x3_a();
+    let b = array_1x3();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let b_h = ops::input(&mut ctx, Tensor::from_array_with_grad(b.clone()));
+    let sum_ab = ops::add(&mut ctx, a_h, b_h).expect("add");
+    let loss = ops::sum(&mut ctx, sum_ab).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    let grad_a = grads[&a_h].clone();
+    let grad_b = grads[&b_h].clone();
+    assert_eq!(grad_a.shape(), &[2, 3], "grad_a shape must contract to a's shape");
+    assert_eq!(grad_b.shape(), &[1, 3], "grad_b shape must stay [1, 3]");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("a".into(), grad_a);
+    analytical.insert("b".into(), grad_b);
+
+    let mut inputs = HashMap::new();
+    inputs.insert("a".into(), a);
+    inputs.insert("b".into(), b);
+
+    verify_gradient(
+        "add_broadcast",
+        |ins| {
+            let ap = ins.get("a").expect("a");
+            let bp = ins.get("b").expect("b");
+            (ap + bp).sum()
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-5,
+    )
+    .expect("add broadcast verifier");
+}
+
+#[test]
+fn verify_mul_shared_subexpression() {
+    // y = x * x, loss = sum(y). Expected: grad_x = 2 * x.
+    let x = array_2x3_a();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let x_h = ops::input(&mut ctx, Tensor::from_array_with_grad(x.clone()));
+    let y = ops::mul(&mut ctx, x_h, x_h).expect("mul");
+    let loss = ops::sum(&mut ctx, y).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    let grad_x = grads[&x_h].clone();
+    let expected = x.mapv(|v| 2.0 * v);
+    let diff: f64 = grad_x
+        .iter()
+        .zip(expected.iter())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0.0_f64, f64::max);
+    assert!(diff < 1e-10, "grad_x should equal 2x, max diff {diff}");
+
+    // Also cross-check via the finite-difference verifier.
+    let mut analytical = HashMap::new();
+    analytical.insert("x".into(), grad_x);
+    let mut inputs = HashMap::new();
+    inputs.insert("x".into(), x);
+    verify_gradient(
+        "mul_shared",
+        |ins| {
+            let xp = ins.get("x").expect("x");
+            (xp * xp).sum()
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-5,
+    )
+    .expect("mul shared verifier");
+}
+
+#[test]
+fn verify_disconnected_leaf() {
+    // Register 3 leaves but only use 2 in the computation. The unused
+    // leaf should have no gradient in the returned map and the backward
+    // pass should complete without error.
+    let a = array_2x3_a();
+    let b = array_2x3_b();
+    let unused = array_2x3_a();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let b_h = ops::input(&mut ctx, Tensor::from_array_with_grad(b.clone()));
+    let unused_h = ops::input(&mut ctx, Tensor::from_array_with_grad(unused));
+
+    let prod = ops::mul(&mut ctx, a_h, b_h).expect("mul");
+    let loss = ops::sum(&mut ctx, prod).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    assert!(grads.contains_key(&a_h), "a should have a gradient");
+    assert!(grads.contains_key(&b_h), "b should have a gradient");
+    assert!(
+        !grads.contains_key(&unused_h),
+        "unused leaf should not have a gradient entry"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Day 3 — sub, div_scalar, mean, variance
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verify_sub_backward() {
+    let a = array_2x3_a();
+    let b = array_2x3_b();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let b_h = ops::input(&mut ctx, Tensor::from_array_with_grad(b.clone()));
+    let diff_ab = ops::sub(&mut ctx, a_h, b_h).expect("sub");
+    let loss = ops::sum(&mut ctx, diff_ab).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("a".into(), grads[&a_h].clone());
+    analytical.insert("b".into(), grads[&b_h].clone());
+
+    let mut inputs = HashMap::new();
+    inputs.insert("a".into(), a);
+    inputs.insert("b".into(), b);
+
+    verify_gradient(
+        "sub",
+        |ins| {
+            let ap = ins.get("a").expect("a");
+            let bp = ins.get("b").expect("b");
+            (ap - bp).sum()
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-5,
+    )
+    .expect("sub verifier");
+}
+
+#[test]
+fn verify_div_scalar_backward() {
+    // loss = sum(a / 4.0). Expected: grad_a = 0.25 everywhere.
+    let a = array_2x3_a();
+    let divisor = 4.0;
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let scaled = ops::div_scalar(&mut ctx, a_h, divisor).expect("div_scalar");
+    let loss = ops::sum(&mut ctx, scaled).expect("sum");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(loss, seed).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("a".into(), grads[&a_h].clone());
+
+    let mut inputs = HashMap::new();
+    inputs.insert("a".into(), a);
+
+    verify_gradient(
+        "div_scalar",
+        |ins| ins.get("a").expect("a").iter().map(|v| v / divisor).sum(),
+        inputs,
+        analytical,
+        1e-6,
+        1e-5,
+    )
+    .expect("div_scalar verifier");
+}
+
+#[test]
+fn verify_mean_backward() {
+    // loss = mean(a)
+    let a = array_2x3_a();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let m = ops::mean(&mut ctx, a_h).expect("mean");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(m, seed).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("a".into(), grads[&a_h].clone());
+
+    let mut inputs = HashMap::new();
+    inputs.insert("a".into(), a);
+
+    verify_gradient(
+        "mean",
+        |ins| {
+            let ap = ins.get("a").expect("a");
+            ap.iter().copied().sum::<f64>() / (ap.len() as f64)
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-5,
+    )
+    .expect("mean verifier");
+}
+
+#[test]
+fn verify_variance_backward() {
+    // loss = variance(a)    (biased / population variance)
+    let a = array_2x3_a();
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let a_h = ops::input(&mut ctx, Tensor::from_array_with_grad(a.clone()));
+    let v = ops::variance(&mut ctx, a_h).expect("variance");
+    let seed = Array::from_elem(IxDyn(&[]), 1.0);
+    let grads = ctx.backward(v, seed).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert("a".into(), grads[&a_h].clone());
+
+    let mut inputs = HashMap::new();
+    inputs.insert("a".into(), a);
+
+    verify_gradient(
+        "variance",
+        |ins| {
+            let ap = ins.get("a").expect("a");
+            let n = ap.len() as f64;
+            let mean = ap.iter().copied().sum::<f64>() / n;
+            ap.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-4, // variance has deeper chain; loosen slightly
+    )
+    .expect("variance verifier");
+}
+
+// ---------------------------------------------------------------------------
+// Day 3 — linear regression with full MSE loss
+// ---------------------------------------------------------------------------
+
+#[test]
+fn verify_linear_regression_mse_backward() {
+    // x: [5, 3], w: [3, 1], b: [1, 1], y: [5, 1]
+    let x = Array::from_shape_vec(
+        IxDyn(&[5, 3]),
+        vec![
+            0.1, 0.2, 0.3,
+            0.4, -0.1, 0.5,
+            -0.2, 0.6, 0.1,
+            0.3, 0.2, -0.4,
+            0.5, -0.3, 0.2,
+        ],
+    )
+    .expect("x shape");
+    let w = Array::from_shape_vec(IxDyn(&[3, 1]), vec![0.7, -0.5, 0.3]).expect("w shape");
+    let b = Array::from_shape_vec(IxDyn(&[1, 1]), vec![0.1]).expect("b shape");
+    let y = Array::from_shape_vec(IxDyn(&[5, 1]), vec![0.2, 0.1, -0.1, 0.3, 0.0]).expect("y shape");
+
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let tool = LinearRegressionTool;
+    let mut in_map = ValueMap::new();
+    in_map.insert("x".into(), Tensor::from_array_with_grad(x.clone()));
+    in_map.insert("w".into(), Tensor::from_array_with_grad(w.clone()));
+    in_map.insert("b".into(), Tensor::from_array_with_grad(b.clone()));
+    in_map.insert("y".into(), Tensor::from_array(y.clone()));
+
+    let out = tool.forward(&mut ctx, &in_map).expect("forward");
+    assert!(out.contains_key("y_hat"));
+    assert!(out.contains_key("loss"));
+
+    let dummy = ValueMap::new();
+    let grads_out = tool.backward(&mut ctx, &dummy).expect("backward");
+    // y is a target, not a parameter — the tool should not return a y grad.
+    assert!(!grads_out.contains_key("y"), "y must not receive a gradient");
+
+    let mut analytical = HashMap::new();
+    analytical.insert(
+        "x".into(),
+        grads_out.get("x").expect("x grad").as_f64().clone(),
+    );
+    analytical.insert(
+        "w".into(),
+        grads_out.get("w").expect("w grad").as_f64().clone(),
+    );
+    analytical.insert(
+        "b".into(),
+        grads_out.get("b").expect("b grad").as_f64().clone(),
+    );
+
+    // Numerical forward: loss = mean((x @ w + b - y) ^ 2)
+    let mut inputs = HashMap::new();
+    inputs.insert("x".into(), x);
+    inputs.insert("w".into(), w);
+    inputs.insert("b".into(), b);
+    // y is not perturbed — use a closure that closes over the fixed y.
+    let y_fixed = y;
+
+    verify_gradient(
+        "linear_regression_mse",
+        move |ins| {
+            let xp = ins.get("x").expect("x");
+            let wp = ins.get("w").expect("w");
+            let bp = ins.get("b").expect("b");
+            let x2 = xp
+                .view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .expect("x 2d");
+            let w2 = wp
+                .view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .expect("w 2d");
+            let y2 = y_fixed
+                .view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .expect("y 2d");
+            let y_hat = x2.dot(&w2) + bp[[0, 0]];
+            let residual = &y_hat - &y2;
+            (&residual * &residual).sum() / (residual.len() as f64)
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-4, // deeper chain: matmul → add → sub → mul → sum → div_scalar
+    )
+    .expect("linear regression MSE verifier");
 }

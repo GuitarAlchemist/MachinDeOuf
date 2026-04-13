@@ -190,10 +190,18 @@ fn backward_sum(
 pub fn matmul(ctx: &mut DiffContext, a: TensorHandle, b: TensorHandle) -> Result<TensorHandle> {
     let av = get_value(ctx, a)?;
     let bv = get_value(ctx, b)?;
-    if av.ndim() != 2 || bv.ndim() != 2 {
-        return Err(AutogradError::ShapeMismatch {
-            expected: vec![0, 0],
-            actual: vec![av.ndim(), bv.ndim()],
+    if av.ndim() != 2 {
+        return Err(AutogradError::UnsupportedRank {
+            op: "matmul",
+            supported: vec![2],
+            actual: av.ndim(),
+        });
+    }
+    if bv.ndim() != 2 {
+        return Err(AutogradError::UnsupportedRank {
+            op: "matmul",
+            supported: vec![2],
+            actual: bv.ndim(),
         });
     }
     let a2 = av
@@ -245,21 +253,118 @@ fn backward_matmul(
 }
 
 // ---------------------------------------------------------------------------
-// Day 3 stubs
+// sub  (Day 3)
 // ---------------------------------------------------------------------------
 
-/// Mean reduction. Day 3 — not implemented in Day 2.
-pub fn mean(_ctx: &mut DiffContext, _a: TensorHandle) -> Result<TensorHandle> {
-    Err(AutogradError::Numerical(
-        "ix_autograd::ops::mean is Day 3; not implemented yet".into(),
-    ))
+/// Element-wise subtraction with numpy-style broadcasting.
+/// `z = a - b`. Backward: `dL/da = dL/dz`, `dL/db = -dL/dz`.
+pub fn sub(ctx: &mut DiffContext, a: TensorHandle, b: TensorHandle) -> Result<TensorHandle> {
+    let av = get_value(ctx, a)?;
+    let bv = get_value(ctx, b)?;
+    let out = &av - &bv;
+    let node = TapeNode {
+        op: "sub",
+        inputs: vec![a, b],
+        value: Tensor::from_array(out),
+        grad: None,
+        saved: None,
+    };
+    Ok(ctx.tape.push(node))
 }
 
-/// Variance. Day 3 — not implemented in Day 2.
-pub fn variance(_ctx: &mut DiffContext, _a: TensorHandle) -> Result<TensorHandle> {
-    Err(AutogradError::Numerical(
-        "ix_autograd::ops::variance is Day 3; not implemented yet".into(),
-    ))
+fn backward_sub(
+    ctx: &DiffContext,
+    node: &TapeNode,
+    grad_out: &ArrayD<f64>,
+) -> Result<Vec<(TensorHandle, ArrayD<f64>)>> {
+    let a = node.inputs[0];
+    let b = node.inputs[1];
+    let a_shape = ctx
+        .tape
+        .get(a)
+        .ok_or(AutogradError::InvalidHandle(a))?
+        .value
+        .shape();
+    let b_shape = ctx
+        .tape
+        .get(b)
+        .ok_or(AutogradError::InvalidHandle(b))?
+        .value
+        .shape();
+    let grad_a = unbroadcast(grad_out.clone(), &a_shape);
+    let neg_grad = grad_out.mapv(|v| -v);
+    let grad_b = unbroadcast(neg_grad, &b_shape);
+    Ok(vec![(a, grad_a), (b, grad_b)])
+}
+
+// ---------------------------------------------------------------------------
+// div_scalar  (Day 3)
+// ---------------------------------------------------------------------------
+
+/// Divide every element by a compile-time scalar. The scalar is not a
+/// tape node; it rides along in the node's `saved` field as JSON.
+pub fn div_scalar(ctx: &mut DiffContext, a: TensorHandle, scalar: f64) -> Result<TensorHandle> {
+    if scalar == 0.0 {
+        return Err(AutogradError::Numerical(
+            "div_scalar: divisor must be non-zero".into(),
+        ));
+    }
+    let av = get_value(ctx, a)?;
+    let out = av.mapv(|v| v / scalar);
+    let node = TapeNode {
+        op: "div_scalar",
+        inputs: vec![a],
+        value: Tensor::from_array(out),
+        grad: None,
+        saved: Some(serde_json::json!(scalar)),
+    };
+    Ok(ctx.tape.push(node))
+}
+
+fn backward_div_scalar(
+    _ctx: &DiffContext,
+    node: &TapeNode,
+    grad_out: &ArrayD<f64>,
+) -> Result<Vec<(TensorHandle, ArrayD<f64>)>> {
+    let a = node.inputs[0];
+    let scalar = node
+        .saved
+        .as_ref()
+        .and_then(|v| v.as_f64())
+        .ok_or_else(|| AutogradError::MissingSaved("div_scalar scalar".into()))?;
+    let grad_a = grad_out.mapv(|v| v / scalar);
+    Ok(vec![(a, grad_a)])
+}
+
+// ---------------------------------------------------------------------------
+// mean and variance  (Day 3 — composed of the primitives above)
+// ---------------------------------------------------------------------------
+
+/// Mean reduction over all elements. `z = sum(a) / n` where `n = a.len()`.
+pub fn mean(ctx: &mut DiffContext, a: TensorHandle) -> Result<TensorHandle> {
+    let av = get_value(ctx, a)?;
+    let n = av.len() as f64;
+    if n == 0.0 {
+        return Err(AutogradError::Numerical(
+            "mean: empty tensor has no mean".into(),
+        ));
+    }
+    let s = sum(ctx, a)?;
+    div_scalar(ctx, s, n)
+}
+
+/// Biased (population) variance: `z = mean((a - mean(a)) ^ 2)`.
+/// Uses only the primitive ops — adds `sub`, `mul`, `sum`, `div_scalar`
+/// nodes to the tape. Backward flows through all of them.
+pub fn variance(ctx: &mut DiffContext, a: TensorHandle) -> Result<TensorHandle> {
+    // mu = mean(a)
+    let mu = mean(ctx, a)?;
+    // residual = a - mu    (mu is scalar; broadcasts to a's shape)
+    let residual = sub(ctx, a, mu)?;
+    // sq = residual * residual
+    let sq = mul(ctx, residual, residual)?;
+    // variance = mean(sq)
+    mean(ctx, sq)
 }
 
 // ---------------------------------------------------------------------------
@@ -311,9 +416,11 @@ impl DiffContext {
             let input_grads = match op {
                 "input" => continue, // leaves terminate the walk
                 "add" => backward_add(self, &node_clone, &grad_out)?,
+                "sub" => backward_sub(self, &node_clone, &grad_out)?,
                 "mul" => backward_mul(self, &node_clone, &grad_out)?,
                 "sum" => backward_sum(self, &node_clone, &grad_out)?,
                 "matmul" => backward_matmul(self, &node_clone, &grad_out)?,
+                "div_scalar" => backward_div_scalar(self, &node_clone, &grad_out)?,
                 other => {
                     return Err(AutogradError::Numerical(format!(
                         "backward: unknown op `{other}`"

@@ -48,6 +48,12 @@ pub enum AutogradError {
         tool: String,
         mode: mode::ExecutionMode,
     },
+    #[error("{op}: unsupported rank — supported {supported:?}, got {actual}")]
+    UnsupportedRank {
+        op: &'static str,
+        supported: Vec<usize>,
+        actual: usize,
+    },
     #[error("numerical: {0}")]
     Numerical(String),
 }
