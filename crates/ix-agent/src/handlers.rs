@@ -1568,6 +1568,24 @@ pub fn hyperloglog(params: Value) -> Result<Value, String> {
     }
 }
 
+// ── ix_pipeline_run placeholder ────────────────────────────
+
+/// Placeholder handler for `ix_pipeline_run`. Real execution lives in
+/// `ToolRegistry::run_pipeline` because the pipeline runner needs
+/// access to the registry itself (to dispatch child tool calls) and
+/// the `Tool::handler` fn-pointer has no such access. The dispatcher
+/// in `ToolRegistry::call_with_ctx` intercepts `ix_pipeline_run`
+/// before this handler ever runs. This stub exists only so that
+/// `tools/list` can expose the tool name and schema.
+pub fn pipeline_run_placeholder(_params: Value) -> Result<Value, String> {
+    Err(
+        "ix_pipeline_run must be invoked via the top-level MCP dispatcher, \
+         which routes it to ToolRegistry::run_pipeline. It cannot be called \
+         directly as a handler function."
+            .to_string(),
+    )
+}
+
 // ── ix_pipeline_exec ───────────────────────────────────────
 
 pub fn pipeline_exec(params: Value) -> Result<Value, String> {

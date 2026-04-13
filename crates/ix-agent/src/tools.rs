@@ -1,9 +1,56 @@
 //! Tool registry — defines MCP tools and dispatches calls.
 
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 use crate::handlers;
 use crate::registry_bridge;
+
+/// Walk a JSON value and replace any string of the form
+/// `"$step_id.field.subfield"` with the corresponding value from
+/// `upstream_results`. A bare `"$step_id"` replaces with the full
+/// result. Useful for pipeline argument chaining without requiring
+/// the LLM to marshal upstream outputs by hand.
+fn substitute_refs(
+    value: &Value,
+    upstream: &HashMap<String, Value>,
+) -> Result<Value, String> {
+    match value {
+        Value::String(s) if s.starts_with('$') => {
+            let path = &s[1..];
+            let mut parts = path.split('.');
+            let step_id = parts
+                .next()
+                .ok_or_else(|| format!("empty reference '{s}'"))?;
+            let mut current = upstream
+                .get(step_id)
+                .ok_or_else(|| format!("reference '{s}': step '{step_id}' has no result yet"))?
+                .clone();
+            for key in parts {
+                current = current
+                    .get(key)
+                    .ok_or_else(|| format!("reference '{s}': missing field '{key}'"))?
+                    .clone();
+            }
+            Ok(current)
+        }
+        Value::Object(map) => {
+            let mut out = serde_json::Map::with_capacity(map.len());
+            for (k, v) in map {
+                out.insert(k.clone(), substitute_refs(v, upstream)?);
+            }
+            Ok(Value::Object(out))
+        }
+        Value::Array(arr) => {
+            let mut out = Vec::with_capacity(arr.len());
+            for v in arr {
+                out.push(substitute_refs(v, upstream)?);
+            }
+            Ok(Value::Array(out))
+        }
+        other => Ok(other.clone()),
+    }
+}
 
 /// An MCP tool definition.
 pub struct Tool {
@@ -80,8 +127,111 @@ impl ToolRegistry {
         match name {
             "ix_explain_algorithm" => handlers::explain_algorithm_with_ctx(arguments, ctx),
             "ix_triage_session" => handlers::triage_session_with_ctx(arguments, ctx),
+            "ix_pipeline_run" => self.run_pipeline(arguments),
             _ => self.call(name, arguments),
         }
+    }
+
+    /// Execute a pipeline spec by topologically sorting steps and
+    /// calling each step's tool via [`Self::call`]. This is the R1
+    /// deliverable per `ix-roadmap-plan-v1.md` §4.1 — it turns what
+    /// was previously 13 separate hand-chained MCP calls into a
+    /// single submission.
+    ///
+    /// Input format:
+    /// ```json
+    /// {
+    ///   "steps": [
+    ///     { "id": "s1", "tool": "ix_stats", "arguments": {...}, "depends_on": [] },
+    ///     { "id": "s2", "tool": "ix_fft",   "arguments": {...}, "depends_on": ["s1"] }
+    ///   ]
+    /// }
+    /// ```
+    ///
+    /// Arguments may contain references to upstream outputs via the
+    /// string syntax `"$step_id.field"` — the pipeline runner
+    /// substitutes these before dispatching each tool.
+    ///
+    /// Output:
+    /// ```json
+    /// {
+    ///   "results": { "s1": {...}, "s2": {...} },
+    ///   "execution_order": ["s1", "s2"],
+    ///   "durations_ms": { "s1": 12, "s2": 3 }
+    /// }
+    /// ```
+    fn run_pipeline(&self, args: Value) -> Result<Value, String> {
+        use ix_pipeline::dag::Dag;
+        use std::collections::HashMap;
+        use std::time::Instant;
+
+        let steps = args
+            .get("steps")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| "ix_pipeline_run: missing 'steps' array".to_string())?;
+
+        // First pass: build a Dag<(tool, arguments)> and validate.
+        let mut dag: Dag<(String, Value)> = Dag::new();
+        for step in steps {
+            let id = step
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("ix_pipeline_run: each step needs 'id'")?;
+            let tool = step
+                .get("tool")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("ix_pipeline_run: step '{id}' missing 'tool'"))?;
+            let arguments = step.get("arguments").cloned().unwrap_or_else(|| json!({}));
+            dag.add_node(id, (tool.to_string(), arguments))
+                .map_err(|e| format!("ix_pipeline_run: step '{id}': {e}"))?;
+        }
+        for step in steps {
+            let id = step.get("id").and_then(|v| v.as_str()).unwrap();
+            if let Some(deps) = step.get("depends_on").and_then(|v| v.as_array()) {
+                for dep in deps {
+                    if let Some(dep_id) = dep.as_str() {
+                        dag.add_edge(dep_id, id).map_err(|e| {
+                            format!("ix_pipeline_run: edge {dep_id} -> {id}: {e}")
+                        })?;
+                    }
+                }
+            }
+        }
+
+        // Second pass: topological sort, then execute each step.
+        // topological_sort() borrows &dag, so clone the order to a
+        // Vec<String> before we mutate results (which would be a
+        // double-borrow of dag's node store).
+        let order: Vec<String> = dag.topological_sort().into_iter().cloned().collect();
+        let mut results: HashMap<String, Value> = HashMap::new();
+        let mut durations: HashMap<String, u128> = HashMap::new();
+
+        for id in &order {
+            let (tool, raw_args) = dag
+                .get(id)
+                .ok_or_else(|| format!("ix_pipeline_run: missing node '{id}'"))?
+                .clone();
+
+            // Substitute any "$step_id.field" references in arguments
+            // with upstream results.
+            let resolved = substitute_refs(&raw_args, &results).map_err(|e| {
+                format!("ix_pipeline_run: step '{id}' arg substitution: {e}")
+            })?;
+
+            let start = Instant::now();
+            let result = self.call(&tool, resolved).map_err(|e| {
+                format!("ix_pipeline_run: step '{id}' (tool '{tool}') failed: {e}")
+            })?;
+            let elapsed = start.elapsed().as_millis();
+            results.insert(id.clone(), result);
+            durations.insert(id.clone(), elapsed);
+        }
+
+        Ok(json!({
+            "results": results,
+            "execution_order": order,
+            "durations_ms": durations,
+        }))
     }
 
     /// Merge registry-sourced skills into the tool list, with registry
@@ -928,6 +1078,32 @@ impl ToolRegistry {
                 "required": ["operation"]
             }),
             handler: handlers::hyperloglog,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_pipeline_run",
+            description: "Execute a DAG pipeline end-to-end: topologically sorts steps, dispatches each step's tool with substituted upstream references, and returns per-step results + durations. Replaces hand-chaining of MCP calls. Reference upstream outputs in step arguments via the string `\"$step_id.field\"`. Handled by ToolRegistry::call_with_ctx; this entry exists only for tools/list discovery.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": { "type": "string", "description": "Step identifier, used for cross-step references" },
+                                "tool": { "type": "string", "description": "Name of the MCP tool to invoke, e.g. 'ix_stats'" },
+                                "arguments": { "type": "object", "description": "Arguments to pass to the tool; may contain $step_id.field references" },
+                                "depends_on": { "type": "array", "items": { "type": "string" }, "description": "IDs of prerequisite steps that must complete before this one" }
+                            },
+                            "required": ["id", "tool"]
+                        },
+                        "description": "Ordered or unordered set of pipeline steps; execution order is derived from depends_on"
+                    }
+                },
+                "required": ["steps"]
+            }),
+            handler: handlers::pipeline_run_placeholder,
         });
 
         self.tools.push(Tool {

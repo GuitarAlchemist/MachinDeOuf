@@ -158,7 +158,7 @@ fn successful_dispatch_sets_belief_to_true() {
     let cx = ReadContext::synthetic_for_legacy();
     let prop = tool_proposition("ix_stats");
     // No belief seeded — defaults to None (unknown).
-    assert!(cx.beliefs.get(&prop).is_none());
+    assert!(!cx.beliefs.contains_key(&prop));
 
     let mut sink = VecEventSink::default();
     {
