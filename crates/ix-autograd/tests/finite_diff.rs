@@ -946,6 +946,105 @@ fn rfft_rejects_non_power_of_2() {
 }
 
 #[test]
+fn verify_stats_mean_tool_backward() {
+    // R7 Week 2 — StatsMeanTool is the simplest composition wrapper:
+    // forward is a single `mean` call, backward flows through
+    // `sum -> div_scalar -> input` with no tool-specific backward logic.
+    use ix_autograd::tools::stats_mean::StatsMeanTool;
+
+    let x = array_2x3_a();
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let tool = StatsMeanTool;
+    let mut in_map = ValueMap::new();
+    in_map.insert("x".into(), Tensor::from_array_with_grad(x.clone()));
+
+    let out = tool.forward(&mut ctx, &in_map).expect("forward");
+    assert!(out.contains_key("mean"));
+
+    let dummy = ValueMap::new();
+    let grads_out = tool.backward(&mut ctx, &dummy).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert(
+        "x".into(),
+        grads_out.get("x").expect("x grad").as_f64().clone(),
+    );
+
+    let mut inputs = HashMap::new();
+    inputs.insert("x".into(), x);
+
+    verify_gradient(
+        "stats_mean",
+        |ins| {
+            let xp = ins.get("x").expect("x");
+            let n = xp.len() as f64;
+            xp.iter().copied().sum::<f64>() / n
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-4,
+    )
+    .expect("stats_mean verifier");
+}
+
+#[test]
+fn verify_mse_loss_tool_backward() {
+    // R7 Week 2 — MseLossTool exposes MSE = mean((pred - target)^2) as a
+    // standalone differentiable tool. Analytical gradient on `pred` is
+    // 2/n * (pred - target); `target` is a constant and not surfaced.
+    use ix_autograd::tools::mse_loss::MseLossTool;
+
+    let pred = array_2x3_a();
+    let target = array_2x3_b();
+    let mut ctx = DiffContext::new(ExecutionMode::Train);
+    let tool = MseLossTool;
+    let mut in_map = ValueMap::new();
+    in_map.insert("pred".into(), Tensor::from_array_with_grad(pred.clone()));
+    in_map.insert(
+        "target".into(),
+        Tensor::from_array_with_grad(target.clone()),
+    );
+
+    let out = tool.forward(&mut ctx, &in_map).expect("forward");
+    assert!(out.contains_key("loss"));
+
+    let dummy = ValueMap::new();
+    let grads_out = tool.backward(&mut ctx, &dummy).expect("backward");
+
+    let mut analytical = HashMap::new();
+    analytical.insert(
+        "pred".into(),
+        grads_out.get("pred").expect("pred grad").as_f64().clone(),
+    );
+
+    let mut inputs = HashMap::new();
+    inputs.insert("pred".into(), pred);
+    // target is held constant during the finite-diff sweep since it is
+    // a non-trainable observation — verify_gradient only perturbs the
+    // names present in `inputs`.
+    let target_for_closure = target.clone();
+
+    verify_gradient(
+        "mse_loss",
+        move |ins| {
+            let p = ins.get("pred").expect("pred");
+            let n = p.len() as f64;
+            p.iter()
+                .zip(target_for_closure.iter())
+                .map(|(a, b)| (a - b).powi(2))
+                .sum::<f64>()
+                / n
+        },
+        inputs,
+        analytical,
+        1e-6,
+        1e-4,
+    )
+    .expect("mse_loss verifier");
+}
+
+#[test]
 fn verify_stats_variance_tool_backward() {
     // The StatsVarianceTool is the second wrapped DifferentiableTool.
     // It computes loss = variance(x) and its backward must match the
