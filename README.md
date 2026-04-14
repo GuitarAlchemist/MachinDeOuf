@@ -54,7 +54,7 @@ cargo run -p ix-agent
 |-------|------|-------|
 | ix-nn | Beta | Transformers, backprop — complex but actively developed |
 | ix-pipeline | Beta | DAG executor — critical infrastructure, API stabilizing |
-| ix-agent | Beta | MCP server (37 tools) — production-facing integration point |
+| ix-agent | Beta | MCP server (58 tools) — production-facing integration point |
 | ix-governance | Beta | Demerzel governance bridge — consumed by ga/tars |
 | ix-cache | Beta | Embedded Redis-like cache — stable patterns |
 | ix-io | Beta | I/O utilities (CSV, JSON, TCP, WebSocket) |
@@ -90,24 +90,48 @@ cargo run -p ix-agent
 | ix-demo | Internal | egui desktop app with interactive tabs |
 | ix-dashboard | Internal | Dashboard utilities |
 | ix-registry | Internal | Crate registry metadata |
-| ix-code | Internal | Code generation utilities |
+| ix-code | Internal | Code analysis (cyclomatic, Halstead, catalog of external tools) |
 | ix-types | Internal | Shared type definitions |
 
-### MCP Tool Annotations
+### Infrastructure & Harness Crates
 
-The 58 MCP tools exposed by `ix-agent` are categorized (see [`docs/MANUAL.md §4`](docs/MANUAL.md#4-the-58-mcp-tools--by-category) for the full inventory):
+The 16 crates below were added during the agent-harness and pipeline work. They are internal-tier: consumed by `ix-agent` and the session runtime, not intended as direct deps for downstream repos.
 
-| Category | Tools | Readiness |
-|----------|-------|-----------|
-| **Core ML** (8) | kmeans, regression, pca, random_forest, svm, knn, naive_bayes, gbdt | **Production** |
-| **Search & Graph** (5) | astar, mcts, minimax, hmm, viterbi | **Production** |
-| **Optimization** (4) | sgd, adam, pso, annealing | **Production** |
-| **Signal** (3) | fft, wavelet, kalman | **Production** |
-| **Governance** (3) | governance_check, governance_persona, governance_belief | **Production** |
-| **Neural** (3) | nn_forward, nn_train, transformer | Beta |
-| **Game Theory** (3) | nash, shapley, auction | Beta |
-| **Federation** (4) | discover, grammar, music, traces | Beta |
-| **Advanced Math** (4) | topology, ktheory, category, dynamics | Experimental |
+| Crate | Tier | Notes |
+|-------|------|-------|
+| ix-agent-core | Internal | Shared agent substrate: SessionEvent, middleware chain, action dispatcher |
+| ix-approval | Internal | Approval / blast-radius middleware for agent actions |
+| ix-autograd | Internal | R7 reverse-mode autograd tape over ndarray with DifferentiableTool trait |
+| ix-context | Internal | Context DAG — AST + call + import + git-trajectory graph for agents |
+| ix-fuzzy | Internal | Fuzzy-enum evaluation (hexavalent confidence distributions) |
+| ix-harness-cargo | Internal | Harness adapter: cargo build / test / clippy / audit |
+| ix-harness-clippy | Internal | Harness adapter: clippy warning parser + remediation |
+| ix-harness-ga | Internal | Harness adapter: ga music-theory MCP bridge |
+| ix-harness-github-actions | Internal | Harness adapter: GitHub Actions workflow inspector |
+| ix-harness-signing | Internal | Harness adapter: cosign / SLSA signing integration |
+| ix-harness-tars | Internal | Harness adapter: tars F# cognition MCP bridge |
+| ix-loop-detect | Internal | Session-level loop detection middleware |
+| ix-memory | Internal | Agent memory system (belief persistence, context window management) |
+| ix-registry-check | Internal | R3 Buf-style breaking-change detector for capability-registry.json |
+| ix-sentinel | Internal | Governed reactive reasoner — autonomous session-level monitor |
+| ix-session | Internal | Session log, event stream, trace flywheel export |
+
+### MCP Tool Surface
+
+`ix-agent` exposes **58 MCP tools** covering core math, supervised / unsupervised ML, neural networks + autograd, signal + chaos, graph + topology, adversarial + evolution, game theory, probabilistic data structures, grammar, governance, federation, source adapters (`ix_git_log`, `ix_cargo_deps`, `ix_code_analyze`, `ix_code_catalog`), and pipeline orchestration (`ix_pipeline_run`, `ix_pipeline_compile`, `ix_pipeline_list`).
+
+See [`docs/MANUAL.md §4`](docs/MANUAL.md#4-the-58-mcp-tools--by-category) for the full categorized inventory and [`crates/ix-agent/src/tools.rs`](crates/ix-agent/src/tools.rs) for the authoritative schemas.
+
+### Pipelines, compiler, and canonical showcases
+
+- **Pipelines** — Submit a DAG of tool calls in one request via `ix_pipeline_run`. Content-addressed cache hits on replay (R2 Phase 1). Every run emits a lineage DAG consumable by `ix_governance_check` (R2 Phase 2).
+- **Natural-language compiler** — `ix_pipeline_compile` turns a sentence into a validated `pipeline.json` DAG via MCP sampling + registry validation.
+- **Canonical showcases** at [`examples/canonical-showcase/`](examples/canonical-showcase/):
+  - `01-cost-anomaly-hunter` (3 tools, FinOps)
+  - `02-chaos-detective` (4 tools, signal + chaos + topology)
+  - `03-governance-gauntlet` (5 tools, constitutional audit)
+  - `04-sprint-oracle` (4 tools, forecasting)
+  - `05-adversarial-refactor-oracle` (14 tools, self-referential live-data audit of ix's own workspace — see its [`FINDINGS.md`](examples/canonical-showcase/05-adversarial-refactor-oracle/FINDINGS.md))
 
 ## Crates
 
@@ -277,44 +301,26 @@ Topics: linear algebra, optimization, supervised/unsupervised learning, neural n
 
 ## Architecture
 
+ix is a Rust workspace of **54 crates** organised into six rough layers, plus a governance submodule. The top-level shape:
+
 ```
 ix/
-├── Cargo.toml                 # Workspace root
-├── CLAUDE.md                  # Project conventions for Claude Code
-├── .mcp.json                  # MCP server configuration
-├── .claude/
-│   ├── skills/                # 10 Claude Code skills
-│   ├── hooks/                 # Pipeline validation, cache lifecycle
-│   └── agents/                # Compound engineering agents
-└── crates/
-    ├── ix-math/           # Core math primitives
-    ├── ix-optimize/       # Optimization algorithms
-    ├── ix-supervised/     # Regression, classification
-    ├── ix-unsupervised/   # Clustering, dimensionality reduction
-    ├── ix-ensemble/       # Random forest
-    ├── ix-nn/             # Neural networks
-    ├── ix-rl/             # Reinforcement learning
-    ├── ix-evolution/      # Evolutionary algorithms
-    ├── ix-graph/          # Graphs, Markov, HMM
-    ├── ix-search/         # Search algorithms
-    ├── ix-game/           # Game theory
-    ├── ix-chaos/          # Chaos theory
-    ├── ix-signal/         # Signal processing
-    ├── ix-adversarial/    # Adversarial ML
-    ├── ix-probabilistic/  # Probabilistic data structures
-    ├── ix-gpu/            # GPU compute (WGPU)
-    ├── ix-cache/          # Embedded cache
-    ├── ix-pipeline/       # DAG executor
-    ├── ix-io/             # Data I/O
-    ├── ix-dynamics/       # IK, Lie groups, neural ODEs
-    ├── ix-topo/           # Persistent homology
-    ├── ix-ktheory/        # Graph K-theory
-    ├── ix-category/       # Category theory
-    ├── ix-grammar/        # Formal grammars
-    ├── ix-agent/          # MCP server
-    ├── ix-skill/          # CLI binary
-    └── ix-demo/           # egui demo app
+├── Cargo.toml             # Workspace root
+├── CLAUDE.md              # Project conventions (load-bearing for Claude Code sessions)
+├── README.md              # This file
+├── docs/
+│   ├── MANUAL.md          # ← canonical user manual (start here)
+│   ├── INDEX.md           # 60+ tutorial learning path
+│   ├── FEDERATION.md      # Cross-repo (ix + tars + ga) federation
+│   └── guides/            # graph-theory-in-ix, code-analysis-tools, ...
+├── examples/
+│   └── canonical-showcase/# 5 reproducible demo pipelines + roadmap + findings
+├── governance/
+│   └── demerzel/          # Git submodule: constitution + personas + policies
+└── crates/                # 54 crates — see maturity tables above
 ```
+
+For the per-crate inventory grouped by concern, see [`docs/MANUAL.md §4`](docs/MANUAL.md#4-the-58-mcp-tools--by-category). The source of truth for crate dependencies is each crate's `Cargo.toml`; for a live workspace dep graph, run the `ix_cargo_deps` MCP tool against this repo.
 
 ## Key Dependencies
 
