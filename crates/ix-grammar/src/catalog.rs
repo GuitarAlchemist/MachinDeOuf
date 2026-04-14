@@ -606,7 +606,7 @@ mod tests {
             "JSON (RFC 8259)",
         ];
         for r in required {
-            assert!(names.iter().any(|n| *n == r), "missing {r} in ABNF query");
+            assert!(names.contains(&r), "missing {r} in ABNF query");
         }
     }
 
