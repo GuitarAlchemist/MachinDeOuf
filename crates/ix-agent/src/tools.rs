@@ -1541,6 +1541,79 @@ Example 2 — "cluster crates by complexity then classify":
         });
 
         self.tools.push(Tool {
+            name: "ix_catalog_list",
+            description: "Meta-tool: list every registered ix catalog (code_analysis, grammar, rfc, ...) with its name, scope, and entry count. Use this to discover what catalogs ix exposes before issuing a specific ix_*_catalog query.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+            handler: handlers::catalog_list,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_grammar_catalog",
+            description: "Query a curated catalog of ~30 real-world grammar sources across EBNF, ABNF, PEG, ANTLR G4, W3C EBNF, and BNF notations. Covers programming languages (Python, Go, ECMAScript, Rust, C11, ...), data formats (JSON, TOML, YAML, SQL-2016, GraphQL), IETF protocols (HTTP, TLS, DNS, SMTP, IMAP, OAuth, WebSockets), and meta-grammars (ABNF, ISO 14977 EBNF). Filter by language, format, or topic.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "description": "Case-insensitive language filter (e.g. 'python', 'http'). Meta-entries with language='many' always pass."
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["ebnf", "w3c_ebnf", "abnf", "peg", "antlr_g4", "bnf"],
+                        "description": "Filter by grammar notation format."
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Case-insensitive substring match against topic tags (e.g. 'web', 'protocol', 'meta')."
+                    }
+                }
+            }),
+            handler: handlers::grammar_catalog,
+        });
+
+        self.tools.push(Tool {
+            name: "ix_rfc_catalog",
+            description: "Query a curated catalog of ~70 IETF RFCs covering the modern internet stack: IP, TCP/QUIC, HTTP/1.1/2/3, TLS 1.3, DNS+DNSSEC, SMTP/IMAP, OAuth/JOSE/JWT, SSH, SIP/RTP, JSON/CBOR/UUID, ABNF, and BCPs. Includes the obsolescence graph — passing current_standard=true filters out obsoleted entries, and obsolescence_chain=N walks both directions from the seed RFC (useful for 'what replaced RFC 2616' questions).",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "integer",
+                        "description": "Exact RFC number lookup (e.g. 9110)."
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic substring (e.g. 'http', 'dns', 'tls', 'auth'). Case-insensitive."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "internet_standard",
+                            "proposed_standard",
+                            "draft_standard",
+                            "experimental",
+                            "informational",
+                            "obsoleted"
+                        ],
+                        "description": "Filter by publication status."
+                    },
+                    "current_standard": {
+                        "type": "boolean",
+                        "description": "When true, excludes obsoleted entries. Combine with topic to get 'the current spec for X'."
+                    },
+                    "obsolescence_chain": {
+                        "type": "integer",
+                        "description": "Return the complete obsolescence chain (walked in both directions) for this RFC number. Overrides other filters."
+                    }
+                }
+            }),
+            handler: handlers::rfc_catalog,
+        });
+
+        self.tools.push(Tool {
             name: "ix_code_catalog",
             description: "Query a curated catalog of external mathematical tools for analysing programming-language repositories (static analysers, formal verifiers, safety / memory checkers, statistical + behavioural analysis tools, documentation generators, and numeric libraries). Filter by language, category, or technique substring. Use this to route users to the right specialist rather than over-stretching ix_code_analyze.",
             input_schema: json!({

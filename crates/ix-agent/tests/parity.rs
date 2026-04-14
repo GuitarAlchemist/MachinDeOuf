@@ -1,4 +1,4 @@
-//! 58-tool parity test — protects the MCP surface during the manual→registry
+//! 61-tool parity test — protects the MCP surface during the manual→registry
 //! migration and any subsequent additions.
 //!
 //! Every tool name in `EXPECTED` must remain reachable through
@@ -23,6 +23,7 @@ const EXPECTED: &[&str] = &[
     "ix_bloom_filter",
     "ix_cache",
     "ix_cargo_deps",
+    "ix_catalog_list",
     "ix_category",
     "ix_chaos_lyapunov",
     "ix_code_analyze",
@@ -46,6 +47,7 @@ const EXPECTED: &[&str] = &[
     "ix_governance_persona",
     "ix_governance_policy",
     "ix_gradient_boosting",
+    "ix_grammar_catalog",
     "ix_grammar_evolve",
     "ix_grammar_search",
     "ix_grammar_weights",
@@ -64,6 +66,7 @@ const EXPECTED: &[&str] = &[
     "ix_pipeline_list",
     "ix_pipeline_run",
     "ix_random_forest",
+    "ix_rfc_catalog",
     "ix_rotation",
     "ix_search",
     "ix_sedenion",
@@ -94,7 +97,7 @@ fn exposed_names() -> HashSet<String> {
 }
 
 #[test]
-fn parity_all_58_tools_reachable() {
+fn parity_all_61_tools_reachable() {
     let exposed = exposed_names();
     let missing: Vec<&&str> = EXPECTED.iter().filter(|n| !exposed.contains(**n)).collect();
     assert!(
@@ -123,10 +126,11 @@ fn parity_expected_count() {
     // Sanity: 48 registry tools + ix_demo + ix_explain_algorithm +
     // ix_triage_session + ix_pipeline_run + ix_pipeline_list +
     // ix_autograd_run + ix_pipeline_compile + ix_git_log +
-    // ix_cargo_deps + ix_code_catalog = 58.
+    // ix_cargo_deps + ix_code_catalog + ix_catalog_list +
+    // ix_grammar_catalog + ix_rfc_catalog = 61.
     // If this drifts, update both EXPECTED and this assertion in the
     // same commit.
-    assert_eq!(EXPECTED.len(), 58);
+    assert_eq!(EXPECTED.len(), 61);
 }
 
 #[test]

@@ -1982,6 +1982,65 @@ pub fn code_catalog(params: Value) -> Result<Value, String> {
     CodeAnalysisCatalog.query(params)
 }
 
+// ── ix_grammar_catalog ─────────────────────────────────────
+
+/// Query the grammar catalog — ~30 curated real-world EBNF / ABNF /
+/// PEG / ANTLR G4 grammar sources. Delegates to
+/// `ix_grammar::catalog::GrammarCatalog::query()`.
+pub fn grammar_catalog(params: Value) -> Result<Value, String> {
+    use ix_catalog_core::Catalog;
+    use ix_grammar::catalog::GrammarCatalog;
+    GrammarCatalog.query(params)
+}
+
+// ── ix_rfc_catalog ─────────────────────────────────────────
+
+/// Query the RFC catalog — ~70 curated IETF RFCs covering the
+/// modern internet stack plus obsolescence-graph filters. Delegates
+/// to `ix_net::rfc_catalog::RfcCatalog::query()`.
+pub fn rfc_catalog(params: Value) -> Result<Value, String> {
+    use ix_catalog_core::Catalog;
+    use ix_net::rfc_catalog::RfcCatalog;
+    RfcCatalog.query(params)
+}
+
+// ── ix_catalog_list ────────────────────────────────────────
+
+/// Meta-tool: list every registered catalog with its name, scope,
+/// and entry count. Agents use this to discover what catalogs ix
+/// exposes before issuing a specific query — it is to ix_*_catalog
+/// what `tools/list` is to the MCP tool surface.
+///
+/// Hand-registered for now (three entries). If the catalog surface
+/// grows past ~5 entries, consider extracting the registration list
+/// into its own module.
+pub fn catalog_list(_params: Value) -> Result<Value, String> {
+    use ix_catalog_core::Catalog;
+    use ix_code::catalog::CodeAnalysisCatalog;
+    use ix_grammar::catalog::GrammarCatalog;
+    use ix_net::rfc_catalog::RfcCatalog;
+
+    let catalogs: Vec<&dyn Catalog> =
+        vec![&CodeAnalysisCatalog, &GrammarCatalog, &RfcCatalog];
+
+    let summaries: Vec<Value> = catalogs
+        .iter()
+        .map(|c| {
+            json!({
+                "name": c.name(),
+                "scope": c.scope(),
+                "entry_count": c.entry_count(),
+                "counts": c.counts(),
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "catalogs": summaries,
+        "total_catalogs": catalogs.len(),
+    }))
+}
+
 // ── ix_cargo_deps ──────────────────────────────────────────
 
 /// P1.2 — walk a Rust workspace, parse every `crates/<name>/Cargo.toml`
