@@ -1921,6 +1921,105 @@ fn epoch_days_to_ymd(days: i64) -> String {
     format!("{:04}-{:02}-{:02}", y, m, d)
 }
 
+// ── ix_code_catalog ────────────────────────────────────────
+
+/// Curated catalog of external mathematical tools for analysing
+/// programming-language repositories: static analysers, formal
+/// verifiers, safety / memory checkers, statistical and behavioural
+/// analysis tools, documentation generators, and numeric libraries.
+///
+/// This tool is ix's answer to "what else exists besides
+/// ix_code_analyze" — agents and users can discover the right
+/// third-party specialist for a task instead of over-stretching ix's
+/// own primitives.
+///
+/// Input format:
+/// ```json
+/// {
+///   "language":  "rust",              // optional, case-insensitive
+///   "category":  "formal_verification", // optional, one of:
+///                                     //   static_analysis,
+///                                     //   formal_verification,
+///                                     //   safety_memory,
+///                                     //   statistical_analysis,
+///                                     //   documentation,
+///                                     //   numeric_library,
+///                                     //   ml_framework
+///   "technique": "abstract interpretation" // optional, substring match
+/// }
+/// ```
+///
+/// All filter fields are AND-combined. Omitting every filter returns
+/// the full catalog. Output shape:
+/// ```json
+/// {
+///   "counts": {
+///     "total": 41,
+///     "static_analysis": 8,
+///     "formal_verification": 11,
+///     "safety_memory": 4,
+///     "statistical_analysis": 5,
+///     "documentation": 13,
+///     "numeric_library": 7,
+///     "ml_framework": 9
+///   },
+///   "matched": 4,
+///   "tools": [
+///     { "name": "Kani",
+///       "category": "formal_verification",
+///       "technique": "bounded model checking over Rust MIR",
+///       "languages": ["rust"],
+///       "description": "...",
+///       "url": "..." }
+///   ]
+/// }
+/// ```
+pub fn code_catalog(params: Value) -> Result<Value, String> {
+    use ix_code::catalog::{all, by_category, by_language, by_technique, counts, ToolCategory};
+
+    // Start from the full catalog and apply each optional filter in
+    // turn. Each filter is a case-insensitive AND against the others.
+    let mut matched: Vec<_> = all().to_vec();
+
+    if let Some(lang) = params.get("language").and_then(|v| v.as_str()) {
+        let filtered = by_language(lang);
+        matched.retain(|t| filtered.iter().any(|f| f.name == t.name));
+    }
+
+    if let Some(cat_str) = params.get("category").and_then(|v| v.as_str()) {
+        let cat = ToolCategory::parse(cat_str).ok_or_else(|| {
+            format!(
+                "ix_code_catalog: unknown category '{cat_str}' — expected one of: \
+                 static_analysis, formal_verification, safety_memory, \
+                 statistical_analysis, documentation, numeric_library, ml_framework"
+            )
+        })?;
+        let filtered = by_category(cat);
+        matched.retain(|t| filtered.iter().any(|f| f.name == t.name));
+    }
+
+    if let Some(tech) = params.get("technique").and_then(|v| v.as_str()) {
+        let filtered = by_technique(tech);
+        matched.retain(|t| filtered.iter().any(|f| f.name == t.name));
+    }
+
+    let c = counts();
+    Ok(json!({
+        "counts": {
+            "total": c.total,
+            "static_analysis": c.static_analysis,
+            "formal_verification": c.formal_verification,
+            "safety_memory": c.safety_memory,
+            "statistical_analysis": c.statistical_analysis,
+            "documentation": c.documentation,
+            "numeric_library": c.numeric_library,
+            "ml_framework": c.ml_framework,
+        },
+        "matched": matched.len(),
+        "tools": matched,
+    }))
+}
+
 // ── ix_cargo_deps ──────────────────────────────────────────
 
 /// P1.2 — walk a Rust workspace, parse every `crates/<name>/Cargo.toml`

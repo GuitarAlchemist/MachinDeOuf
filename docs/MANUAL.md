@@ -8,7 +8,7 @@ This manual is the single page that tells you what ix is, how to run it, and whi
 
 ## 1. What ix is — one-paragraph answer
 
-**ix** is a Rust workspace of composable ML, math, and governance primitives exposed as **MCP tools** for agent consumption. It ships 54 crates and 57 MCP tools behind a single `ix-agent` server, plus a CLI (`ix-skill`), a DAG pipeline runner (`ix_pipeline_run`), a natural-language pipeline compiler (`ix_pipeline_compile`), and integration with the Demerzel governance framework. It is part of the [GuitarAlchemist](https://github.com/GuitarAlchemist) ecosystem alongside [tars](https://github.com/GuitarAlchemist/tars) (F# cognition) and [ga](https://github.com/GuitarAlchemist/ga) (C# music theory). ix is used by LLM agents as a callable toolbox for stats, clustering, classification, optimization, signal processing, topology, adversarial ML, and cross-repo analysis — all subject to constitutional governance.
+**ix** is a Rust workspace of composable ML, math, and governance primitives exposed as **MCP tools** for agent consumption. It ships 54 crates and 58 MCP tools behind a single `ix-agent` server, plus a CLI (`ix-skill`), a DAG pipeline runner (`ix_pipeline_run`), a natural-language pipeline compiler (`ix_pipeline_compile`), and integration with the Demerzel governance framework. It is part of the [GuitarAlchemist](https://github.com/GuitarAlchemist) ecosystem alongside [tars](https://github.com/GuitarAlchemist/tars) (F# cognition) and [ga](https://github.com/GuitarAlchemist/ga) (C# music theory). ix is used by LLM agents as a callable toolbox for stats, clustering, classification, optimization, signal processing, topology, adversarial ML, and cross-repo analysis — all subject to constitutional governance.
 
 ---
 
@@ -108,7 +108,7 @@ This runs `ix` against `ix`'s own source tree (via `ix_cargo_deps` + `ix_git_log
 
 ---
 
-## 4. The 57 MCP tools — by category
+## 4. The 58 MCP tools — by category
 
 Full schemas live in [`crates/ix-agent/src/tools.rs`](../crates/ix-agent/src/tools.rs). The table below is a navigation aid, not a reference. Every tool accepts JSON input and returns JSON output via `ToolRegistry::call` or `ToolRegistry::call_with_ctx`.
 
@@ -127,7 +127,7 @@ Full schemas live in [`crates/ix-agent/src/tools.rs`](../crates/ix-agent/src/too
 | **Probabilistic structures** | `ix_bloom_filter`, `ix_hyperloglog` | [`ix-probabilistic`](../crates/ix-probabilistic) |
 | **Cache & optimization** | `ix_cache`, `ix_optimize` | [`ix-cache`](../crates/ix-cache), [`ix-optimize`](../crates/ix-optimize) |
 | **Grammar** | `ix_grammar_evolve`, `ix_grammar_search`, `ix_grammar_weights` | [`ix-grammar`](../crates/ix-grammar) |
-| **Source adapters (P1)** | `ix_git_log`, `ix_cargo_deps`, `ix_code_analyze` | [`ix-agent/src/handlers.rs`](../crates/ix-agent/src/handlers.rs) |
+| **Source adapters (P1)** | `ix_git_log`, `ix_cargo_deps`, `ix_code_analyze`, `ix_code_catalog` | [`ix-agent/src/handlers.rs`](../crates/ix-agent/src/handlers.rs), [code-analysis tools guide](guides/code-analysis-tools.md) |
 | **Pipeline orchestration** | `ix_pipeline_run`, `ix_pipeline_compile`, `ix_pipeline_list`, `ix_pipeline` | [`ix-agent/src/tools.rs`](../crates/ix-agent/src/tools.rs), [`ix-pipeline`](../crates/ix-pipeline) |
 | **Governance** | `ix_governance_check`, `ix_governance_persona`, `ix_governance_policy`, `ix_governance_belief`, `ix_governance_graph` | [`ix-governance`](../crates/ix-governance), [`governance/demerzel`](../governance/demerzel) |
 | **Federation** | `ix_federation_discover`, `ix_tars_bridge`, `ix_ga_bridge`, `ix_trace_ingest` | [`docs/FEDERATION.md`](FEDERATION.md) |
@@ -391,6 +391,7 @@ The authoritative roadmap with dependency graph, phase breakdown, week-by-week p
 - [`docs/FEDERATION.md`](FEDERATION.md) — three-repo federation (ix + tars + ga), bridge skills, federated pipelines
 - [`docs/MIRROR-TO-ECOSYSTEM.md`](MIRROR-TO-ECOSYSTEM.md) — how ix's capability registry is mirrored across the ecosystem
 - [`docs/guides/graph-theory-in-ix.md`](guides/graph-theory-in-ix.md) — **read this before adding any graph dep**
+- [`docs/guides/code-analysis-tools.md`](guides/code-analysis-tools.md) — curated catalog of mathematical tools for analysing programming-language repositories, served live by `ix_code_catalog`
 
 **Canonical showcases**
 - [`examples/canonical-showcase/README.md`](../examples/canonical-showcase/README.md) — showcase inventory

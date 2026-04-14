@@ -6,7 +6,7 @@
 
 A Rust workspace of composable ML/math algorithms and AI governance, designed to be exposed as **Claude Code skills** via an MCP server and CLI. Part of the [GuitarAlchemist](https://github.com/GuitarAlchemist) ecosystem (ix + [tars](https://github.com/GuitarAlchemist/tars) + [ga](https://github.com/GuitarAlchemist/ga) + [Demerzel](https://github.com/GuitarAlchemist/Demerzel)).
 
-54 crates. 57 MCP tools. 80+ Claude Code skills. Pure Rust. No external ML frameworks.
+54 crates. 58 MCP tools. 80+ Claude Code skills. Pure Rust. No external ML frameworks.
 
 ## Quick Start
 
@@ -95,7 +95,7 @@ cargo run -p ix-agent
 
 ### MCP Tool Annotations
 
-The 57 MCP tools exposed by `ix-agent` are categorized (see [`docs/MANUAL.md §4`](docs/MANUAL.md#4-the-57-mcp-tools--by-category) for the full inventory):
+The 58 MCP tools exposed by `ix-agent` are categorized (see [`docs/MANUAL.md §4`](docs/MANUAL.md#4-the-58-mcp-tools--by-category) for the full inventory):
 
 | Category | Tools | Readiness |
 |----------|-------|-----------|

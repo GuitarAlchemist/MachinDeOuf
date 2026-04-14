@@ -1541,6 +1541,38 @@ Example 2 — "cluster crates by complexity then classify":
         });
 
         self.tools.push(Tool {
+            name: "ix_code_catalog",
+            description: "Query a curated catalog of external mathematical tools for analysing programming-language repositories (static analysers, formal verifiers, safety / memory checkers, statistical + behavioural analysis tools, documentation generators, and numeric libraries). Filter by language, category, or technique substring. Use this to route users to the right specialist rather than over-stretching ix_code_analyze.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "description": "Case-insensitive language filter (e.g. 'rust', 'python'). Language-agnostic tools are always included."
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "static_analysis",
+                            "formal_verification",
+                            "safety_memory",
+                            "statistical_analysis",
+                            "documentation",
+                            "numeric_library",
+                            "ml_framework"
+                        ],
+                        "description": "One of seven categories; omit to include all."
+                    },
+                    "technique": {
+                        "type": "string",
+                        "description": "Substring match against the 'technique' field (e.g. 'cyclomatic', 'abstract interpretation', 'model checking')."
+                    }
+                }
+            }),
+            handler: handlers::code_catalog,
+        });
+
+        self.tools.push(Tool {
             name: "ix_cargo_deps",
             description: "P1.2 — walk a Rust workspace, parse every crates/<name>/Cargo.toml for intra-workspace ix-* dependencies, and emit a {nodes, edges, n_nodes} structure that ix_graph can consume directly. Each node records {id, name, sloc, file_count, dep_count}. Edges are [from_id, to_id, 1.0] triples. Default workspace_root is the process CWD.",
             input_schema: json!({

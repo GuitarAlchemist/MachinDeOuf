@@ -18,6 +18,7 @@
 //! - `full` -- all layers enabled
 
 pub mod analyze;
+pub mod catalog;
 pub mod metrics;
 
 #[cfg(feature = "semantic")]

@@ -1,4 +1,4 @@
-//! 57-tool parity test — protects the MCP surface during the manual→registry
+//! 58-tool parity test — protects the MCP surface during the manual→registry
 //! migration and any subsequent additions.
 //!
 //! Every tool name in `EXPECTED` must remain reachable through
@@ -26,6 +26,7 @@ const EXPECTED: &[&str] = &[
     "ix_category",
     "ix_chaos_lyapunov",
     "ix_code_analyze",
+    "ix_code_catalog",
     "ix_context_walk",
     "ix_demo",
     "ix_distance",
@@ -93,7 +94,7 @@ fn exposed_names() -> HashSet<String> {
 }
 
 #[test]
-fn parity_all_57_tools_reachable() {
+fn parity_all_58_tools_reachable() {
     let exposed = exposed_names();
     let missing: Vec<&&str> = EXPECTED.iter().filter(|n| !exposed.contains(**n)).collect();
     assert!(
@@ -122,10 +123,10 @@ fn parity_expected_count() {
     // Sanity: 48 registry tools + ix_demo + ix_explain_algorithm +
     // ix_triage_session + ix_pipeline_run + ix_pipeline_list +
     // ix_autograd_run + ix_pipeline_compile + ix_git_log +
-    // ix_cargo_deps = 57.
+    // ix_cargo_deps + ix_code_catalog = 58.
     // If this drifts, update both EXPECTED and this assertion in the
     // same commit.
-    assert_eq!(EXPECTED.len(), 57);
+    assert_eq!(EXPECTED.len(), 58);
 }
 
 #[test]
