@@ -77,6 +77,16 @@ pub enum ToolCategory {
     /// when the analysis itself is an ML task, not when you want a
     /// single primitive.
     MlFramework,
+
+    /// Property-based testing, fuzzers, mutation testing — all the
+    /// generative techniques that find inputs a codebase can't
+    /// handle. Distinct from `FormalVerification` because fuzzers
+    /// find counterexamples, they do not prove correctness.
+    Fuzzing,
+
+    /// Supply-chain security: SBOM generation, vulnerability
+    /// scanning, dependency audit, license compliance.
+    SupplyChain,
 }
 
 impl ToolCategory {
@@ -91,6 +101,8 @@ impl ToolCategory {
             ToolCategory::Documentation => "documentation",
             ToolCategory::NumericLibrary => "numeric_library",
             ToolCategory::MlFramework => "ml_framework",
+            ToolCategory::Fuzzing => "fuzzing",
+            ToolCategory::SupplyChain => "supply_chain",
         }
     }
 
@@ -113,6 +125,12 @@ impl ToolCategory {
             }
             "ml_framework" | "ml" | "ml-framework" | "framework" => {
                 Some(Self::MlFramework)
+            }
+            "fuzzing" | "fuzz" | "property_testing" | "property" => {
+                Some(Self::Fuzzing)
+            }
+            "supply_chain" | "supply-chain" | "sbom" | "audit" => {
+                Some(Self::SupplyChain)
             }
             _ => None,
         }
@@ -604,6 +622,244 @@ pub const CATALOG: &[CodeAnalysisTool] = &[
         description: "Edge and embedded inference engine supporting ONNX, TensorFlow, and PyTorch models; the standard Rust choice for on-device ML.",
         url: Some("https://github.com/sonos/tract"),
     },
+    // ──────────────────────────────────────────────────────────────
+    // Fuzzing, property-based testing, mutation testing
+    // ──────────────────────────────────────────────────────────────
+    CodeAnalysisTool {
+        name: "proptest",
+        category: ToolCategory::Fuzzing,
+        technique: "property-based testing, shrinking, structured strategies",
+        languages: &["rust"],
+        description: "Rust's canonical property-based testing library — Hypothesis-style strategies with shrinking.",
+        url: Some("https://github.com/proptest-rs/proptest"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-fuzz",
+        category: ToolCategory::Fuzzing,
+        technique: "coverage-guided fuzzing via LibFuzzer",
+        languages: &["rust"],
+        description: "LibFuzzer wrapper for Rust; the standard way to fuzz unsafe Rust and parser code.",
+        url: Some("https://github.com/rust-fuzz/cargo-fuzz"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-mutants",
+        category: ToolCategory::Fuzzing,
+        technique: "mutation testing",
+        languages: &["rust"],
+        description: "Mutates Rust source to find code not killed by tests — exposes weak test suites.",
+        url: Some("https://github.com/sourcefrog/cargo-mutants"),
+    },
+    CodeAnalysisTool {
+        name: "Hypothesis",
+        category: ToolCategory::Fuzzing,
+        technique: "property-based testing, shrinking, stateful testing",
+        languages: &["python"],
+        description: "Python's canonical property-based testing library; the template most other libraries copy.",
+        url: Some("https://hypothesis.works/"),
+    },
+    CodeAnalysisTool {
+        name: "QuickCheck",
+        category: ToolCategory::Fuzzing,
+        technique: "property-based testing, random generation",
+        languages: &["haskell"],
+        description: "The original property-based testing library; the ancestor of every modern PBT framework.",
+        url: Some("https://hackage.haskell.org/package/QuickCheck"),
+    },
+    CodeAnalysisTool {
+        name: "AFL++",
+        category: ToolCategory::Fuzzing,
+        technique: "coverage-guided fuzzing, persistent mode",
+        languages: &["c", "cpp", "rust"],
+        description: "The successor to American Fuzzy Lop — the canonical coverage-guided fuzzer for native code.",
+        url: Some("https://github.com/AFLplusplus/AFLplusplus"),
+    },
+    CodeAnalysisTool {
+        name: "LibFuzzer",
+        category: ToolCategory::Fuzzing,
+        technique: "in-process coverage-guided fuzzing",
+        languages: &["c", "cpp", "rust"],
+        description: "LLVM's in-process fuzzer; the engine cargo-fuzz and many other integrations are built on.",
+        url: Some("https://llvm.org/docs/LibFuzzer.html"),
+    },
+    CodeAnalysisTool {
+        name: "Jazzer",
+        category: ToolCategory::Fuzzing,
+        technique: "coverage-guided fuzzing on JVM bytecode",
+        languages: &["java", "kotlin"],
+        description: "JVM fuzzer from Code Intelligence, brings LibFuzzer-style workflow to Java and Kotlin.",
+        url: Some("https://github.com/CodeIntelligenceTesting/jazzer"),
+    },
+    // ──────────────────────────────────────────────────────────────
+    // Supply chain: SBOM, vulnerability scanning, license compliance
+    // ──────────────────────────────────────────────────────────────
+    CodeAnalysisTool {
+        name: "cargo-audit",
+        category: ToolCategory::SupplyChain,
+        technique: "RustSec advisory database lookup",
+        languages: &["rust"],
+        description: "Scans Cargo.lock against the RustSec advisory database and fails the build on matches.",
+        url: Some("https://github.com/rustsec/rustsec"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-deny",
+        category: ToolCategory::SupplyChain,
+        technique: "policy engine: advisories, licenses, duplicates, sources",
+        languages: &["rust"],
+        description: "Configurable Cargo policy gate — flags disallowed licenses, duplicated deps, wrong sources, and advisory hits.",
+        url: Some("https://github.com/EmbarkStudios/cargo-deny"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-vet",
+        category: ToolCategory::SupplyChain,
+        technique: "crowd-sourced dependency audit trails",
+        languages: &["rust"],
+        description: "Mozilla's supply-chain audit system — dependencies must be audited by a trusted set before they're allowed.",
+        url: Some("https://mozilla.github.io/cargo-vet/"),
+    },
+    CodeAnalysisTool {
+        name: "osv-scanner",
+        category: ToolCategory::SupplyChain,
+        technique: "OSV database vulnerability matching",
+        languages: &["language-agnostic"],
+        description: "Google's scanner against the OSV (Open Source Vulnerabilities) database — covers every major ecosystem.",
+        url: Some("https://github.com/google/osv-scanner"),
+    },
+    CodeAnalysisTool {
+        name: "Trivy",
+        category: ToolCategory::SupplyChain,
+        technique: "container + dependency + IaC vulnerability scanning",
+        languages: &["language-agnostic"],
+        description: "Unified scanner for OS packages, language deps, container images, and Kubernetes / Terraform IaC.",
+        url: Some("https://github.com/aquasecurity/trivy"),
+    },
+    CodeAnalysisTool {
+        name: "Syft",
+        category: ToolCategory::SupplyChain,
+        technique: "SBOM generation in SPDX / CycloneDX",
+        languages: &["language-agnostic"],
+        description: "Generates Software Bill of Materials from container images, filesystems, and archives.",
+        url: Some("https://github.com/anchore/syft"),
+    },
+    CodeAnalysisTool {
+        name: "Grype",
+        category: ToolCategory::SupplyChain,
+        technique: "SBOM-driven vulnerability matching",
+        languages: &["language-agnostic"],
+        description: "Matches a Syft-generated SBOM against vulnerability databases to find known-bad deps.",
+        url: Some("https://github.com/anchore/grype"),
+    },
+    CodeAnalysisTool {
+        name: "scancode-toolkit",
+        category: ToolCategory::SupplyChain,
+        technique: "license + copyright detection, origin analysis",
+        languages: &["language-agnostic"],
+        description: "Canonical FOSS license compliance scanner, covering thousands of license variants.",
+        url: Some("https://github.com/nexB/scancode-toolkit"),
+    },
+    // ──────────────────────────────────────────────────────────────
+    // Rust tooling expansion (profiling, coverage, correctness)
+    // ──────────────────────────────────────────────────────────────
+    CodeAnalysisTool {
+        name: "clippy",
+        category: ToolCategory::StaticAnalysis,
+        technique: "AST lints, idiomaticity checks, correctness warnings",
+        languages: &["rust"],
+        description: "Rust's canonical linter — 700+ lints covering correctness, perf, complexity, style, and suspicious patterns.",
+        url: Some("https://github.com/rust-lang/rust-clippy"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-tarpaulin",
+        category: ToolCategory::StaticAnalysis,
+        technique: "code coverage via instrumentation",
+        languages: &["rust"],
+        description: "Rust code coverage tool with LLVM and ptrace backends — the standard coverage reporter for `cargo test`.",
+        url: Some("https://github.com/xd009642/tarpaulin"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-llvm-cov",
+        category: ToolCategory::StaticAnalysis,
+        technique: "LLVM source-based coverage",
+        languages: &["rust"],
+        description: "Wraps LLVM's source-based coverage tooling for Rust — more accurate than tarpaulin on modern targets.",
+        url: Some("https://github.com/taiki-e/cargo-llvm-cov"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-nextest",
+        category: ToolCategory::StaticAnalysis,
+        technique: "parallel test runner, retry, test sharding",
+        languages: &["rust"],
+        description: "A faster, more informative Rust test runner — parallel execution, per-test isolation, rich output.",
+        url: Some("https://nexte.st/"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-semver-checks",
+        category: ToolCategory::StaticAnalysis,
+        technique: "semantic-versioning diff analysis via rustdoc JSON",
+        languages: &["rust"],
+        description: "Walks rustdoc JSON between two versions and flags SemVer-breaking changes before release.",
+        url: Some("https://github.com/obi1kenobi/cargo-semver-checks"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-geiger",
+        category: ToolCategory::StaticAnalysis,
+        technique: "unsafe code detection + dependency audit",
+        languages: &["rust"],
+        description: "Counts `unsafe` blocks in a Rust crate and its dependency tree; the canonical safety audit.",
+        url: Some("https://github.com/geiger-rs/cargo-geiger"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-udeps",
+        category: ToolCategory::StaticAnalysis,
+        technique: "unused dependency detection",
+        languages: &["rust"],
+        description: "Finds declared dependencies no code path actually uses — for Cargo.toml cleanup.",
+        url: Some("https://github.com/est31/cargo-udeps"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-bloat",
+        category: ToolCategory::StaticAnalysis,
+        technique: "binary size attribution",
+        languages: &["rust"],
+        description: "Breaks down a Rust binary by crate and function, showing what's making the artifact large.",
+        url: Some("https://github.com/RazrFalcon/cargo-bloat"),
+    },
+    CodeAnalysisTool {
+        name: "Prusti",
+        category: ToolCategory::FormalVerification,
+        technique: "deductive verification via Viper, pre/postconditions",
+        languages: &["rust"],
+        description: "Deductive verifier for Rust; writes specifications inline as attributes and proves them via the Viper backend.",
+        url: Some("https://github.com/viperproject/prusti-dev"),
+    },
+    CodeAnalysisTool {
+        name: "criterion",
+        category: ToolCategory::StaticAnalysis,
+        technique: "statistical microbenchmarking",
+        languages: &["rust"],
+        description: "Statistics-driven Rust benchmarking framework — detects regressions, produces HTML reports.",
+        url: Some("https://github.com/bheisler/criterion.rs"),
+    },
+    CodeAnalysisTool {
+        name: "cargo-flamegraph",
+        category: ToolCategory::StaticAnalysis,
+        technique: "profile-guided flamegraph generation",
+        languages: &["rust"],
+        description: "One-command flamegraph for any Rust binary, using Linux perf or dtrace.",
+        url: Some("https://github.com/flamegraph-rs/flamegraph"),
+    },
+    // ──────────────────────────────────────────────────────────────
+    // Semantic pattern-matching (moved from v1 gap analysis research)
+    // ──────────────────────────────────────────────────────────────
+    CodeAnalysisTool {
+        name: "semgrep",
+        category: ToolCategory::StaticAnalysis,
+        technique: "pattern-based AST matching across languages",
+        languages: &[
+            "python", "javascript", "typescript", "go", "java", "ruby", "rust", "c", "cpp",
+        ],
+        description: "Lightweight multi-language static analyzer where rules are written as code snippets with metavariables.",
+        url: Some("https://semgrep.dev/"),
+    },
 ];
 
 // ──────────────────────────────────────────────────────────────────
@@ -672,6 +928,8 @@ pub fn counts() -> CatalogCounts {
             ToolCategory::Documentation => counts.documentation += 1,
             ToolCategory::NumericLibrary => counts.numeric_library += 1,
             ToolCategory::MlFramework => counts.ml_framework += 1,
+            ToolCategory::Fuzzing => counts.fuzzing += 1,
+            ToolCategory::SupplyChain => counts.supply_chain += 1,
         }
     }
     counts
@@ -688,6 +946,8 @@ pub struct CatalogCounts {
     pub documentation: usize,
     pub numeric_library: usize,
     pub ml_framework: usize,
+    pub fuzzing: usize,
+    pub supply_chain: usize,
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -735,6 +995,8 @@ impl Catalog for CodeAnalysisCatalog {
             "documentation": c.documentation,
             "numeric_library": c.numeric_library,
             "ml_framework": c.ml_framework,
+            "fuzzing": c.fuzzing,
+            "supply_chain": c.supply_chain,
         })
     }
 
@@ -753,7 +1015,8 @@ impl Catalog for CodeAnalysisCatalog {
                 format!(
                     "ix_code_catalog: unknown category '{cat_str}' — expected one of: \
                      static_analysis, formal_verification, safety_memory, \
-                     statistical_analysis, documentation, numeric_library, ml_framework"
+                     statistical_analysis, documentation, numeric_library, \
+                     ml_framework, fuzzing, supply_chain"
                 )
             })?;
             let filtered = by_category(cat);
@@ -787,7 +1050,7 @@ mod tests {
     #[test]
     fn catalog_is_not_empty_and_covers_every_category() {
         let c = counts();
-        assert!(c.total >= 40, "expected at least 40 entries, got {}", c.total);
+        assert!(c.total >= 60, "expected at least 60 entries, got {}", c.total);
         assert!(c.static_analysis > 0);
         assert!(c.formal_verification > 0);
         assert!(c.safety_memory > 0);
@@ -795,6 +1058,8 @@ mod tests {
         assert!(c.documentation > 0);
         assert!(c.numeric_library > 0);
         assert!(c.ml_framework > 0);
+        assert!(c.fuzzing > 0);
+        assert!(c.supply_chain > 0);
     }
 
     #[test]
@@ -825,7 +1090,11 @@ mod tests {
             .iter()
             .map(|t| t.name)
             .collect();
-        for required in ["Kani", "Verus", "Creusot", "Miri", "Loom", "MIRAI", "rustdoc", "mdBook"] {
+        for required in [
+            "Kani", "Verus", "Creusot", "Miri", "Loom", "MIRAI", "rustdoc", "mdBook",
+            "clippy", "cargo-audit", "cargo-deny", "cargo-fuzz", "proptest", "Prusti",
+            "cargo-tarpaulin", "criterion",
+        ] {
             assert!(
                 rust_tools.contains(&required),
                 "Rust query missing expected tool: {required}"
@@ -890,9 +1159,29 @@ mod tests {
             + c.statistical_analysis
             + c.documentation
             + c.numeric_library
-            + c.ml_framework;
+            + c.ml_framework
+            + c.fuzzing
+            + c.supply_chain;
         assert_eq!(sum, c.total);
         assert_eq!(c.total, CATALOG.len());
+    }
+
+    #[test]
+    fn fuzzing_category_includes_proptest_and_cargo_fuzz() {
+        let fuzzing = by_category(ToolCategory::Fuzzing);
+        let names: Vec<&str> = fuzzing.iter().map(|t| t.name).collect();
+        for required in ["proptest", "cargo-fuzz", "Hypothesis", "QuickCheck", "AFL++"] {
+            assert!(names.contains(&required), "fuzzing missing {required}");
+        }
+    }
+
+    #[test]
+    fn supply_chain_category_includes_cargo_audit_and_trivy() {
+        let sc = by_category(ToolCategory::SupplyChain);
+        let names: Vec<&str> = sc.iter().map(|t| t.name).collect();
+        for required in ["cargo-audit", "cargo-deny", "cargo-vet", "Trivy", "Syft"] {
+            assert!(names.contains(&required), "supply_chain missing {required}");
+        }
     }
 
     #[test]

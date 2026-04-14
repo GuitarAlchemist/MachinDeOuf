@@ -114,8 +114,33 @@ fn counts_per_category_sum_to_total() {
         + c["statistical_analysis"].as_u64().unwrap()
         + c["documentation"].as_u64().unwrap()
         + c["numeric_library"].as_u64().unwrap()
-        + c["ml_framework"].as_u64().unwrap();
+        + c["ml_framework"].as_u64().unwrap()
+        + c["fuzzing"].as_u64().unwrap()
+        + c["supply_chain"].as_u64().unwrap();
     assert_eq!(sum, total, "category counts must sum to total");
+}
+
+#[test]
+fn fuzzing_and_supply_chain_categories_are_live() {
+    let fuzzing = call(json!({ "category": "fuzzing" })).expect("fuzzing call");
+    let names: Vec<String> = fuzzing["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["name"].as_str().map(String::from))
+        .collect();
+    assert!(names.iter().any(|n| n == "proptest"));
+    assert!(names.iter().any(|n| n == "cargo-fuzz"));
+
+    let sc = call(json!({ "category": "supply_chain" })).expect("supply_chain call");
+    let sc_names: Vec<String> = sc["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["name"].as_str().map(String::from))
+        .collect();
+    assert!(sc_names.iter().any(|n| n == "cargo-audit"));
+    assert!(sc_names.iter().any(|n| n == "Trivy"));
 }
 
 #[test]

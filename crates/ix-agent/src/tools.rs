@@ -1632,9 +1632,11 @@ Example 2 — "cluster crates by complexity then classify":
                             "statistical_analysis",
                             "documentation",
                             "numeric_library",
-                            "ml_framework"
+                            "ml_framework",
+                            "fuzzing",
+                            "supply_chain"
                         ],
-                        "description": "One of seven categories; omit to include all."
+                        "description": "One of nine categories; omit to include all."
                     },
                     "technique": {
                         "type": "string",
