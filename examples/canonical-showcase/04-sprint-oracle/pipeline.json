@@ -1,0 +1,158 @@
+{
+  "$schema": "https://ix.guitaralchemist.com/schemas/pipeline-v1.json",
+  "description": "Sprint velocity history → time-series baseline → ML forecast → Bayesian confidence band. R1 migration of the sprint_oracle DemoScenario, seed=42.",
+  "name": "sprint-oracle",
+  "seed": 42,
+  "steps": [
+    {
+      "arguments": {
+        "data": [
+          28.0,
+          28.0,
+          30.0,
+          33.0,
+          34.0,
+          33.0,
+          34.0,
+          36.0,
+          39.0,
+          39.0,
+          42.0,
+          44.0
+        ]
+      },
+      "asset_name": "sprint_oracle.baseline_sprint_velocity",
+      "id": "s01_baseline_sprint_velocity",
+      "tool": "ix_stats"
+    },
+    {
+      "arguments": {
+        "x": [
+          [
+            1.0
+          ],
+          [
+            2.0
+          ],
+          [
+            3.0
+          ],
+          [
+            4.0
+          ],
+          [
+            5.0
+          ],
+          [
+            6.0
+          ],
+          [
+            7.0
+          ],
+          [
+            8.0
+          ],
+          [
+            9.0
+          ],
+          [
+            10.0
+          ],
+          [
+            11.0
+          ],
+          [
+            12.0
+          ]
+        ],
+        "y": [
+          28.0,
+          28.0,
+          30.0,
+          33.0,
+          34.0,
+          33.0,
+          34.0,
+          36.0,
+          39.0,
+          39.0,
+          42.0,
+          44.0
+        ]
+      },
+      "asset_name": "sprint_oracle.fit_velocity_trend_line",
+      "depends_on": [
+        "s01_baseline_sprint_velocity"
+      ],
+      "id": "s02_fit_velocity_trend_line",
+      "tool": "ix_linear_regression"
+    },
+    {
+      "arguments": {
+        "initial_state": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "steps": 10,
+        "transition_matrix": [
+          [
+            0.2,
+            0.7,
+            0.0,
+            0.1
+          ],
+          [
+            0.0,
+            0.3,
+            0.6,
+            0.1
+          ],
+          [
+            0.0,
+            0.25,
+            0.35,
+            0.4
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "asset_name": "sprint_oracle.model_ticket_state_transitions",
+      "depends_on": [
+        "s02_fit_velocity_trend_line"
+      ],
+      "id": "s03_model_ticket_state_transitions",
+      "tool": "ix_markov"
+    },
+    {
+      "arguments": {
+        "algorithm": "thompson",
+        "rounds": 100,
+        "true_means": [
+          0.6,
+          0.75,
+          0.55
+        ]
+      },
+      "asset_name": "sprint_oracle.optimize_story_point_estimation",
+      "depends_on": [
+        "s03_model_ticket_state_transitions"
+      ],
+      "id": "s04_optimize_story_point_estimation",
+      "tool": "ix_bandit"
+    }
+  ],
+  "tools_used": [
+    "ix_stats",
+    "ix_linear_regression",
+    "ix_markov",
+    "ix_bandit"
+  ],
+  "version": "1.0"
+}

@@ -184,8 +184,12 @@ impl ToolRegistry {
             .and_then(|v| v.as_array())
             .ok_or_else(|| "ix_pipeline_run: missing 'steps' array".to_string())?;
 
-        // First pass: build a Dag<(tool, arguments, asset_name)> and validate.
+        // First pass: build a Dag<(tool, arguments, asset_name)>, remember
+        // declared dependency edges, and validate. R2 Phase 2: also
+        // capture per-step `depends_on` in a parallel map so we can emit
+        // a provenance DAG in the response.
         let mut dag: Dag<(String, Value, Option<String>)> = Dag::new();
+        let mut depends_on: HashMap<String, Vec<String>> = HashMap::new();
         for step in steps {
             let id = step
                 .get("id")
@@ -202,6 +206,7 @@ impl ToolRegistry {
                 .map(|s| s.to_string());
             dag.add_node(id, (tool.to_string(), arguments, asset_name))
                 .map_err(|e| format!("ix_pipeline_run: step '{id}': {e}"))?;
+            depends_on.insert(id.to_string(), Vec::new());
         }
         for step in steps {
             let id = step.get("id").and_then(|v| v.as_str()).unwrap();
@@ -211,6 +216,10 @@ impl ToolRegistry {
                         dag.add_edge(dep_id, id).map_err(|e| {
                             format!("ix_pipeline_run: edge {dep_id} -> {id}: {e}")
                         })?;
+                        depends_on
+                            .get_mut(id)
+                            .expect("id registered")
+                            .push(dep_id.to_string());
                     }
                 }
             }
@@ -224,6 +233,10 @@ impl ToolRegistry {
         let mut durations: HashMap<String, u128> = HashMap::new();
         let mut cache_hits: Vec<String> = Vec::new();
         let mut cache_keys: HashMap<String, Value> = HashMap::new();
+        // R2 Phase 2: per-step provenance records.
+        let mut lineage: HashMap<String, Value> = HashMap::new();
+        let mut tools_by_step: HashMap<String, String> = HashMap::new();
+        let mut assets_by_step: HashMap<String, Option<String>> = HashMap::new();
 
         let cache = crate::handlers::global_cache();
 
@@ -252,6 +265,9 @@ impl ToolRegistry {
                 let hash = blake3::hash(canon.as_bytes());
                 format!("ix_pipeline_run:{}", hash.to_hex())
             });
+
+            tools_by_step.insert(id.clone(), tool.clone());
+            assets_by_step.insert(id.clone(), asset_name.clone());
 
             // Try cache lookup before dispatching the tool.
             if let Some(key) = &cache_key {
@@ -282,12 +298,42 @@ impl ToolRegistry {
             durations.insert(id.clone(), elapsed);
         }
 
+        // R2 Phase 2: build the provenance DAG. For each step, record:
+        //   - tool + asset_name
+        //   - its own content-addressed cache_key (Some on asset-backed
+        //     steps, None otherwise)
+        //   - depends_on: the list of upstream step ids
+        //   - upstream_cache_keys: the cache keys of those upstream
+        //     steps, which is what downstream audits walk to prove
+        //     "where did this decision come from"
+        for id in &order {
+            let deps = depends_on
+                .get(id)
+                .cloned()
+                .unwrap_or_default();
+            let upstream_keys: Vec<Value> = deps
+                .iter()
+                .map(|dep| cache_keys.get(dep).cloned().unwrap_or(Value::Null))
+                .collect();
+            lineage.insert(
+                id.clone(),
+                json!({
+                    "tool": tools_by_step.get(id).cloned().unwrap_or_default(),
+                    "asset_name": assets_by_step.get(id).and_then(|o| o.clone()),
+                    "cache_key": cache_keys.get(id).cloned().unwrap_or(Value::Null),
+                    "depends_on": deps,
+                    "upstream_cache_keys": upstream_keys,
+                }),
+            );
+        }
+
         Ok(json!({
             "results": results,
             "execution_order": order,
             "durations_ms": durations,
             "cache_hits": cache_hits,
             "cache_keys": cache_keys,
+            "lineage": lineage,
         }))
     }
 
@@ -1186,6 +1232,21 @@ impl ToolRegistry {
         });
 
         self.tools.push(Tool {
+            name: "ix_pipeline_list",
+            description: "Discover canonical-showcase pipeline.json specs under a directory (default 'examples/canonical-showcase'). Returns metadata for each spec — name, description, step count, and the list of tools it uses. Companion to ix_pipeline_run for pipeline browsing.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "root": {
+                        "type": "string",
+                        "description": "Directory to scan for '<subdir>/pipeline.json' specs. Relative paths resolve against CWD. Default: 'examples/canonical-showcase'."
+                    }
+                }
+            }),
+            handler: handlers::pipeline_list,
+        });
+
+        self.tools.push(Tool {
             name: "ix_pipeline",
             description: "DAG pipeline analysis: define steps with dependencies, get topological order, parallel execution levels, and critical path info.",
             input_schema: json!({
@@ -1243,7 +1304,7 @@ impl ToolRegistry {
 
         self.tools.push(Tool {
             name: "ix_governance_check",
-            description: "Check a proposed action against the Demerzel constitution for compliance",
+            description: "Check a proposed action against the Demerzel constitution for compliance. Optionally accepts a 'lineage' object emitted by ix_pipeline_run to record upstream provenance alongside the verdict (R2 Phase 2 audit trail).",
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -1254,6 +1315,11 @@ impl ToolRegistry {
                     "context": {
                         "type": "string",
                         "description": "Optional context for the action"
+                    },
+                    "lineage": {
+                        "type": "object",
+                        "description": "Optional lineage map emitted by ix_pipeline_run. When provided, the response includes a 'lineage_audit' summary with step-by-step provenance (tool, asset_name, cache_key, upstream_cache_keys) so auditors can trace which assets fed into the decision.",
+                        "additionalProperties": true
                     }
                 },
                 "required": ["action"]

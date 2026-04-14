@@ -65,12 +65,15 @@ impl DemoScenario for SprintOracle {
                 label: "Fit velocity trend line".into(),
                 tool: "ix_linear_regression".into(),
                 input: StepInput::Static({
-                    // X = sprint number (1-12), y = velocity
+                    // X = sprint number (1-12), y = velocity.
+                    // `ix_linear_regression` takes `x` + `y`; prediction
+                    // for future sprints is derived from the fitted
+                    // slope/bias at interpret time, not from a separate
+                    // `x_test` payload.
                     let x: Vec<Vec<f64>> = (1..=12).map(|i| vec![i as f64]).collect();
                     json!({
-                        "x_train": x,
-                        "y_train": velocity_for_regression,
-                        "x_test": [[13.0], [14.0], [15.0]]
+                        "x": x,
+                        "y": velocity_for_regression,
                     })
                 }),
                 narrative: if verbosity >= 1 {
@@ -82,30 +85,25 @@ impl DemoScenario for SprintOracle {
                     "Regression: velocity trend + prediction.".into()
                 },
                 interpret: Some(|output: &Value| {
-                    if let Some(preds) = output.get("predictions").and_then(|v| v.as_array()) {
-                        let next_sprint = preds.first()
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0);
-                        let slope = output.get("coefficients")
-                            .and_then(|v| v.as_array())
-                            .and_then(|a| a.first())
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0);
-                        let direction = if slope > 0.5 {
-                            "trending up — the team is ramping"
-                        } else if slope < -0.5 {
-                            "trending down — possible burnout or scope creep"
-                        } else {
-                            "stable — consistent delivery"
-                        };
-                        format!(
-                            "Slope: {slope:+.1} points/sprint ({direction}). \
-                             Predicted next sprint: {next_sprint:.0} points. \
-                             Plan capacity accordingly."
-                        )
+                    let slope = output.get("weights")
+                        .and_then(|v| v.as_array())
+                        .and_then(|a| a.first())
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0);
+                    let bias = output.get("bias").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let next_sprint = slope * 13.0 + bias;
+                    let direction = if slope > 0.5 {
+                        "trending up — the team is ramping"
+                    } else if slope < -0.5 {
+                        "trending down — possible burnout or scope creep"
                     } else {
-                        "Regression complete.".into()
-                    }
+                        "stable — consistent delivery"
+                    };
+                    format!(
+                        "Slope: {slope:+.1} points/sprint ({direction}). \
+                         Predicted next sprint: {next_sprint:.0} points. \
+                         Plan capacity accordingly."
+                    )
                 }),
             },
 

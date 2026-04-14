@@ -1587,6 +1587,113 @@ pub fn pipeline_run_placeholder(_params: Value) -> Result<Value, String> {
     )
 }
 
+// ── ix_pipeline_list ───────────────────────────────────────
+
+/// R1 companion to `ix_pipeline_run`: discover `pipeline.json` specs
+/// under a conventional directory (default
+/// `examples/canonical-showcase`) and return metadata for each one.
+///
+/// Input:
+/// ```json
+/// { "root": "examples/canonical-showcase" }
+/// ```
+///
+/// `root` is optional; when absent the default relative path is used.
+/// Relative paths are resolved against the process CWD.
+///
+/// Output:
+/// ```json
+/// {
+///   "root": "<resolved absolute path>",
+///   "pipelines": [
+///     {
+///       "path": "<abs path to pipeline.json>",
+///       "folder": "<containing folder name>",
+///       "name": "cost-anomaly-hunter",
+///       "description": "...",
+///       "version": "1.0",
+///       "step_count": 3,
+///       "tools": ["ix_stats", "ix_fft", "ix_kmeans"]
+///     }
+///   ]
+/// }
+/// ```
+pub fn pipeline_list(params: Value) -> Result<Value, String> {
+    let root_arg = params
+        .get("root")
+        .and_then(|v| v.as_str())
+        .unwrap_or("examples/canonical-showcase");
+    let root = std::path::PathBuf::from(root_arg);
+    let root = if root.is_absolute() {
+        root
+    } else {
+        std::env::current_dir()
+            .map_err(|e| format!("ix_pipeline_list: cwd: {e}"))?
+            .join(root)
+    };
+
+    if !root.exists() {
+        return Ok(json!({
+            "root": root.display().to_string(),
+            "pipelines": [],
+            "warning": format!("root '{}' does not exist", root.display()),
+        }));
+    }
+
+    let entries = std::fs::read_dir(&root)
+        .map_err(|e| format!("ix_pipeline_list: read_dir {}: {e}", root.display()))?;
+
+    let mut pipelines: Vec<Value> = Vec::new();
+    let mut child_dirs: Vec<std::path::PathBuf> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            child_dirs.push(path);
+        }
+    }
+    child_dirs.sort();
+
+    for dir in child_dirs {
+        let spec_path = dir.join("pipeline.json");
+        if !spec_path.is_file() {
+            continue;
+        }
+        let raw = match std::fs::read_to_string(&spec_path) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let parsed: Value = match serde_json::from_str(&raw) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let steps = parsed
+            .get("steps")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let tools: Vec<String> = steps
+            .iter()
+            .filter_map(|s| s.get("tool").and_then(|t| t.as_str()).map(String::from))
+            .collect();
+
+        pipelines.push(json!({
+            "path": spec_path.display().to_string(),
+            "folder": dir.file_name().and_then(|n| n.to_str()).unwrap_or_default(),
+            "name": parsed.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+            "description": parsed.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+            "version": parsed.get("version").and_then(|v| v.as_str()).unwrap_or(""),
+            "step_count": steps.len(),
+            "tools": tools,
+        }));
+    }
+
+    Ok(json!({
+        "root": root.display().to_string(),
+        "pipelines": pipelines,
+    }))
+}
+
 // ── ix_autograd_run ────────────────────────────────────────
 
 /// R7 Week 2: run a differentiable tool via MCP and return forward
@@ -1885,7 +1992,7 @@ pub fn governance_check(params: Value) -> Result<Value, String> {
 
     let result = constitution.check_action(action);
 
-    Ok(json!({
+    let mut response = json!({
         "compliant": result.compliant,
         "relevant_articles": result.relevant_articles.iter().map(|a| json!({
             "number": a.number,
@@ -1895,7 +2002,37 @@ pub fn governance_check(params: Value) -> Result<Value, String> {
         "warnings": result.warnings,
         "constitution_version": constitution.version,
         "total_articles": constitution.articles.len(),
-    }))
+    });
+
+    // R2 Phase 2: pipeline lineage audit trail. When the caller passes a
+    // `lineage` map emitted by `ix_pipeline_run`, summarise it alongside
+    // the compliance verdict so auditors can see which upstream
+    // assets/steps contributed to the decision. We don't change the
+    // verdict based on lineage — that's a Phase 3 concern. This hook
+    // exists so the lineage DAG is surfaced in governance output and
+    // can be walked back to concrete cache keys.
+    if let Some(lineage) = params.get("lineage").and_then(|v| v.as_object()) {
+        let mut summary: Vec<Value> = Vec::with_capacity(lineage.len());
+        for (step_id, entry) in lineage {
+            summary.push(json!({
+                "step_id": step_id,
+                "tool": entry.get("tool").cloned().unwrap_or(Value::Null),
+                "asset_name": entry.get("asset_name").cloned().unwrap_or(Value::Null),
+                "cache_key": entry.get("cache_key").cloned().unwrap_or(Value::Null),
+                "depends_on": entry.get("depends_on").cloned().unwrap_or_else(|| json!([])),
+                "upstream_cache_keys": entry
+                    .get("upstream_cache_keys")
+                    .cloned()
+                    .unwrap_or_else(|| json!([])),
+            }));
+        }
+        response["lineage_audit"] = json!({
+            "step_count": summary.len(),
+            "steps": summary,
+        });
+    }
+
+    Ok(response)
 }
 
 // ── ix_governance_persona ──────────────────────────────────

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://ix.guitaralchemist.com/schemas/pipeline-v1.json",
+  "description": "Multi-agent action audit gauntlet: Demerzel persona → policy → belief → ix_governance_check verdicts. R1 migration of the governance_gauntlet DemoScenario.",
+  "name": "governance-gauntlet",
+  "seed": 42,
+  "steps": [
+    {
+      "arguments": {
+        "action": "read repository file list",
+        "context": "routine inventory of source files"
+      },
+      "asset_name": "governance_gauntlet.check_read_repository_file_list",
+      "id": "s01_check_read_repository_file_list",
+      "tool": "ix_governance_check"
+    },
+    {
+      "arguments": {
+        "action": "commit a formatting fix to a feature branch",
+        "context": "automated lint correction, no logic changes"
+      },
+      "asset_name": "governance_gauntlet.check_commit_formatting_fix_to_feature_branch",
+      "depends_on": [
+        "s01_check_read_repository_file_list"
+      ],
+      "id": "s02_check_commit_formatting_fix_to_feature_branch",
+      "tool": "ix_governance_check"
+    },
+    {
+      "arguments": {
+        "action": "merge feature branch to main without code review",
+        "context": "CI passed, no reviewers available, deadline pressure"
+      },
+      "asset_name": "governance_gauntlet.check_merge_to_main_without_review",
+      "depends_on": [
+        "s02_check_commit_formatting_fix_to_feature_branch"
+      ],
+      "id": "s03_check_merge_to_main_without_review",
+      "tool": "ix_governance_check"
+    },
+    {
+      "arguments": {
+        "policy": "self-modification",
+        "query": "What actions are absolutely forbidden?"
+      },
+      "asset_name": "governance_gauntlet.query_self_modification_policy",
+      "depends_on": [
+        "s03_check_merge_to_main_without_review"
+      ],
+      "id": "s04_query_self_modification_policy",
+      "tool": "ix_governance_policy"
+    },
+    {
+      "arguments": {
+        "persona": "skeptical-auditor"
+      },
+      "asset_name": "governance_gauntlet.load_skeptical_auditor_persona",
+      "depends_on": [
+        "s04_query_self_modification_policy"
+      ],
+      "id": "s05_load_skeptical_auditor_persona",
+      "tool": "ix_governance_persona"
+    }
+  ],
+  "tools_used": [
+    "ix_governance_check",
+    "ix_governance_check",
+    "ix_governance_check",
+    "ix_governance_policy",
+    "ix_governance_persona"
+  ],
+  "version": "1.0"
+}
