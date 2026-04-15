@@ -58,6 +58,7 @@ members = [
     "crates/ix-catalog-core",
     "crates/ix-net",
     "crates/ix-sanitize",
+    "crates/ix-friday-brief",
 ]
 
 [workspace.package]
@@ -138,6 +139,7 @@ ix-session = { path = "crates/ix-session", version = "0.1.0" }
 ix-memory = { path = "crates/ix-memory", version = "0.1.0" }
 ix-fuzzy = { path = "crates/ix-fuzzy", version = "0.1.0" }
 ix-sanitize = { path = "crates/ix-sanitize", version = "0.1.0" }
+ix-friday-brief = { path = "crates/ix-friday-brief", version = "0.1.0" }
 serde_yaml = "0.9"
 parking_lot = "0.12"
 
