@@ -147,6 +147,111 @@ fn unknown_tool_is_invalid_status() {
         .any(|e| e.as_str().unwrap().contains("unknown tool")));
 }
 
+/// Regression for realistic multi-tool pipelines: a 4-step spec that
+/// a live LLM would plausibly emit for "profile these numbers, cluster
+/// them, fit a line through the clusters, and flag outliers". Exercises
+/// the validator against upstream references (`$s01_stats.mean`), an
+/// asset_name on every step, a cross-step depends_on chain spanning
+/// three crates (ix-math, ix-unsupervised, ix-supervised), and the
+/// lineage DAG path.
+#[test]
+fn four_step_cross_crate_compile_runs_end_to_end() {
+    let canned = r#"{
+  "steps": [
+    {
+      "id": "s01_stats",
+      "tool": "ix_stats",
+      "asset_name": "numbers.stats",
+      "arguments": { "data": [10.0, 12.0, 9.0, 11.0, 50.0, 8.0, 13.0, 11.5, 9.5, 48.0] }
+    },
+    {
+      "id": "s02_clusters",
+      "tool": "ix_kmeans",
+      "asset_name": "numbers.clusters",
+      "depends_on": ["s01_stats"],
+      "arguments": {
+        "data": [[10.0], [12.0], [9.0], [11.0], [50.0], [8.0], [13.0], [11.5], [9.5], [48.0]],
+        "k": 2,
+        "max_iter": 50
+      }
+    },
+    {
+      "id": "s03_fit",
+      "tool": "ix_linear_regression",
+      "asset_name": "numbers.fit",
+      "depends_on": ["s02_clusters"],
+      "arguments": {
+        "x": [[1.0], [2.0], [3.0], [4.0], [5.0]],
+        "y": [2.0, 4.0, 6.0, 8.0, 10.0]
+      }
+    },
+    {
+      "id": "s04_distance",
+      "tool": "ix_distance",
+      "asset_name": "numbers.distance",
+      "depends_on": ["s03_fit"],
+      "arguments": {
+        "a": [10.0, 12.0, 9.0],
+        "b": [11.0, 11.0, 11.0],
+        "metric": "euclidean"
+      }
+    }
+  ]
+}"#;
+    let (ctx, outbound) = ServerContext::new();
+    fake_client(ctx.clone(), outbound, canned.to_string());
+
+    let reg = ToolRegistry::new();
+    let result = call_compile(
+        &reg,
+        &ctx,
+        "profile, cluster, fit, and measure distance on these numbers",
+    );
+    assert_eq!(
+        result["status"], "ok",
+        "compile should succeed; got {result}"
+    );
+    let errors = result["validation"]["errors"].as_array().unwrap();
+    assert!(errors.is_empty(), "unexpected validator errors: {errors:?}");
+
+    // Every step must carry its asset_name through to the compiled spec.
+    let steps = result["spec"]["steps"].as_array().unwrap();
+    assert_eq!(steps.len(), 4);
+    for (i, expected) in [
+        "numbers.stats",
+        "numbers.clusters",
+        "numbers.fit",
+        "numbers.distance",
+    ]
+    .iter()
+    .enumerate()
+    {
+        assert_eq!(
+            steps[i]["asset_name"], *expected,
+            "step {i} asset_name survived compile"
+        );
+    }
+
+    // Execute end-to-end. Topological sort must respect the chain.
+    let exec = reg
+        .call_with_ctx("ix_pipeline_run", result["spec"].clone(), &ctx)
+        .expect("run compiled 4-step spec");
+    let order = exec["execution_order"].as_array().unwrap();
+    assert_eq!(order.len(), 4);
+    assert_eq!(order[0], "s01_stats");
+    assert_eq!(order[1], "s02_clusters");
+    assert_eq!(order[2], "s03_fit");
+    assert_eq!(order[3], "s04_distance");
+
+    // Lineage DAG: every non-root step records its parent.
+    let lineage = exec["lineage"].as_object().unwrap();
+    assert_eq!(lineage.len(), 4);
+    assert_eq!(lineage["s01_stats"]["depends_on"], json!([]));
+    assert_eq!(lineage["s02_clusters"]["depends_on"], json!(["s01_stats"]));
+    assert_eq!(lineage["s03_fit"]["depends_on"], json!(["s02_clusters"]));
+    assert_eq!(lineage["s04_distance"]["depends_on"], json!(["s03_fit"]));
+}
+
 #[test]
 fn multi_step_compiled_pipeline_runs_end_to_end() {
     let canned = r#"{
