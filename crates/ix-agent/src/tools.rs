@@ -1393,9 +1393,18 @@ Example 2 — "cluster crates by complexity then classify":
 
     /// Second half of the tool registrations: supervised learning,
     /// graph, probabilistic sketches, autograd, pipeline orchestration,
-    /// catalogs, source adapters, governance, federation bridges, and
-    /// session / triage / demo utilities.
+    /// catalogs, source adapters. Dispatches to four sub-methods to
+    /// keep per-function complexity bounded (P0.1 structural refactor).
     fn register_all_advanced(&mut self) {
+        self.register_advanced_learning();
+        self.register_advanced_pipelines();
+        self.register_advanced_catalogs();
+        self.register_advanced_misc();
+    }
+
+    /// Advanced sub-group 1: supervised learning, graph algorithms,
+    /// and probabilistic sketches.
+    fn register_advanced_learning(&mut self) {
         self.tools.push(Tool {
             name: "ix_supervised",
             description: "Supervised learning: train and predict with linear/logistic regression, SVM, KNN, naive Bayes, decision tree. Compute metrics (accuracy, confusion matrix, ROC/AUC, log loss). Cross-validate models with k-fold.",
@@ -1492,7 +1501,11 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::hyperloglog,
         });
+    }
 
+    /// Advanced sub-group 2: autograd execution and pipeline compile /
+    /// run primitives (R7 Week 2 + ix_pipeline_* family).
+    fn register_advanced_pipelines(&mut self) {
         self.tools.push(Tool {
             name: "ix_autograd_run",
             description: "R7 Week 2: run a differentiable tool (LinearRegressionTool, StatsVarianceTool) end-to-end, returning forward outputs AND per-input gradients in a single MCP call. Inputs are nested f64 arrays; shape is inferred from nesting depth. Used for pipeline-level gradient descent where the caller maintains an Adam/SGD loop outside the MCP boundary.",
@@ -1565,7 +1578,11 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::pipeline_compile_placeholder,
         });
+    }
 
+    /// Advanced sub-group 3: catalog tools (code / grammar / RFC /
+    /// meta) plus workspace introspection (cargo deps, git log).
+    fn register_advanced_catalogs(&mut self) {
         self.tools.push(Tool {
             name: "ix_catalog_list",
             description: "Meta-tool: list every registered ix catalog (code_analysis, grammar, rfc, ...) with its name, scope, and entry count. Use this to discover what catalogs ix exposes before issuing a specific ix_*_catalog query.",
@@ -1716,7 +1733,11 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::git_log,
         });
+    }
 
+    /// Advanced sub-group 4: pipeline discovery / execution helpers
+    /// and the in-memory cache.
+    fn register_advanced_misc(&mut self) {
         self.tools.push(Tool {
             name: "ix_pipeline_list",
             description: "Discover canonical-showcase pipeline.json specs under a directory (default 'examples/canonical-showcase'). Returns metadata for each spec — name, description, step count, and the list of tools it uses. Companion to ix_pipeline_run for pipeline browsing.",
