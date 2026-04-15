@@ -104,12 +104,22 @@ jobs:
 
           HOMEEOF
 
+          # Rewrite relative markdown links — README/CLAUDE.md use paths like
+          # (docs/MANUAL.md) that resolve against the source repo, but on a
+          # wiki page the same links resolve against the wiki's URL space and
+          # 404. Convert any ](relative/path) to an absolute github.com URL.
+          # Excludes: links starting with http, #, mailto:, or wiki page names
+          # (anything without a slash).
+          rewrite_links() {
+            sed -E "s|\]\(([^)#h][^):]*/[^)]*)\)|](${REPO_URL}/blob/main/\1)|g"
+          }
+
           if [ -f repo/README.md ]; then
             echo "## Overview" >> wiki/Home.md
             echo "" >> wiki/Home.md
             # Extract content from start of README through the end of the
             # second H2. Matches the Demerzel cross-repo workflow's awk.
-            awk '/^## /{if(++c==2)exit}c>=0' repo/README.md >> wiki/Home.md
+            awk '/^## /{if(++c==2)exit}c>=0' repo/README.md | rewrite_links >> wiki/Home.md
             echo "" >> wiki/Home.md
           fi
 
@@ -120,7 +130,7 @@ jobs:
             # to keep the Home page readable. Full file is linked below.
             # Use awk 'NR<=50' instead of 'head -50' so the upstream sed
             # can finish writing without getting SIGPIPE under pipefail.
-            sed -n '1,/<!-- BEGIN DEMERZEL GOVERNANCE -->/p' repo/CLAUDE.md | awk 'NR<=50' >> wiki/Home.md
+            sed -n '1,/<!-- BEGIN DEMERZEL GOVERNANCE -->/p' repo/CLAUDE.md | awk 'NR<=50' | rewrite_links >> wiki/Home.md
             echo "" >> wiki/Home.md
             echo "[Full CLAUDE.md](${REPO_URL}/blob/main/CLAUDE.md)" >> wiki/Home.md
           fi
