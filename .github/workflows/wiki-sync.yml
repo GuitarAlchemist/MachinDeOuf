@@ -12,6 +12,28 @@ name: Wiki Sync
 # tree, and git log, mirroring the logic in
 # governance/demerzel/.github/workflows/demerzel-wiki-cross-repo.yml
 # so both pipelines produce the same wiki shape.
+#
+# ─────────────────────────────────────────────────────────────────────
+# REQUIRED SECRET: PAT_TOKEN
+# ─────────────────────────────────────────────────────────────────────
+# This workflow needs a repo-scoped Personal Access Token set as the
+# repo (or org) secret PAT_TOKEN in order to PUSH to the wiki. GitHub's
+# built-in GITHUB_TOKEN has a documented limitation: even with
+# `permissions: contents: write`, it cannot push to a repo's wiki
+# because the wiki is served by a separate git endpoint that GITHUB_TOKEN
+# is not scoped to. Clone works, push fails with exit 128.
+#
+# To enable end-to-end automation:
+#   1. Create a fine-grained or classic PAT with `repo` scope (classic)
+#      or `Contents: Read and write` on this repo (fine-grained).
+#   2. Settings → Secrets and variables → Actions → New repository
+#      secret → name: PAT_TOKEN, value: the PAT.
+#   3. Re-run this workflow (Actions → Wiki Sync → Run workflow).
+#
+# Until PAT_TOKEN is set, the "Push wiki changes" step auto-skips with
+# a warning and the generated content stays on the runner (visible in
+# the job summary). The workflow does not hard-fail so it is safe to
+# ship unconfigured.
 
 on:
   push:
@@ -43,6 +65,7 @@ jobs:
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
+      HAS_PAT: ${{ secrets.PAT_TOKEN != '' }}
 
     steps:
       - name: Checkout ix
@@ -59,6 +82,9 @@ jobs:
           else
             echo "WIKI_EXISTS=false" >> "$GITHUB_OUTPUT"
             echo "::warning::ix wiki repo not found. Enable Wiki in repo settings and seed at least one page, then re-run this workflow."
+          fi
+          if [ "${HAS_PAT}" != "true" ]; then
+            echo "::warning::PAT_TOKEN secret is not set. Wiki generation will run but push will be skipped. See .github/workflows/wiki-sync.yml header for setup instructions."
           fi
 
       - name: Generate wiki pages
@@ -201,7 +227,7 @@ jobs:
           ls wiki/*.md
 
       - name: Push wiki changes
-        if: steps.wiki_check.outputs.WIKI_EXISTS == 'true'
+        if: steps.wiki_check.outputs.WIKI_EXISTS == 'true' && env.HAS_PAT == 'true'
         working-directory: wiki
         run: |
           git config user.name "github-actions[bot]"
