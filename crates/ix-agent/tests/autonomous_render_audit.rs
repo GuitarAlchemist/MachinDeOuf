@@ -31,6 +31,13 @@ use std::path::PathBuf;
 
 // ── Rendering invariant definitions ─────────────────────────────
 
+/// Callback type for `RenderingInvariant::check`. Boxed trait object
+/// so different invariants can pattern-match on different source
+/// shapes. Extracted to a type alias to keep clippy::type_complexity
+/// quiet.
+type InvariantCheck =
+    Box<dyn Fn(&str) -> Result<(), InvariantViolation> + Send + Sync>;
+
 /// A rendering invariant: a testable proposition about the
 /// codebase's rendering correctness.
 struct RenderingInvariant {
@@ -41,7 +48,7 @@ struct RenderingInvariant {
     /// Function that checks the invariant against a source file's
     /// content. Returns Ok(()) if the invariant holds, or
     /// Err(evidence) with structured diagnosis + proposed fix.
-    check: Box<dyn Fn(&str) -> Result<(), InvariantViolation> + Send + Sync>,
+    check: InvariantCheck,
 }
 
 struct InvariantViolation {
@@ -103,9 +110,9 @@ fn rendering_invariants() -> Vec<RenderingInvariant> {
                                 search_text: format!(
                                     "name: 'moon', radius: keplerRadius(3_474) * 2.5, distance: {d}"
                                 ),
-                                replace_text: format!(
+                                replace_text:
                                     "name: 'moon', radius: keplerRadius(3_474) * 2.5, distance: 0.5"
-                                ),
+                                        .to_string(),
                             },
                         });
                     }
