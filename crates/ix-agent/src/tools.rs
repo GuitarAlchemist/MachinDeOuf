@@ -144,6 +144,124 @@ fn schema_ix_supervised() -> Value {
     })
 }
 
+/// JSON schema for `ix_grammar_weights`. Extracted from
+/// `register_core_symbolic` for the same reason as
+/// `schema_ix_supervised`: the nested rule / observation objects
+/// dominated that method's cyclomatic count.
+fn schema_ix_grammar_weights() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "rules": {
+                "type": "array",
+                "description": "Grammar rules with weights",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id":     { "type": "string" },
+                        "alpha":  { "type": "number" },
+                        "beta":   { "type": "number" },
+                        "weight": { "type": "number" },
+                        "level":  { "type": "integer" },
+                        "source": { "type": "string" }
+                    },
+                    "required": ["id"]
+                }
+            },
+            "observation": {
+                "type": "object",
+                "description": "Optional: apply a Bayesian update to one rule",
+                "properties": {
+                    "rule_id": { "type": "string" },
+                    "success": { "type": "boolean" }
+                },
+                "required": ["rule_id", "success"]
+            },
+            "temperature": {
+                "type": "number",
+                "description": "Softmax temperature (default 1.0)",
+                "minimum": 0
+            }
+        },
+        "required": ["rules"]
+    })
+}
+
+/// JSON schema for `ix_grammar_evolve`. Extracted from
+/// `register_core_symbolic`.
+fn schema_ix_grammar_evolve() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "species": {
+                "type": "array",
+                "description": "Initial grammar species",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id":          { "type": "string" },
+                        "proportion":  { "type": "number" },
+                        "fitness":     { "type": "number" },
+                        "is_stable":   { "type": "boolean" }
+                    },
+                    "required": ["id", "proportion", "fitness"]
+                }
+            },
+            "steps": {
+                "type": "integer",
+                "description": "Number of simulation steps",
+                "minimum": 1
+            },
+            "dt": {
+                "type": "number",
+                "description": "Time step (default 0.05)",
+                "minimum": 0
+            },
+            "prune_threshold": {
+                "type": "number",
+                "description": "Proportion below which species are pruned (default 1e-6)",
+                "minimum": 0
+            }
+        },
+        "required": ["species", "steps"]
+    })
+}
+
+/// JSON schema for `ix_grammar_search`. Extracted from
+/// `register_core_symbolic`.
+fn schema_ix_grammar_search() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "grammar_ebnf": {
+                "type": "string",
+                "description": "Grammar in EBNF notation (one rule per line: name ::= alt | alt)"
+            },
+            "max_iterations": {
+                "type": "integer",
+                "description": "MCTS iterations (default 500)",
+                "minimum": 1
+            },
+            "exploration": {
+                "type": "number",
+                "description": "UCB1 exploration constant (default 1.41)",
+                "minimum": 0
+            },
+            "max_depth": {
+                "type": "integer",
+                "description": "Max grammar expansion depth (default 20)",
+                "minimum": 1
+            },
+            "seed": {
+                "type": "integer",
+                "description": "RNG seed for reproducibility (default 42)",
+                "minimum": 0
+            }
+        },
+        "required": ["grammar_ebnf"]
+    })
+}
+
 /// Registry of all available tools.
 pub struct ToolRegistry {
     tools: Vec<Tool>,
@@ -1046,42 +1164,7 @@ Example 2 — "cluster crates by complexity then classify":
             name: "ix_grammar_weights",
             description: "Bayesian (Beta-Binomial) update of grammar rule weights and softmax probability query. \
                 Returns updated rule weights and selection probabilities.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "rules": {
-                        "type": "array",
-                        "description": "Grammar rules with weights",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id":     { "type": "string" },
-                                "alpha":  { "type": "number" },
-                                "beta":   { "type": "number" },
-                                "weight": { "type": "number" },
-                                "level":  { "type": "integer" },
-                                "source": { "type": "string" }
-                            },
-                            "required": ["id"]
-                        }
-                    },
-                    "observation": {
-                        "type": "object",
-                        "description": "Optional: apply a Bayesian update to one rule",
-                        "properties": {
-                            "rule_id": { "type": "string" },
-                            "success": { "type": "boolean" }
-                        },
-                        "required": ["rule_id", "success"]
-                    },
-                    "temperature": {
-                        "type": "number",
-                        "description": "Softmax temperature (default 1.0)",
-                        "minimum": 0
-                    }
-                },
-                "required": ["rules"]
-            }),
+            input_schema: schema_ix_grammar_weights(),
             handler: handlers::grammar_weights,
         });
 
@@ -1089,41 +1172,7 @@ Example 2 — "cluster crates by complexity then classify":
             name: "ix_grammar_evolve",
             description: "Simulate grammar rule competition via replicator dynamics. \
                 Returns the final species proportions, full trajectory, and detected ESS.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "species": {
-                        "type": "array",
-                        "description": "Initial grammar species",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id":          { "type": "string" },
-                                "proportion":  { "type": "number" },
-                                "fitness":     { "type": "number" },
-                                "is_stable":   { "type": "boolean" }
-                            },
-                            "required": ["id", "proportion", "fitness"]
-                        }
-                    },
-                    "steps": {
-                        "type": "integer",
-                        "description": "Number of simulation steps",
-                        "minimum": 1
-                    },
-                    "dt": {
-                        "type": "number",
-                        "description": "Time step (default 0.05)",
-                        "minimum": 0
-                    },
-                    "prune_threshold": {
-                        "type": "number",
-                        "description": "Proportion below which species are pruned (default 1e-6)",
-                        "minimum": 0
-                    }
-                },
-                "required": ["species", "steps"]
-            }),
+            input_schema: schema_ix_grammar_evolve(),
             handler: handlers::grammar_evolve,
         });
 
@@ -1131,36 +1180,7 @@ Example 2 — "cluster crates by complexity then classify":
             name: "ix_grammar_search",
             description: "Grammar-guided MCTS derivation search. \
                 Finds the best sentence derivation from an EBNF grammar using Monte Carlo Tree Search.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "grammar_ebnf": {
-                        "type": "string",
-                        "description": "Grammar in EBNF notation (one rule per line: name ::= alt | alt)"
-                    },
-                    "max_iterations": {
-                        "type": "integer",
-                        "description": "MCTS iterations (default 500)",
-                        "minimum": 1
-                    },
-                    "exploration": {
-                        "type": "number",
-                        "description": "UCB1 exploration constant (default 1.41)",
-                        "minimum": 0
-                    },
-                    "max_depth": {
-                        "type": "integer",
-                        "description": "Max grammar expansion depth (default 20)",
-                        "minimum": 1
-                    },
-                    "seed": {
-                        "type": "integer",
-                        "description": "RNG seed for reproducibility (default 42)",
-                        "minimum": 0
-                    }
-                },
-                "required": ["grammar_ebnf"]
-            }),
+            input_schema: schema_ix_grammar_search(),
             handler: handlers::grammar_search,
         });
 
