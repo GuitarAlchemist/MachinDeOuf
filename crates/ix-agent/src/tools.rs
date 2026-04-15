@@ -100,6 +100,50 @@ pub struct Tool {
     pub handler: fn(Value) -> Result<Value, String>,
 }
 
+/// JSON schema for the `ix_supervised` tool. Extracted out of
+/// `register_advanced_learning` because its 14-variant operation enum
+/// plus 14 argument fields were the sole reason that method's
+/// cyclomatic metric stayed above 20 after the P0.1 register_all
+/// decomposition.
+fn schema_ix_supervised() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "operation": {
+                "type": "string",
+                "enum": ["linear_regression", "logistic_regression", "svm", "knn", "naive_bayes", "decision_tree", "metrics", "cross_validate", "confusion_matrix", "roc_auc"],
+                "description": "Algorithm, 'metrics' for evaluation, 'cross_validate' for k-fold CV, 'confusion_matrix' for confusion matrix, 'roc_auc' for ROC/AUC"
+            },
+            "x_train": {
+                "type": "array",
+                "items": { "type": "array", "items": { "type": "number" } },
+                "description": "Training features matrix"
+            },
+            "y_train": {
+                "type": "array",
+                "items": { "type": "number" },
+                "description": "Training labels (class indices for classification, values for regression)"
+            },
+            "x_test": {
+                "type": "array",
+                "items": { "type": "array", "items": { "type": "number" } },
+                "description": "Test features matrix"
+            },
+            "k": { "type": "integer", "description": "K for KNN (default 3), or number of CV folds (default 5)" },
+            "c": { "type": "number", "description": "Regularization for SVM (default 1.0)" },
+            "max_depth": { "type": "integer", "description": "Max depth for decision tree (default 5)" },
+            "y_true": { "type": "array", "items": { "type": "number" }, "description": "True labels (for metrics/confusion_matrix)" },
+            "y_pred": { "type": "array", "items": { "type": "number" }, "description": "Predicted labels (for metrics/confusion_matrix)" },
+            "y_scores": { "type": "array", "items": { "type": "number" }, "description": "Predicted probabilities for positive class (for roc_auc)" },
+            "metric_type": { "type": "string", "enum": ["mse", "accuracy"], "description": "Metric type: 'mse' for regression, 'accuracy' for classification" },
+            "model": { "type": "string", "enum": ["knn", "decision_tree", "naive_bayes", "logistic_regression"], "description": "Model for cross_validate (default 'decision_tree')" },
+            "n_classes": { "type": "integer", "description": "Number of classes (for confusion_matrix, auto-detected if omitted)" },
+            "seed": { "type": "integer", "description": "Random seed for cross-validation (default 42)" }
+        },
+        "required": ["operation"]
+    })
+}
+
 /// Registry of all available tools.
 pub struct ToolRegistry {
     tools: Vec<Tool>,
@@ -1433,42 +1477,7 @@ Example 2 — "cluster crates by complexity then classify":
         self.tools.push(Tool {
             name: "ix_supervised",
             description: "Supervised learning: train and predict with linear/logistic regression, SVM, KNN, naive Bayes, decision tree. Compute metrics (accuracy, confusion matrix, ROC/AUC, log loss). Cross-validate models with k-fold.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "operation": {
-                        "type": "string",
-                        "enum": ["linear_regression", "logistic_regression", "svm", "knn", "naive_bayes", "decision_tree", "metrics", "cross_validate", "confusion_matrix", "roc_auc"],
-                        "description": "Algorithm, 'metrics' for evaluation, 'cross_validate' for k-fold CV, 'confusion_matrix' for confusion matrix, 'roc_auc' for ROC/AUC"
-                    },
-                    "x_train": {
-                        "type": "array",
-                        "items": { "type": "array", "items": { "type": "number" } },
-                        "description": "Training features matrix"
-                    },
-                    "y_train": {
-                        "type": "array",
-                        "items": { "type": "number" },
-                        "description": "Training labels (class indices for classification, values for regression)"
-                    },
-                    "x_test": {
-                        "type": "array",
-                        "items": { "type": "array", "items": { "type": "number" } },
-                        "description": "Test features matrix"
-                    },
-                    "k": { "type": "integer", "description": "K for KNN (default 3), or number of CV folds (default 5)" },
-                    "c": { "type": "number", "description": "Regularization for SVM (default 1.0)" },
-                    "max_depth": { "type": "integer", "description": "Max depth for decision tree (default 5)" },
-                    "y_true": { "type": "array", "items": { "type": "number" }, "description": "True labels (for metrics/confusion_matrix)" },
-                    "y_pred": { "type": "array", "items": { "type": "number" }, "description": "Predicted labels (for metrics/confusion_matrix)" },
-                    "y_scores": { "type": "array", "items": { "type": "number" }, "description": "Predicted probabilities for positive class (for roc_auc)" },
-                    "metric_type": { "type": "string", "enum": ["mse", "accuracy"], "description": "Metric type: 'mse' for regression, 'accuracy' for classification" },
-                    "model": { "type": "string", "enum": ["knn", "decision_tree", "naive_bayes", "logistic_regression"], "description": "Model for cross_validate (default 'decision_tree')" },
-                    "n_classes": { "type": "integer", "description": "Number of classes (for confusion_matrix, auto-detected if omitted)" },
-                    "seed": { "type": "integer", "description": "Random seed for cross-validation (default 42)" }
-                },
-                "required": ["operation"]
-            }),
+            input_schema: schema_ix_supervised(),
             handler: handlers::supervised,
         });
 
