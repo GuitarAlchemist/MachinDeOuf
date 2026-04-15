@@ -653,8 +653,19 @@ Example 2 — "cluster crates by complexity then classify":
 
     /// First half of the tool registrations: core math, optimisation,
     /// classical ML, signal + chaos, search + game theory, probabilistic
-    /// data structures, grammar, advanced math.
+    /// data structures, grammar, advanced math. Dispatches to four
+    /// sub-methods to keep per-function complexity bounded
+    /// (P0.1 structural refactor, round 2).
     fn register_all_core(&mut self) {
+        self.register_core_numerics();
+        self.register_core_search_sim();
+        self.register_core_symbolic();
+        self.register_core_structures();
+    }
+
+    /// Core sub-group 1: basic statistics, distance, optimisation,
+    /// linear regression / k-means, FFT, and Markov chains.
+    fn register_core_numerics(&mut self) {
         self.tools.push(Tool {
             name: "ix_stats",
             description: "Compute statistics (mean, std, min, max, median) on a list of numbers.",
@@ -818,7 +829,11 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::markov,
         });
+    }
 
+    /// Core sub-group 2: search / decision (Viterbi, A* / MCTS, Nash),
+    /// chaos + adversarial, and Bloom filter.
+    fn register_core_search_sim(&mut self) {
         self.tools.push(Tool {
             name: "ix_viterbi",
             description: "HMM Viterbi decoding: find the most likely hidden state sequence given observations.",
@@ -977,7 +992,12 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::bloom_filter,
         });
+    }
 
+    /// Core sub-group 3: symbolic — grammar weighting / evolution /
+    /// search, plus rotation / number theory / fractal / sedenion
+    /// advanced-math primitives.
+    fn register_core_symbolic(&mut self) {
         self.tools.push(Tool {
             name: "ix_grammar_weights",
             description: "Bayesian (Beta-Binomial) update of grammar rule weights and softmax probability query. \
@@ -1194,7 +1214,12 @@ Example 2 — "cluster crates by complexity then classify":
             }),
             handler: handlers::sedenion,
         });
+    }
 
+    /// Core sub-group 4: structural — topology, category theory,
+    /// neural network forward pass, bandit / evolution / random
+    /// forest / gradient boosting.
+    fn register_core_structures(&mut self) {
         self.tools.push(Tool {
             name: "ix_topo",
             description: "Topological data analysis: persistent homology, Betti numbers, Betti curves from point clouds.",
