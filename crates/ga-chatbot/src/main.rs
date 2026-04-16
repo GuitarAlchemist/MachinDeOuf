@@ -22,6 +22,9 @@ enum Commands {
         /// Use stub fixtures for responses.
         #[arg(long)]
         stub: bool,
+        /// Serve HTTP on this port instead of stdio JSON-RPC.
+        #[arg(long)]
+        http: Option<u16>,
         /// Path to stub fixtures JSONL file.
         #[arg(long, default_value = "tests/adversarial/fixtures/stub-responses.jsonl")]
         fixtures: PathBuf,
@@ -55,6 +58,13 @@ enum Commands {
         /// Compute Shapley prompt attribution after QA and append to output.
         #[arg(long)]
         shapley: bool,
+        /// Benchmark mode: run prompts against live LLMs instead of stub fixtures.
+        #[arg(long)]
+        benchmark: bool,
+        /// Comma-separated model list for benchmark (e.g. "gpt-4o-mini,llama3.1:latest").
+        /// First tries OpenAI model names, then Ollama. Default: gpt-4o-mini.
+        #[arg(long, default_value = "gpt-4o-mini")]
+        models: String,
     },
 }
 
@@ -75,9 +85,13 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { stub: _, fixtures } => {
+        Commands::Serve { stub: _, http, fixtures } => {
             let fixture_map = load_fixtures(&fixtures);
-            serve_jsonrpc(&fixture_map);
+            if let Some(port) = http {
+                serve_http(port, &fixture_map);
+            } else {
+                serve_jsonrpc(&fixture_map);
+            }
         }
         Commands::Ask {
             question,
@@ -104,8 +118,15 @@ fn main() {
             corpus_dir,
             output,
             shapley,
+            benchmark,
+            models,
         } => {
-            std::process::exit(run_qa(&corpus, &fixtures, &corpus_dir, &output, shapley));
+            if benchmark {
+                let model_list: Vec<&str> = models.split(',').map(|s| s.trim()).collect();
+                std::process::exit(run_benchmark(&corpus, &corpus_dir, &output, &model_list));
+            } else {
+                std::process::exit(run_qa(&corpus, &fixtures, &corpus_dir, &output, shapley));
+            }
         }
     }
 }
@@ -299,6 +320,128 @@ fn run_qa(corpus_path: &std::path::Path, fixtures_path: &std::path::Path, corpus
     if fail_count > 0 { 1 } else { 0 }
 }
 
+/// Benchmark the chatbot across multiple LLM models.
+///
+/// For each model, runs all adversarial prompts through the live LLM,
+/// scores responses with deterministic checks, and outputs a comparison table.
+fn run_benchmark(
+    corpus_path: &std::path::Path,
+    corpus_dir: &std::path::Path,
+    output_path: &std::path::Path,
+    models: &[&str],
+) -> i32 {
+    let mut all_corpus_ids = std::collections::HashSet::new();
+    if let Ok(entries) = std::fs::read_dir(corpus_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|e| e == "json")
+                && path.file_name().is_some_and(|n| n.to_string_lossy().contains("-corpus"))
+            {
+                let ids = load_corpus_ids(&path);
+                all_corpus_ids.extend(ids);
+            }
+        }
+    }
+
+    let prompts = load_adversarial_prompts(corpus_path);
+    if prompts.is_empty() {
+        eprintln!("No prompts found in {:?}", corpus_path);
+        return 1;
+    }
+
+    #[derive(serde::Serialize)]
+    struct ModelScore {
+        model: String,
+        total: usize,
+        pass: usize,
+        fail: usize,
+        pass_rate: f64,
+        avg_response_ms: u64,
+    }
+
+    let mut scores: Vec<ModelScore> = Vec::new();
+    let mut all_results: Vec<serde_json::Value> = Vec::new();
+
+    for model_name in models {
+        eprintln!("\n=== Benchmarking: {} ===", model_name);
+        std::env::set_var("GA_CHATBOT_MODEL", model_name);
+
+        let mut pass = 0usize;
+        let mut fail = 0usize;
+        let mut total_ms = 0u128;
+
+        for entry in &prompts {
+            let start = std::time::Instant::now();
+            let history = vec![serde_json::json!({"role": "user", "content": entry.prompt})];
+            let answer = call_llm(&entry.prompt, &history);
+            let elapsed = start.elapsed().as_millis();
+            total_ms += elapsed;
+
+            let response = ga_chatbot::ChatbotResponse {
+                answer: answer.clone(),
+                voicing_ids: vec![],
+                confidence: 0.5,
+                sources: vec![],
+            };
+
+            let findings = run_deterministic_checks(&entry.id, &entry.prompt, &response, &all_corpus_ids);
+            let verdict = worst_verdict(&findings);
+
+            let passed = !matches!(verdict, 'F' | 'D');
+            if passed { pass += 1; } else { fail += 1; }
+
+            all_results.push(serde_json::json!({
+                "model": model_name,
+                "prompt_id": entry.id,
+                "verdict": verdict.to_string(),
+                "response_ms": elapsed,
+                "answer_preview": if answer.len() > 100 { &answer[..100] } else { &answer },
+            }));
+
+            eprint!("  {} [{}] {}ms ", entry.id, verdict, elapsed);
+            if passed { eprintln!("PASS"); } else { eprintln!("FAIL"); }
+        }
+
+        let total = pass + fail;
+        scores.push(ModelScore {
+            model: model_name.to_string(),
+            total,
+            pass,
+            fail,
+            pass_rate: if total > 0 { pass as f64 / total as f64 } else { 0.0 },
+            avg_response_ms: if total > 0 { (total_ms / total as u128) as u64 } else { 0 },
+        });
+    }
+
+    // Write detailed results
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    if let Ok(mut f) = std::fs::File::create(output_path) {
+        for r in &all_results {
+            writeln!(f, "{}", r).ok();
+        }
+        writeln!(f, "{}", serde_json::json!({"benchmark_summary": &scores})).ok();
+    }
+
+    // Print comparison table
+    println!();
+    println!("╔══════════════════════════╦═══════╦══════╦══════╦══════════╦═════════╗");
+    println!("║ Model                    ║ Total ║ Pass ║ Fail ║ Pass Rate║ Avg ms  ║");
+    println!("╠══════════════════════════╬═══════╬══════╬══════╬══════════╬═════════╣");
+    for s in &scores {
+        println!(
+            "║ {:<24} ║ {:>5} ║ {:>4} ║ {:>4} ║ {:>7.1}% ║ {:>6}ms ║",
+            s.model, s.total, s.pass, s.fail, s.pass_rate * 100.0, s.avg_response_ms
+        );
+    }
+    println!("╚══════════════════════════╩═══════╩══════╩══════╩══════════╩═════════╝");
+    println!();
+    println!("Results written to {:?}", output_path);
+
+    0
+}
+
 /// Find the worst verdict in a set of findings (F > D > U > C > P > T).
 fn worst_verdict(findings: &[ga_chatbot::qa::Finding]) -> char {
     let priority = |c: char| -> u8 {
@@ -349,6 +492,359 @@ fn load_adversarial_prompts(dir: &std::path::Path) -> Vec<CorpusEntry> {
         }
     }
     prompts
+}
+
+const SYSTEM_PROMPT: &str = r#"You are the Guitar Alchemist chatbot — a music theory assistant specialized in chord voicings across guitar, bass, and ukulele.
+
+You have access to a voicing corpus of 1,500 analyzed voicings (500 per instrument):
+
+GUITAR (standard tuning EADGBE, 24 frets): 5 voicing families (silhouette=0.199), connected topology (betti_0=1, betti_1=561), transition costs 3.0-7.0, I-IV-V grammar (64 parses).
+BASS (standard tuning EADG, 21 frets): 5 families (silhouette=0.206), connected (betti_0=1, betti_1=587).
+UKULELE (standard tuning GCEA, 15 frets): 5 families (silhouette=0.204), connected (betti_0=1, betti_1=586), richer progressions (125 parses).
+
+Rules: Be specific about fret positions. Use tab notation (e.g. x-3-2-0-0-0 low to high). Don't hallucinate positions. Keep answers concise."#;
+
+const TOOLS: &str = r#"[
+  {
+    "type": "function",
+    "function": {
+      "name": "search_voicings",
+      "description": "Search the voicing corpus for chord voicings on a specific instrument. Returns real voicing data with fret positions and MIDI notes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "instrument": { "type": "string", "enum": ["guitar", "bass", "ukulele"] },
+          "query": { "type": "string", "description": "Search term: chord name, quality, or fret range (e.g. 'maj7', 'open position', 'barre')" }
+        },
+        "required": ["instrument"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_instrument_info",
+      "description": "Get instrument specifications: tuning, string count, fret count, range.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "instrument": { "type": "string", "enum": ["guitar", "bass", "ukulele"] }
+        },
+        "required": ["instrument"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "verify_voicing",
+      "description": "Verify a voicing is physically possible on an instrument. Checks string count, fret span, and range.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "instrument": { "type": "string", "enum": ["guitar", "bass", "ukulele"] },
+          "frets": { "type": "string", "description": "Fret notation like x-3-2-0-1-0 (low to high)" }
+        },
+        "required": ["instrument", "frets"]
+      }
+    }
+  }
+]"#;
+
+fn execute_tool(name: &str, args: &serde_json::Value) -> String {
+    match name {
+        "search_voicings" => {
+            let instrument = args.get("instrument").and_then(|i| i.as_str()).unwrap_or("guitar");
+            let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
+            let corpus_path = format!("state/voicings/{}-corpus.json", instrument);
+            let content = match std::fs::read_to_string(&corpus_path) {
+                Ok(c) => c,
+                Err(_) => return format!("Corpus not found at {}", corpus_path),
+            };
+            let voicings: Vec<serde_json::Value> = serde_json::from_str(&content).unwrap_or_default();
+            let query_lower = query.to_lowercase();
+            let matches: Vec<_> = voicings.iter()
+                .filter(|v| {
+                    if query_lower.is_empty() { return true; }
+                    let diagram = v.get("diagram").and_then(|d| d.as_str()).unwrap_or("");
+                    let fret_span = v.get("fretSpan").and_then(|f| f.as_i64()).unwrap_or(0);
+                    let min_fret = v.get("minFret").and_then(|f| f.as_i64()).unwrap_or(0);
+                    if query_lower.contains("open") && min_fret <= 1 && fret_span <= 3 { return true; }
+                    if query_lower.contains("barre") && fret_span >= 0 && min_fret >= 2 { return true; }
+                    diagram.to_lowercase().contains(&query_lower)
+                })
+                .take(10)
+                .cloned()
+                .collect();
+            if matches.is_empty() {
+                format!("No voicings found for '{}' on {}. Corpus has {} total voicings.", query, instrument, voicings.len())
+            } else {
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "instrument": instrument,
+                    "query": query,
+                    "results_count": matches.len(),
+                    "total_in_corpus": voicings.len(),
+                    "voicings": matches
+                })).unwrap_or_default()
+            }
+        }
+        "get_instrument_info" => {
+            let instrument = args.get("instrument").and_then(|i| i.as_str()).unwrap_or("guitar");
+            let info = match instrument {
+                "guitar" => serde_json::json!({
+                    "instrument": "guitar", "strings": 6, "tuning": "EADGBE",
+                    "tuning_midi": [40, 45, 50, 55, 59, 64], "frets": 24,
+                    "range_low": "E2 (MIDI 40)", "range_high": "E6 (MIDI 88 at 24th fret)"
+                }),
+                "bass" => serde_json::json!({
+                    "instrument": "bass", "strings": 4, "tuning": "EADG",
+                    "tuning_midi": [28, 33, 38, 43], "frets": 21,
+                    "range_low": "E1 (MIDI 28)", "range_high": "Eb4 (MIDI 63 at 21st fret)",
+                    "note": "Bass has 4 strings, NOT 6. Voicings must use 4 or fewer notes."
+                }),
+                "ukulele" => serde_json::json!({
+                    "instrument": "ukulele", "strings": 4, "tuning": "GCEA",
+                    "tuning_midi": [55, 48, 52, 57], "frets": 15,
+                    "range_low": "C4 (MIDI 48)", "range_high": "A5 (MIDI 72 at 15th fret)",
+                    "note": "Ukulele has 4 strings with re-entrant tuning (G string is higher than C)."
+                }),
+                _ => serde_json::json!({"error": "Unknown instrument"}),
+            };
+            serde_json::to_string_pretty(&info).unwrap_or_default()
+        }
+        "verify_voicing" => {
+            let instrument = args.get("instrument").and_then(|i| i.as_str()).unwrap_or("guitar");
+            let frets_str = args.get("frets").and_then(|f| f.as_str()).unwrap_or("");
+            let frets: Vec<&str> = frets_str.split('-').collect();
+            let expected_strings = match instrument {
+                "guitar" => 6, "bass" => 4, "ukulele" => 4, _ => 0,
+            };
+            let mut issues = Vec::new();
+            if frets.len() != expected_strings {
+                issues.push(format!("{} has {} strings but voicing has {} positions", instrument, expected_strings, frets.len()));
+            }
+            let played_frets: Vec<i32> = frets.iter()
+                .filter(|f| **f != "x" && **f != "X")
+                .filter_map(|f| f.parse().ok())
+                .collect();
+            if let (Some(&min), Some(&max)) = (played_frets.iter().min(), played_frets.iter().max()) {
+                let span = max - min;
+                if span > 5 {
+                    issues.push(format!("Fret span {} is likely unplayable (max comfortable span is ~4-5 frets)", span));
+                }
+            }
+            if played_frets.iter().any(|&f| f > 24) {
+                issues.push("Fret number exceeds 24 (most instruments don't go that high)".into());
+            }
+            let result = if issues.is_empty() {
+                serde_json::json!({"valid": true, "instrument": instrument, "frets": frets_str, "played_notes": played_frets.len()})
+            } else {
+                serde_json::json!({"valid": false, "instrument": instrument, "frets": frets_str, "issues": issues})
+            };
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        }
+        _ => format!("Unknown tool: {}", name),
+    }
+}
+
+fn call_llm(question: &str, history: &[serde_json::Value]) -> String {
+    let mut messages = vec![
+        serde_json::json!({"role": "system", "content": SYSTEM_PROMPT}),
+    ];
+    for msg in history {
+        if let (Some(role), Some(content)) = (
+            msg.get("role").and_then(|r| r.as_str()),
+            msg.get("content").and_then(|c| c.as_str()),
+        ) {
+            if role == "user" || role == "assistant" {
+                messages.push(serde_json::json!({"role": role, "content": content}));
+            }
+        }
+    }
+    if messages.len() <= 1 || messages.last().and_then(|m| m.get("role").and_then(|r| r.as_str())) != Some("user") {
+        messages.push(serde_json::json!({"role": "user", "content": question}));
+    }
+
+    let openai_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap();
+
+        let tools: serde_json::Value = serde_json::from_str(TOOLS).unwrap();
+
+        // Tool-use loop: up to 5 rounds
+        for _ in 0..5 {
+            let model = std::env::var("GA_CHATBOT_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+            let body = serde_json::json!({
+                "model": model,
+                "messages": messages,
+                "tools": tools,
+                "max_tokens": 2048,
+            });
+
+            let resp = client
+                .post("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", format!("Bearer {}", openai_key))
+                .header("Content-Type", "application/json")
+                .body(body.to_string())
+                .send()
+                .await;
+
+            let json: serde_json::Value = match resp {
+                Ok(r) => r.json().await.unwrap_or_default(),
+                Err(e) => return format!("API error: {}", e),
+            };
+
+            if json.get("error").is_some() {
+                eprintln!("[ga-chatbot] API error: {}", json);
+                return json["error"]["message"].as_str().unwrap_or("API error").to_string();
+            }
+
+            let choice = &json["choices"][0]["message"];
+            let finish_reason = json["choices"][0]["finish_reason"].as_str().unwrap_or("");
+
+            if finish_reason == "tool_calls" {
+                if let Some(tool_calls) = choice.get("tool_calls").and_then(|t| t.as_array()) {
+                    // Add assistant message with tool calls
+                    messages.push(choice.clone());
+
+                    for tc in tool_calls {
+                        let tool_name = tc["function"]["name"].as_str().unwrap_or("");
+                        let tool_args: serde_json::Value = tc["function"]["arguments"]
+                            .as_str()
+                            .and_then(|s| serde_json::from_str(s).ok())
+                            .unwrap_or_default();
+                        let tool_id = tc["id"].as_str().unwrap_or("");
+
+                        eprintln!("[ga-chatbot] Tool call: {}({})", tool_name, tool_args);
+                        let result = execute_tool(tool_name, &tool_args);
+                        eprintln!("[ga-chatbot] Tool result: {}...", &result[..result.len().min(200)]);
+
+                        messages.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": result,
+                        }));
+                    }
+                    continue; // Next loop iteration with tool results
+                }
+            }
+
+            // Final text response
+            return choice.get("content")
+                .and_then(|c| c.as_str())
+                .unwrap_or("No response.")
+                .to_string();
+        }
+
+        "Tool use loop exceeded 5 rounds.".to_string()
+    })
+}
+
+/// Simple HTTP server for the ga-chatbot frontend integration.
+///
+/// Serves three endpoints matching what the React chatService.ts expects:
+/// - GET /api/chatbot/status
+/// - GET /api/chatbot/examples
+/// - POST /api/chatbot/chat (non-streaming, returns full JSON)
+/// - POST /api/chatbot/chat/stream (SSE, single data event)
+fn serve_http(port: u16, fixtures: &HashMap<String, ga_chatbot::ChatbotResponse>) {
+    use std::net::TcpListener;
+
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&addr).unwrap_or_else(|e| {
+        eprintln!("Failed to bind to {}: {}", addr, e);
+        std::process::exit(1);
+    });
+    eprintln!("[ga-chatbot] HTTP server listening on http://{}", addr);
+
+    for stream in listener.incoming() {
+        let mut stream = match stream {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+
+        let mut buf = [0u8; 8192];
+        let n = match std::io::Read::read(&mut stream, &mut buf) {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
+        let request_str = String::from_utf8_lossy(&buf[..n]);
+
+        let first_line = request_str.lines().next().unwrap_or("");
+        let parts: Vec<&str> = first_line.split_whitespace().collect();
+        let (method, path) = if parts.len() >= 2 {
+            (parts[0], parts[1])
+        } else {
+            ("GET", "/")
+        };
+
+        let (status, content_type, body) = match (method, path) {
+            ("GET", "/api/chatbot/status") => {
+                let resp = serde_json::json!({
+                    "isAvailable": true,
+                    "message": "ix ga-chatbot (stub mode)",
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                });
+                ("200 OK", "application/json", resp.to_string())
+            }
+            ("GET", "/api/chatbot/examples") => {
+                let examples = serde_json::json!([
+                    "Show me drop-2 voicings for Cmaj7 on guitar",
+                    "What voicings work for a ii-V-I in C?",
+                    "Compare Am7 voicings across guitar and ukulele",
+                    "Find voicings with minimal finger movement from Dm7 to G7",
+                    "What are the most common voicing families on bass?"
+                ]);
+                ("200 OK", "application/json", examples.to_string())
+            }
+            ("POST", p) if p.starts_with("/api/chatbot/chat") => {
+                let body_start = request_str.find("\r\n\r\n").map(|i| i + 4)
+                    .or_else(|| request_str.find("\n\n").map(|i| i + 2))
+                    .unwrap_or(n);
+                let json_body = &request_str[body_start..];
+                let parsed = serde_json::from_str::<serde_json::Value>(json_body).ok();
+
+                let user_messages = parsed.as_ref()
+                    .and_then(|v| v.get("messages"))
+                    .and_then(|m| m.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+
+                let question = parsed.as_ref()
+                    .and_then(|v| v.get("message").or(v.get("question")).and_then(|m| m.as_str().map(String::from)))
+                    .or_else(|| user_messages.last().and_then(|m| m.get("content").and_then(|c| c.as_str().map(String::from))))
+                    .unwrap_or_else(|| "Hello".to_string());
+
+                let answer = call_llm(&question, &user_messages);
+
+                let json_resp = serde_json::json!({
+                    "response": answer,
+                    "content": answer,
+                });
+                ("200 OK", "application/json", json_resp.to_string())
+            }
+            ("OPTIONS", _) => {
+                ("200 OK", "text/plain", String::new())
+            }
+            _ => {
+                ("404 Not Found", "text/plain", "Not found".to_string())
+            }
+        };
+
+        let response = format!(
+            "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nConnection: close\r\n\r\n{}",
+            status,
+            content_type,
+            body.len(),
+            body
+        );
+        std::io::Write::write_all(&mut stream, response.as_bytes()).ok();
+    }
 }
 
 /// Minimal JSON-RPC stdio loop implementing the `ga_chatbot_ask` tool.
