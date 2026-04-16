@@ -587,12 +587,12 @@ mod tests {
 
         for &a in &TruthValue::all() {
             for &b in &TruthValue::all() {
-                let output = if a == Contradictory || b == Contradictory {
-                    True // Always escalate contradictions
-                } else if a == True && b == True {
-                    True // Risky + contradictory evidence = escalate
-                } else if a.is_indefinite() && b.is_indefinite() {
-                    True // Both uncertain = escalate
+                let output = if a == Contradictory
+                    || b == Contradictory
+                    || (a == True && b == True)
+                    || (a.is_indefinite() && b.is_indefinite())
+                {
+                    True // Escalate: contradictions, risky+contradictory, or both uncertain
                 } else {
                     False
                 };
