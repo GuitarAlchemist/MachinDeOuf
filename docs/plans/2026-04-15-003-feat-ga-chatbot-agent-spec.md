@@ -131,15 +131,93 @@ Example flow for "smoothest transition from Dm7 to G7 on guitar":
 5. LLM calls `ix__ix_search(from=Dm7_voicing, to=G7_voicing, cost="finger_movement")` → A* path
 6. LLM formats: "Move from x-5-7-5-6-5 to 3-2-0-0-0-1, total movement cost: 4.2"
 
-### Phase 2: OPTIC-K voicing search (3 days)
+### Phase 2: OPTIC-K memory-mapped voicing index (4 days)
 
-Add an OPTIC-K search tool to the GA MCP server:
-1. Pre-compute 216-dim embeddings for the voicing corpus (guitar/bass/ukulele)
-2. Store in Qdrant or MongoDB (GA already uses both)
-3. New GA MCP tool: `SearchVoicingsByEmbedding(chord_query, instrument, top_k)`
-4. The chatbot calls this for any voicing lookup
+#### Dimension: 228 (v1.7, NOT 216)
 
-This replaces the broken `search_voicings` Rust function with real embedding-based retrieval.
+OPTIC-K schema v1.7 produces 228-dim vectors. The v1.6 (216-dim) references in benchmarks are stale.
+
+#### File format: `state/voicings/optick.index`
+
+```
+Header (40+ bytes):
+  magic:               [u8; 4] = "OPTK"
+  version:             u32 = 2
+  endian_marker:       u16 = 0xFFFE
+  dimension:           u32 = 228
+  count:               u32 = N
+  instruments:         u8 = 3
+  instrument_offsets:  3 × (offset: u32, count: u32)
+  partition_weights:   228 × f32 (sqrt-scaled)
+
+Vectors (N × 228 × f32):
+  contiguous, pre-L2-normalized, pre-sqrt-weight-scaled
+  sorted by instrument (guitar → bass → ukulele)
+
+Metadata (N × variable):
+  msgpack: {diagram, instrument, midiNotes, quality_inferred}
+```
+
+100K voicings × 228 × 4 bytes = **87MB**. Memory-mapped read-only via `memmap2`. Brute-force cosine <5ms. No ANN until 5M+ voicings.
+
+#### Partition weighting
+
+Vectors pre-scaled by `sqrt(weight)` per partition before L2-normalization at build time:
+
+| Partition | Dims | Weight | sqrt(w) |
+|-----------|------|--------|---------|
+| IDENTITY | 0-5 | filter | — |
+| STRUCTURE | 6-29 | 0.45 | 0.671 |
+| MORPHOLOGY | 30-53 | 0.25 | 0.500 |
+| CONTEXT | 54-65 | 0.20 | 0.447 |
+| SYMBOLIC | 66-77 | 0.10 | 0.316 |
+| EXTENSIONS | 78-95 | info | — |
+| SPECTRAL | 96-108 | info | — |
+| MODAL | 109-148 | 0.10 | 0.316 |
+| HIERARCHY | 149-156 | info | — |
+| ATONAL_MODAL | 157-227 | — | — |
+
+Both corpus vectors and query vectors MUST use identical scaling.
+
+#### GA gaps (must be built before IX can consume)
+
+| Gap | What GA needs | Est |
+|-----|--------------|-----|
+| `Voicing → ChordVoicingRagDocument` bridge | `ChordVoicingRagDocumentFactory.FromVoicing(voicing, analysis)` populating all ~50 fields | 0.5d |
+| MCP embedding tool | `ga_generate_voicing_embedding(diagram, instrument)` → 228-dim float[] | 0.5d |
+| Bulk export CLI | `FretboardVoicingsCLI --export-embeddings` → binary `optick.index` | 1d |
+| Drop-2 structural inference | Verify `MusicalEmbeddingGenerator` infers drop-2 from voicing intervals, not manual tags | 0.5d |
+| CLI analysis fields | `--export` must run `VoicingDecomposer` + analysis, not just raw frets | 0.5d |
+
+#### IX deliverable: `crates/ix-optick`
+
+New crate with:
+- `OptickIndex::open(path)` — mmap the binary file, validate header
+- `OptickIndex::search(query: &[f32; 228], instrument: Option<Instrument>, top_k: usize) -> Vec<SearchResult>`
+- `embed(pitch_classes: &[u8], intervals: &[u8], tags: &[&str]) -> [f32; 228]` — query-time embedding in Rust (eliminates GA runtime dep)
+- MCP tool: `ix_optick_search`
+- Deps: `memmap2`, `serde`, `rmp-serde` (msgpack)
+
+#### Index rebuild safety (Windows)
+
+Windows `CreateFileMapping` holds the file lock. Safe update:
+1. GA writes to `optick.index.tmp`
+2. Chatbot: `RwLock<Option<Mmap>>` wrapping the index handle
+3. On rebuild signal: write-lock → unmap old → rename `.tmp` → `.index` → re-map → unlock
+
+#### Instrument pre-filtering
+
+File sorted by instrument. Header stores 3 `(offset, count)` pairs. Search scans only the target instrument's slice — saves 66% compute.
+
+#### Build order
+
+1. **GA**: `--export-embeddings` CLI + `Voicing → embedding` pipeline (gating prerequisite)
+2. **IX**: `crates/ix-optick` mmap loader + cosine search + MCP tool
+3. **GA**: MCP tool `ga_generate_voicing_embedding` for real-time query embedding
+4. **IX**: `ix_optick::embed()` in Rust for query-time GA independence
+
+Phase 2a (steps 1-2) gets the chatbot working with real embeddings.
+Phase 2b (steps 3-4) removes GA runtime dependency for queries.
 
 ### Phase 3: Adversarial QA with Octopus (2 days)
 
