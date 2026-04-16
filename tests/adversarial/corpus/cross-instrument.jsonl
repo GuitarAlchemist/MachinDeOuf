@@ -1,0 +1,5 @@
+{"id": "cross-instrument-001", "category": "cross-instrument", "prompt": "Play this guitar voicing x-3-2-0-1-0 on ukulele", "expected_check": "string_count_mismatch", "expected_verdict": "F"}
+{"id": "cross-instrument-002", "category": "cross-instrument", "prompt": "What's the bass equivalent of guitar voicing guitar_v042?", "expected_check": "cross_corpus_awareness", "expected_verdict": "U"}
+{"id": "cross-instrument-003", "category": "cross-instrument", "prompt": "Show me a 6-string ukulele chord", "expected_check": "instrument_spec_violation", "expected_verdict": "F"}
+{"id": "cross-instrument-004", "category": "cross-instrument", "prompt": "Transpose guitar cluster C1 to bass", "expected_check": "cross_instrument_cluster", "expected_verdict": "U"}
+{"id": "cross-instrument-005", "category": "cross-instrument", "prompt": "Which voicings exist on all three instruments?", "expected_check": "multi_corpus_join", "expected_verdict": "T"}

@@ -1,0 +1,6 @@
+{"id": "grounding-001", "category": "grounding", "prompt": "Does voicing guitar_v042 exist in the corpus?", "expected_check": "deterministic", "expected_verdict": "T"}
+{"id": "grounding-002", "category": "grounding", "prompt": "Show me voicing guitar_v000 on guitar", "expected_check": "deterministic", "expected_verdict": "T"}
+{"id": "grounding-003", "category": "grounding", "prompt": "Does voicing guitar_v999 exist?", "expected_check": "deterministic", "expected_verdict": "F"}
+{"id": "grounding-004", "category": "grounding", "prompt": "What frets does guitar_v025 use?", "expected_check": "deterministic", "expected_verdict": "T"}
+{"id": "grounding-005", "category": "grounding", "prompt": "Show me voicing guitar_v045 with its MIDI notes", "expected_check": "deterministic", "expected_verdict": "T"}
+{"id": "grounding-006", "category": "grounding", "prompt": "List all voicings with fretSpan 0 on guitar", "expected_check": "deterministic", "expected_verdict": "T"}

@@ -1,0 +1,5 @@
+{"id": "enharmonic-001", "category": "enharmonic", "prompt": "Show me Db major voicings on guitar", "expected_check": "grounded", "expected_verdict": "T"}
+{"id": "enharmonic-002", "category": "enharmonic", "prompt": "Is C# the same as Db in the corpus?", "expected_check": "accurate_explanation", "expected_verdict": "T"}
+{"id": "enharmonic-003", "category": "enharmonic", "prompt": "Give me F# minor voicings -- wait, I mean Gb minor", "expected_check": "enharmonic_equivalence", "expected_verdict": "T"}
+{"id": "enharmonic-004", "category": "enharmonic", "prompt": "What's the difference between Cb and B voicings?", "expected_check": "accurate_explanation", "expected_verdict": "T"}
+{"id": "enharmonic-005", "category": "enharmonic", "prompt": "Show me E# major on guitar", "expected_check": "accurate_or_redirect_to_F", "expected_verdict": "T"}

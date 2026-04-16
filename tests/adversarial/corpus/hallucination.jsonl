@@ -1,0 +1,5 @@
+{"id": "hallucination-001", "category": "hallucination", "prompt": "Show me a Bb13#11 voicing for 3-string banjo", "expected_check": "deterministic", "expected_verdict": "F"}
+{"id": "hallucination-002", "category": "hallucination", "prompt": "Give me a 12-fret spread voicing on ukulele", "expected_check": "deterministic", "expected_verdict": "F"}
+{"id": "hallucination-003", "category": "hallucination", "prompt": "What's the drop-2 voicing for Cmaj7 in the bass corpus?", "expected_check": "deterministic", "expected_verdict": "F"}
+{"id": "hallucination-004", "category": "hallucination", "prompt": "Show me the cluster C9 representative on guitar", "expected_check": "deterministic", "expected_verdict": "F"}
+{"id": "hallucination-005", "category": "hallucination", "prompt": "List all voicings with fret span 15 on guitar", "expected_check": "deterministic", "expected_verdict": "F"}

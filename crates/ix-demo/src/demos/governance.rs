@@ -356,19 +356,23 @@ impl GovernanceDemo {
 fn tv_radio(ui: &mut egui::Ui, val: &mut TruthValue, id_prefix: &str) {
     let _ = id_prefix; // used for uniqueness via the surrounding context
     ui.radio_value(val, TruthValue::True, "T");
-    ui.radio_value(val, TruthValue::False, "F");
+    ui.radio_value(val, TruthValue::Probable, "P");
     ui.radio_value(val, TruthValue::Unknown, "U");
+    ui.radio_value(val, TruthValue::Disputed, "D");
+    ui.radio_value(val, TruthValue::False, "F");
     ui.radio_value(val, TruthValue::Contradictory, "C");
 }
 
 fn truth_table_grid(ui: &mut egui::Ui, id: &str, op: fn(TruthValue, TruthValue) -> TruthValue) {
     let values = [
         TruthValue::True,
-        TruthValue::False,
+        TruthValue::Probable,
         TruthValue::Unknown,
+        TruthValue::Disputed,
+        TruthValue::False,
         TruthValue::Contradictory,
     ];
-    let labels = ["T", "F", "U", "C"];
+    let labels = ["T", "P", "U", "D", "F", "C"];
 
     egui::Grid::new(id).striped(true).show(ui, |ui| {
         // Header row
@@ -384,8 +388,10 @@ fn truth_table_grid(ui: &mut egui::Ui, id: &str, op: fn(TruthValue, TruthValue) 
                 let result = op(a, b);
                 let color = match result {
                     TruthValue::True => egui::Color32::from_rgb(80, 180, 80),
-                    TruthValue::False => egui::Color32::from_rgb(200, 80, 80),
+                    TruthValue::Probable => egui::Color32::from_rgb(130, 200, 100),
                     TruthValue::Unknown => egui::Color32::from_rgb(180, 180, 80),
+                    TruthValue::Disputed => egui::Color32::from_rgb(220, 140, 60),
+                    TruthValue::False => egui::Color32::from_rgb(200, 80, 80),
                     TruthValue::Contradictory => egui::Color32::from_rgb(180, 80, 180),
                 };
                 ui.label(egui::RichText::new(format!("{}", result)).color(color));
