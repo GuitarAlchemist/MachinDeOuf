@@ -290,6 +290,7 @@ pub fn build_pipeline(episodes: Vec<SessionEpisode>) -> Result<Pipeline, FridayB
                     let verdict = "T";
                     let gate = match verdict_gate(verdict) {
                         GateVerdict::Allow => "allow",
+                        GateVerdict::AllowWithCaveat => "allow_with_caveat",
                         GateVerdict::RefuseConfidential => "refuse_confidential",
                         GateVerdict::RefuseUnknown => "refuse_unknown",
                     };

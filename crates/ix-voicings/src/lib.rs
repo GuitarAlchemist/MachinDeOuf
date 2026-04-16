@@ -151,6 +151,9 @@ pub enum VoicingsError {
 
     #[error("progression grammar parse error: {0}")]
     ProgressionParse(String),
+
+    #[error("pipeline error: {0}")]
+    Pipeline(String),
 }
 
 /// Fixed coarse quality vocabulary used for the one-hot. The quality is
@@ -727,7 +730,9 @@ pub fn cluster(instrument: Instrument) -> Result<ClusterArtifacts, VoicingsError
         }
     }
 
-    let artifacts = best.unwrap();
+    let artifacts = best.ok_or_else(|| VoicingsError::Pipeline(
+        "clustering failed: corpus too small for any k candidate".into(),
+    ))?;
     let out_path = state_root()
         .join("voicings")
         .join(format!("{}-clusters.json", instrument.as_str()));
@@ -917,6 +922,12 @@ pub fn transitions(instrument: Instrument) -> Result<TransitionArtifacts, Voicin
             if i == j {
                 continue;
             }
+            if reps[i] >= corpus.len() || reps[j] >= corpus.len() {
+                return Err(VoicingsError::Pipeline(format!(
+                    "representative index out of bounds: reps[{i}]={}, reps[{j}]={}, corpus len={}",
+                    reps[i], reps[j], corpus.len()
+                )));
+            }
             let cost = movement_cost(&corpus[reps[i]], &corpus[reps[j]]);
             graph.add_edge(i, j, cost);
             edges.push(TransitionEdge {
@@ -927,16 +938,15 @@ pub fn transitions(instrument: Instrument) -> Result<TransitionArtifacts, Voicin
         }
     }
 
-    // Compute shortest paths between all pairs using Dijkstra
+    // Compute shortest paths between all pairs — hoist Dijkstra per source node
     let mut shortest_paths = Vec::new();
     for i in 0..k {
-        // Compute all-pairs shortest paths from node i
+        let (dists, _) = graph.dijkstra(i);
         for j in 0..k {
             if i == j {
                 continue;
             }
             if let Some(path) = graph.shortest_path(i, j) {
-                let (dists, _) = graph.dijkstra(i);
                 let total_cost = dists.get(&j).copied().unwrap_or(f64::INFINITY);
                 shortest_paths.push(ShortestPath {
                     from_cluster: i,
