@@ -5,3 +5,9 @@ Cargo.lock
 .vscode/
 *.swp
 *.swo
+
+# ix-voicings: raw GA CLI JSONL dumps can get huge at full corpus;
+# keep a small sample corpus + features checked in, ignore the raw stream
+# and any voicings artifacts over the checked-in sample size.
+/state/voicings/raw/*.jsonl
+!/state/voicings/raw/.gitkeep
