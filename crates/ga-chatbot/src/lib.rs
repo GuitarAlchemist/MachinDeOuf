@@ -5,6 +5,7 @@
 //! in the corpus. The QA harness layers deterministic checks (sanitization,
 //! corpus grounding, confidence thresholds) before expensive LLM judges.
 
+pub mod aggregate;
 pub mod qa;
 
 use serde::{Deserialize, Serialize};

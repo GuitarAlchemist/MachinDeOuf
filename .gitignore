@@ -13,3 +13,6 @@ Cargo.lock
 !/state/voicings/raw/.gitkeep
 state/voicings/*-corpus.json
 state/voicings/*-features.json
+
+# Adversarial QA: regenerable from CI
+state/adversarial/findings.jsonl
