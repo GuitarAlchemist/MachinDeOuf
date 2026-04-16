@@ -137,32 +137,50 @@ Example flow for "smoothest transition from Dm7 to G7 on guitar":
 
 OPTIC-K schema v1.7 produces 228-dim vectors. The v1.6 (216-dim) references in benchmarks are stale.
 
-#### File format: `state/voicings/optick.index`
+#### File format: `state/voicings/optick.index` (v3, post-debate)
+
+Revised after adversarial 3-LLM debate (Claude + Codex/GPT-5.4 + Gemini). Changes from v2: u64 offsets, explicit metadata_offset, schema_hash, corrected endian marker, header_size for forward-compat.
 
 ```
-Header (40+ bytes):
-  magic:               [u8; 4] = "OPTK"
-  version:             u32 = 2
-  endian_marker:       u16 = 0xFFFE
-  dimension:           u32 = 228
-  count:               u32 = N
-  instruments:         u8 = 3
-  instrument_offsets:  3 × (offset: u32, count: u32)
-  partition_weights:   228 × f32 (sqrt-scaled)
+Header:
+  magic:              [u8; 4] = "OPTK"
+  version:            u32 = 3
+  header_size:        u32              // bytes, self-describing
+  schema_hash:        u32              // CRC32 of partition names+offsets+weights
+  endian_marker:      u16 = 0xFEFF    // little-endian: reads 0xFEFF on LE host
+  _reserved:          u16 = 0         // alignment padding
+  dimension:          u32 = 228
+  count:              u64              // was u32, supports >4B entries
+  instruments:        u8 = 3
+  _pad:               [u8; 7]         // align to 8-byte boundary
+  instrument_offsets: 3 × (byte_offset: u64, count: u64)  // was u32
+  vectors_offset:     u64              // explicit byte offset to vector data
+  metadata_offset:    u64              // explicit byte offset to msgpack region
+  metadata_length:    u64              // explicit byte length of msgpack region
+  partition_weights:  228 × f32        // sqrt-scaled; excluded dims = 0.0
 
-Vectors (N × 228 × f32):
-  contiguous, pre-L2-normalized, pre-sqrt-weight-scaled
-  sorted by instrument (guitar → bass → ukulele)
+Vectors (at vectors_offset):
+  N × 228 × f32
+  Pipeline: raw → multiply by sqrt(weight) → L2-normalize → store
+  Sorted by instrument (guitar → bass → ukulele)
 
-Metadata (N × variable):
-  msgpack: {diagram, instrument, midiNotes, quality_inferred}
+Metadata (at metadata_offset, metadata_length bytes):
+  N × msgpack: {diagram, instrument, midiNotes, quality_inferred}
 ```
 
 100K voicings × 228 × 4 bytes = **87MB**. Memory-mapped read-only via `memmap2`. Brute-force cosine <5ms. No ANN until 5M+ voicings.
 
+**Embedding pipeline (order matters — confirmed by 3-LLM debate):**
+```
+raw_vector → multiply each dim by sqrt(partition_weight) → L2-normalize → store
+query_vector → multiply each dim by sqrt(partition_weight) → L2-normalize → dot product = weighted cosine
+```
+
+**Cross-language conformance:** Golden vector test suite — same input voicing produces identical 228-dim output in C# and Rust (tolerance: 1e-6 per dim).
+
 #### Partition weighting
 
-Vectors pre-scaled by `sqrt(weight)` per partition before L2-normalization at build time:
+Vectors pre-scaled by `sqrt(weight)` per partition, THEN L2-normalized at build time:
 
 | Partition | Dims | Weight | sqrt(w) |
 |-----------|------|--------|---------|

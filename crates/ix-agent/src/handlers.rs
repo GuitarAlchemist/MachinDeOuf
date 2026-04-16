@@ -4434,3 +4434,66 @@ fn base64_writer(output: &mut Vec<u8>) -> impl std::io::Write + '_ {
         pos: 0,
     }
 }
+
+// ── ix_optick_search ──────────────────────────────────────────
+
+pub fn optick_search(params: Value) -> Result<Value, String> {
+    let query_vals = params
+        .get("query")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| "Missing or invalid field 'query'".to_string())?;
+
+    let query: Vec<f32> = query_vals
+        .iter()
+        .map(|v| {
+            v.as_f64()
+                .ok_or_else(|| "Non-numeric value in 'query'".to_string())
+                .map(|n| n as f32)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let instrument = params
+        .get("instrument")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let top_k = params
+        .get("top_k")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as usize)
+        .unwrap_or(10);
+
+    let index_path = params
+        .get("index_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("state/voicings/optick.index");
+
+    let path = std::path::Path::new(index_path);
+    let index = ix_optick::OptickIndex::open(path)
+        .map_err(|e| format!("Failed to open OPTK index at '{}': {}", index_path, e))?;
+
+    let results = index
+        .search(&query, instrument.as_deref(), top_k)
+        .map_err(|e| format!("OPTK search failed: {e}"))?;
+
+    let hits: Vec<Value> = results
+        .iter()
+        .map(|r| {
+            json!({
+                "index": r.index,
+                "score": r.score,
+                "diagram": r.metadata.diagram,
+                "instrument": r.metadata.instrument,
+                "midiNotes": r.metadata.midi_notes,
+                "quality": r.metadata.quality_inferred,
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "count": hits.len(),
+        "top_k": top_k,
+        "instrument_filter": instrument,
+        "results": hits,
+    }))
+}

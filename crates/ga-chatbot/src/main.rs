@@ -2,11 +2,13 @@
 
 use clap::{Parser, Subcommand};
 use ga_chatbot::aggregate::{JudgeVerdict, QaResult};
+use ga_chatbot::mcp_bridge::{McpBridge, McpBridgeConfig};
 use ga_chatbot::qa::{load_corpus_ids, run_deterministic_checks};
 use ga_chatbot::{ask_stub, load_fixtures, ChatbotRequest, Instrument};
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Parser)]
 #[command(name = "ga-chatbot", about = "Domain-specific voicing chatbot")]
@@ -40,6 +42,24 @@ enum Commands {
         /// Path to stub fixtures JSONL file.
         #[arg(long, default_value = "tests/adversarial/fixtures/stub-responses.jsonl")]
         fixtures: PathBuf,
+    },
+    /// Start the live HTTP server backed by real GA + IX MCP tools.
+    ServeLive {
+        /// HTTP port to listen on.
+        #[arg(long, default_value = "7184")]
+        port: u16,
+        /// Executable for the GA MCP server.
+        #[arg(long, default_value = "dotnet")]
+        ga_command: String,
+        /// Arguments for the GA MCP server.
+        #[arg(long)]
+        ga_args: Vec<String>,
+        /// Executable for the IX MCP server.
+        #[arg(long, default_value = "cargo")]
+        ix_command: String,
+        /// Arguments for the IX MCP server.
+        #[arg(long)]
+        ix_args: Vec<String>,
     },
     /// Run the deterministic QA pipeline on the adversarial corpus.
     Qa {
@@ -92,6 +112,21 @@ fn main() {
             } else {
                 serve_jsonrpc(&fixture_map);
             }
+        }
+        Commands::ServeLive {
+            port,
+            ga_command,
+            ga_args,
+            ix_command,
+            ix_args,
+        } => {
+            let config = McpBridgeConfig {
+                ga_command,
+                ga_args,
+                ix_command,
+                ix_args,
+            };
+            serve_http_live(port, &config);
         }
         Commands::Ask {
             question,
@@ -551,6 +586,51 @@ const TOOLS: &str = r#"[
   }
 ]"#;
 
+fn parse_chord_pitch_classes(query: &str) -> Option<Vec<u8>> {
+    let q = query.trim().to_lowercase();
+    // Extract root note
+    let (root_pc, rest) = if q.starts_with("c#") || q.starts_with("db") { (1, &q[2..]) }
+        else if q.starts_with("d#") || q.starts_with("eb") { (3, &q[2..]) }
+        else if q.starts_with("f#") || q.starts_with("gb") { (6, &q[2..]) }
+        else if q.starts_with("g#") || q.starts_with("ab") { (8, &q[2..]) }
+        else if q.starts_with("a#") || q.starts_with("bb") { (10, &q[2..]) }
+        else if q.starts_with('c') { (0, &q[1..]) }
+        else if q.starts_with('d') { (2, &q[1..]) }
+        else if q.starts_with('e') { (4, &q[1..]) }
+        else if q.starts_with('f') { (5, &q[1..]) }
+        else if q.starts_with('g') { (7, &q[1..]) }
+        else if q.starts_with('a') { (9, &q[1..]) }
+        else if q.starts_with('b') { (11, &q[1..]) }
+        else { return None; };
+
+    // Parse quality → interval set (semitones from root)
+    let intervals: Vec<u8> = if rest.contains("maj7") || rest.contains("major7") || rest.contains("Δ") {
+        vec![0, 4, 7, 11] // maj7
+    } else if rest.contains("m7b5") || rest.contains("min7b5") || rest.contains("ø") {
+        vec![0, 3, 6, 10] // half-dim
+    } else if rest.contains("dim7") || rest.contains("°7") {
+        vec![0, 3, 6, 9] // dim7
+    } else if rest.contains("m7") || rest.contains("min7") || rest.contains("-7") {
+        vec![0, 3, 7, 10] // min7
+    } else if rest.contains("7") {
+        vec![0, 4, 7, 10] // dom7
+    } else if rest.contains("m") || rest.contains("min") || rest.contains("-") {
+        vec![0, 3, 7] // minor
+    } else if rest.contains("aug") || rest.contains("+") {
+        vec![0, 4, 8] // aug
+    } else if rest.contains("dim") || rest.contains("°") {
+        vec![0, 3, 6] // dim
+    } else if rest.contains("sus4") {
+        vec![0, 5, 7]
+    } else if rest.contains("sus2") {
+        vec![0, 2, 7]
+    } else {
+        vec![0, 4, 7] // major
+    };
+
+    Some(intervals.iter().map(|i| (root_pc + i) % 12).collect())
+}
+
 fn execute_tool(name: &str, args: &serde_json::Value) -> String {
     match name {
         "search_voicings" => {
@@ -563,30 +643,51 @@ fn execute_tool(name: &str, args: &serde_json::Value) -> String {
             };
             let voicings: Vec<serde_json::Value> = serde_json::from_str(&content).unwrap_or_default();
             let query_lower = query.to_lowercase();
+
+            // Try pitch-class matching first
+            let target_pcs = parse_chord_pitch_classes(&query_lower);
+
             let matches: Vec<_> = voicings.iter()
                 .filter(|v| {
-                    if query_lower.is_empty() { return true; }
+                    let midi_notes = v.get("midiNotes").and_then(|m| m.as_array());
                     let diagram = v.get("diagram").and_then(|d| d.as_str()).unwrap_or("");
                     let fret_span = v.get("fretSpan").and_then(|f| f.as_i64()).unwrap_or(0);
                     let min_fret = v.get("minFret").and_then(|f| f.as_i64()).unwrap_or(0);
+
+                    // Pitch-class match: voicing must contain ALL target pitch classes
+                    if let (Some(ref target), Some(midi)) = (&target_pcs, &midi_notes) {
+                        let voicing_pcs: std::collections::HashSet<u8> = midi.iter()
+                            .filter_map(|n| n.as_i64())
+                            .map(|n| (n % 12) as u8)
+                            .collect();
+                        let has_all = target.iter().all(|pc| voicing_pcs.contains(pc));
+                        let no_extras = voicing_pcs.len() <= target.len() + 1; // allow one doubled note
+                        return has_all && no_extras;
+                    }
+
+                    // Fallback: keyword matching
+                    if query_lower.is_empty() { return true; }
                     if query_lower.contains("open") && min_fret <= 1 && fret_span <= 3 { return true; }
-                    if query_lower.contains("barre") && fret_span >= 0 && min_fret >= 2 { return true; }
+                    if query_lower.contains("barre") && min_fret >= 2 { return true; }
+                    if query_lower.contains("drop") && fret_span >= 2 && fret_span <= 4 { return true; }
                     diagram.to_lowercase().contains(&query_lower)
                 })
-                .take(10)
+                .take(15)
                 .cloned()
                 .collect();
-            if matches.is_empty() {
-                format!("No voicings found for '{}' on {}. Corpus has {} total voicings.", query, instrument, voicings.len())
-            } else {
-                serde_json::to_string_pretty(&serde_json::json!({
-                    "instrument": instrument,
-                    "query": query,
-                    "results_count": matches.len(),
-                    "total_in_corpus": voicings.len(),
-                    "voicings": matches
-                })).unwrap_or_default()
-            }
+
+            let result = serde_json::json!({
+                "instrument": instrument,
+                "query": query,
+                "pitch_class_search": target_pcs.is_some(),
+                "target_pitch_classes": target_pcs.as_ref().map(|pcs| pcs.iter().map(|p| {
+                    ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"][*p as usize]
+                }).collect::<Vec<_>>()),
+                "results_count": matches.len(),
+                "total_in_corpus": voicings.len(),
+                "voicings": matches
+            });
+            serde_json::to_string_pretty(&result).unwrap_or_default()
         }
         "get_instrument_info" => {
             let instrument = args.get("instrument").and_then(|i| i.as_str()).unwrap_or("guitar");
@@ -743,6 +844,341 @@ fn call_llm(question: &str, history: &[serde_json::Value]) -> String {
 
         "Tool use loop exceeded 5 rounds.".to_string()
     })
+}
+
+// ---------------------------------------------------------------------------
+// Live mode — real MCP bridge tools
+// ---------------------------------------------------------------------------
+
+const LIVE_SYSTEM_PROMPT: &str = r#"You are a music theory assistant with access to real computation tools. Use ga__ tools for chord parsing, voicing search, and music theory. Use ix__ tools for structural analysis, clustering, topology, and voice leading. NEVER invent voicings — always call a tool to get real data."#;
+
+/// Convert MCP tool descriptors into the OpenAI function-calling tools array.
+fn mcp_tools_to_openai(tools: &[ga_chatbot::mcp_bridge::ToolDescriptor]) -> serde_json::Value {
+    let funcs: Vec<serde_json::Value> = tools
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": if t.input_schema.is_null() {
+                        serde_json::json!({"type": "object", "properties": {}})
+                    } else {
+                        t.input_schema.clone()
+                    },
+                }
+            })
+        })
+        .collect();
+    serde_json::Value::Array(funcs)
+}
+
+/// Call the LLM with tool-use loop, dispatching tool calls through the MCP bridge.
+///
+/// Returns the final assistant text response.
+fn call_llm_live(
+    question: &str,
+    history: &[serde_json::Value],
+    bridge: &Arc<Mutex<McpBridge>>,
+    openai_tools: &serde_json::Value,
+) -> String {
+    let mut messages = vec![
+        serde_json::json!({"role": "system", "content": LIVE_SYSTEM_PROMPT}),
+    ];
+    for msg in history {
+        if let (Some(role), Some(content)) = (
+            msg.get("role").and_then(|r| r.as_str()),
+            msg.get("content").and_then(|c| c.as_str()),
+        ) {
+            if role == "user" || role == "assistant" {
+                messages.push(serde_json::json!({"role": role, "content": content}));
+            }
+        }
+    }
+    if messages.len() <= 1
+        || messages
+            .last()
+            .and_then(|m| m.get("role").and_then(|r| r.as_str()))
+            != Some("user")
+    {
+        messages.push(serde_json::json!({"role": "user", "content": question}));
+    }
+
+    let openai_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap();
+
+        for round in 0..5 {
+            let model =
+                std::env::var("GA_CHATBOT_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+            let body = serde_json::json!({
+                "model": model,
+                "messages": messages,
+                "tools": openai_tools,
+                "max_tokens": 2048,
+            });
+
+            let resp = client
+                .post("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", format!("Bearer {}", openai_key))
+                .header("Content-Type", "application/json")
+                .body(body.to_string())
+                .send()
+                .await;
+
+            let json: serde_json::Value = match resp {
+                Ok(r) => r.json().await.unwrap_or_default(),
+                Err(e) => return format!("API error: {}", e),
+            };
+
+            if json.get("error").is_some() {
+                eprintln!("[ga-chatbot-live] API error: {}", json);
+                return json["error"]["message"]
+                    .as_str()
+                    .unwrap_or("API error")
+                    .to_string();
+            }
+
+            let choice = &json["choices"][0]["message"];
+            let finish_reason = json["choices"][0]["finish_reason"]
+                .as_str()
+                .unwrap_or("");
+
+            if finish_reason == "tool_calls" {
+                if let Some(tool_calls) = choice.get("tool_calls").and_then(|t| t.as_array()) {
+                    messages.push(choice.clone());
+
+                    for tc in tool_calls {
+                        let tool_name = tc["function"]["name"].as_str().unwrap_or("");
+                        let tool_args: serde_json::Value = tc["function"]["arguments"]
+                            .as_str()
+                            .and_then(|s| serde_json::from_str(s).ok())
+                            .unwrap_or_default();
+                        let tool_id = tc["id"].as_str().unwrap_or("");
+
+                        eprintln!(
+                            "[ga-chatbot-live] Round {} tool call: {}({})",
+                            round, tool_name, tool_args
+                        );
+
+                        let result = {
+                            let mut b = bridge.lock().unwrap();
+                            match b.execute_tool(tool_name, tool_args) {
+                                Ok(val) => {
+                                    // MCP tools/call returns {content: [{type:"text",text:"..."}]}
+                                    // Extract the text if possible, otherwise stringify
+                                    val.get("content")
+                                        .and_then(|c| c.as_array())
+                                        .and_then(|arr| arr.first())
+                                        .and_then(|item| {
+                                            item.get("text").and_then(|t| t.as_str())
+                                        })
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_else(|| val.to_string())
+                                }
+                                Err(e) => format!("Tool error: {}", e),
+                            }
+                        };
+
+                        eprintln!(
+                            "[ga-chatbot-live] Tool result: {}...",
+                            &result[..result.len().min(200)]
+                        );
+
+                        messages.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": result,
+                        }));
+                    }
+                    continue;
+                }
+            }
+
+            // Final text response
+            return choice
+                .get("content")
+                .and_then(|c| c.as_str())
+                .unwrap_or("No response.")
+                .to_string();
+        }
+
+        "Tool use loop exceeded 5 rounds.".to_string()
+    })
+}
+
+/// Live HTTP server backed by real GA + IX MCP tools.
+///
+/// Spawns the MCP bridge once at startup and shares it across all requests.
+/// Endpoints mirror `serve_http` but route tool calls through the bridge.
+fn serve_http_live(port: u16, config: &McpBridgeConfig) {
+    use std::net::TcpListener;
+
+    eprintln!("[ga-chatbot-live] Spawning MCP bridge...");
+    eprintln!(
+        "[ga-chatbot-live]   GA: {} {:?}",
+        config.ga_command, config.ga_args
+    );
+    eprintln!(
+        "[ga-chatbot-live]   IX: {} {:?}",
+        config.ix_command, config.ix_args
+    );
+
+    let bridge = match McpBridge::new(config) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("[ga-chatbot-live] Failed to spawn MCP bridge: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let tool_count = bridge.merged_tools().len();
+    let openai_tools = mcp_tools_to_openai(&bridge.merged_tools());
+    eprintln!(
+        "[ga-chatbot-live] Bridge ready — {} tools available",
+        tool_count
+    );
+
+    let bridge = Arc::new(Mutex::new(bridge));
+
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&addr).unwrap_or_else(|e| {
+        eprintln!("Failed to bind to {}: {}", addr, e);
+        std::process::exit(1);
+    });
+    eprintln!(
+        "[ga-chatbot-live] HTTP server listening on http://{}",
+        addr
+    );
+
+    for stream in listener.incoming() {
+        let mut stream = match stream {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+
+        // Read the full request (headers + body). For large bodies we may need
+        // multiple reads, but 16 KiB is sufficient for chat messages.
+        let mut buf = [0u8; 16384];
+        let n = match std::io::Read::read(&mut stream, &mut buf) {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
+        let request_str = String::from_utf8_lossy(&buf[..n]);
+
+        let first_line = request_str.lines().next().unwrap_or("");
+        let parts: Vec<&str> = first_line.split_whitespace().collect();
+        let (method, path) = if parts.len() >= 2 {
+            (parts[0], parts[1])
+        } else {
+            ("GET", "/")
+        };
+
+        let (status, content_type, body) = match (method, path) {
+            ("GET", "/api/chatbot/status") => {
+                let tool_count = {
+                    let b = bridge.lock().unwrap();
+                    b.merged_tools().len()
+                };
+                let resp = serde_json::json!({
+                    "isAvailable": true,
+                    "message": format!("ix ga-chatbot (live mode, {} tools)", tool_count),
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                    "mode": "live",
+                    "tool_count": tool_count,
+                });
+                ("200 OK", "application/json", resp.to_string())
+            }
+            ("GET", "/api/chatbot/tools") => {
+                let tools = {
+                    let b = bridge.lock().unwrap();
+                    b.merged_tools()
+                };
+                let summary: Vec<serde_json::Value> = tools
+                    .iter()
+                    .map(|t| {
+                        serde_json::json!({
+                            "name": t.name,
+                            "description": t.description,
+                        })
+                    })
+                    .collect();
+                (
+                    "200 OK",
+                    "application/json",
+                    serde_json::to_string_pretty(&summary).unwrap_or_default(),
+                )
+            }
+            ("GET", "/api/chatbot/examples") => {
+                let examples = serde_json::json!([
+                    "Show me drop-2 voicings for Cmaj7 on guitar",
+                    "What voicings work for a ii-V-I in C?",
+                    "Compare Am7 voicings across guitar and ukulele",
+                    "Find voicings with minimal finger movement from Dm7 to G7",
+                    "What are the most common voicing families on bass?",
+                    "Cluster these voicings by topology",
+                    "What is the Betti number of the voicing graph?"
+                ]);
+                ("200 OK", "application/json", examples.to_string())
+            }
+            ("POST", p) if p.starts_with("/api/chatbot/chat") => {
+                let body_start = request_str
+                    .find("\r\n\r\n")
+                    .map(|i| i + 4)
+                    .or_else(|| request_str.find("\n\n").map(|i| i + 2))
+                    .unwrap_or(n);
+                let json_body = &request_str[body_start..];
+                let parsed = serde_json::from_str::<serde_json::Value>(json_body).ok();
+
+                let user_messages = parsed
+                    .as_ref()
+                    .and_then(|v| v.get("messages"))
+                    .and_then(|m| m.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+
+                let question = parsed
+                    .as_ref()
+                    .and_then(|v| {
+                        v.get("message")
+                            .or(v.get("question"))
+                            .and_then(|m| m.as_str().map(String::from))
+                    })
+                    .or_else(|| {
+                        user_messages
+                            .last()
+                            .and_then(|m| m.get("content").and_then(|c| c.as_str().map(String::from)))
+                    })
+                    .unwrap_or_else(|| "Hello".to_string());
+
+                let answer = call_llm_live(&question, &user_messages, &bridge, &openai_tools);
+
+                let json_resp = serde_json::json!({
+                    "response": answer,
+                    "content": answer,
+                    "mode": "live",
+                });
+                ("200 OK", "application/json", json_resp.to_string())
+            }
+            ("OPTIONS", _) => ("200 OK", "text/plain", String::new()),
+            _ => ("404 Not Found", "text/plain", "Not found".to_string()),
+        };
+
+        let response = format!(
+            "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nConnection: close\r\n\r\n{}",
+            status,
+            content_type,
+            body.len(),
+            body
+        );
+        std::io::Write::write_all(&mut stream, response.as_bytes()).ok();
+    }
 }
 
 /// Simple HTTP server for the ga-chatbot frontend integration.

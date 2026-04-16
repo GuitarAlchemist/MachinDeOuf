@@ -2146,6 +2146,36 @@ Example 2 — "cluster crates by complexity then classify":
     /// session-facing utilities (demo, explain, triage).
     fn register_bridges_and_session(&mut self) {
         self.tools.push(Tool {
+            name: "ix_optick_search",
+            description: "Search the OPTIC-K voicing index by embedding similarity. Memory-mapped brute-force cosine search over 228-dim musical embeddings. Returns top-k most similar voicings with diagrams and metadata.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "228-dim query embedding vector (will be L2-normalized internally)"
+                    },
+                    "instrument": {
+                        "type": "string",
+                        "enum": ["guitar", "bass", "ukulele"],
+                        "description": "Optional instrument filter"
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "Number of results to return (default: 10)"
+                    },
+                    "index_path": {
+                        "type": "string",
+                        "description": "Path to optick.index file (default: state/voicings/optick.index)"
+                    }
+                },
+                "required": ["query"]
+            }),
+            handler: handlers::optick_search,
+        });
+
+        self.tools.push(Tool {
             name: "ix_tars_bridge",
             description: "Cross-repo bridge to TARS. Prepares ix analysis results (trace stats, pattern data, grammar weights) in the format TARS expects for ingestion. Returns structured payload ready for TARS tools (ingest_ga_traces, run_promotion_pipeline).",
             input_schema: json!({
