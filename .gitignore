@@ -11,3 +11,5 @@ Cargo.lock
 # and any voicings artifacts over the checked-in sample size.
 /state/voicings/raw/*.jsonl
 !/state/voicings/raw/.gitkeep
+state/voicings/*-corpus.json
+state/voicings/*-features.json

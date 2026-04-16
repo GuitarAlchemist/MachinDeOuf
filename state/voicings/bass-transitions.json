@@ -3,27 +3,27 @@
     {
       "from_cluster": 0,
       "to_cluster": 1,
-      "cost": 6.0
+      "cost": 7.0
     },
     {
       "from_cluster": 0,
       "to_cluster": 2,
-      "cost": 7.0
-    },
-    {
-      "from_cluster": 0,
-      "to_cluster": 3,
       "cost": 5.0
     },
     {
       "from_cluster": 0,
+      "to_cluster": 3,
+      "cost": 4.0
+    },
+    {
+      "from_cluster": 0,
       "to_cluster": 4,
-      "cost": 7.0
+      "cost": 4.0
     },
     {
       "from_cluster": 1,
       "to_cluster": 0,
-      "cost": 6.0
+      "cost": 7.0
     },
     {
       "from_cluster": 1,
@@ -38,12 +38,12 @@
     {
       "from_cluster": 1,
       "to_cluster": 4,
-      "cost": 3.0
+      "cost": 5.0
     },
     {
       "from_cluster": 2,
       "to_cluster": 0,
-      "cost": 7.0
+      "cost": 5.0
     },
     {
       "from_cluster": 2,
@@ -58,12 +58,12 @@
     {
       "from_cluster": 2,
       "to_cluster": 4,
-      "cost": 4.0
+      "cost": 5.0
     },
     {
       "from_cluster": 3,
       "to_cluster": 0,
-      "cost": 5.0
+      "cost": 4.0
     },
     {
       "from_cluster": 3,
@@ -83,17 +83,17 @@
     {
       "from_cluster": 4,
       "to_cluster": 0,
-      "cost": 7.0
+      "cost": 4.0
     },
     {
       "from_cluster": 4,
       "to_cluster": 1,
-      "cost": 3.0
+      "cost": 5.0
     },
     {
       "from_cluster": 4,
       "to_cluster": 2,
-      "cost": 4.0
+      "cost": 5.0
     },
     {
       "from_cluster": 4,
@@ -109,7 +109,7 @@
         0,
         1
       ],
-      "total_cost": 6.0
+      "total_cost": 7.0
     },
     {
       "from_cluster": 0,
@@ -118,7 +118,7 @@
         0,
         2
       ],
-      "total_cost": 7.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 0,
@@ -127,7 +127,7 @@
         0,
         3
       ],
-      "total_cost": 5.0
+      "total_cost": 4.0
     },
     {
       "from_cluster": 0,
@@ -136,7 +136,7 @@
         0,
         4
       ],
-      "total_cost": 7.0
+      "total_cost": 4.0
     },
     {
       "from_cluster": 1,
@@ -145,7 +145,7 @@
         1,
         0
       ],
-      "total_cost": 6.0
+      "total_cost": 7.0
     },
     {
       "from_cluster": 1,
@@ -172,7 +172,7 @@
         1,
         4
       ],
-      "total_cost": 3.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 2,
@@ -181,7 +181,7 @@
         2,
         0
       ],
-      "total_cost": 7.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 2,
@@ -208,7 +208,7 @@
         2,
         4
       ],
-      "total_cost": 4.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 3,
@@ -217,7 +217,7 @@
         3,
         0
       ],
-      "total_cost": 5.0
+      "total_cost": 4.0
     },
     {
       "from_cluster": 3,
@@ -253,7 +253,7 @@
         4,
         0
       ],
-      "total_cost": 7.0
+      "total_cost": 4.0
     },
     {
       "from_cluster": 4,
@@ -262,7 +262,7 @@
         4,
         1
       ],
-      "total_cost": 3.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 4,
@@ -271,7 +271,7 @@
         4,
         2
       ],
-      "total_cost": 4.0
+      "total_cost": 5.0
     },
     {
       "from_cluster": 4,
