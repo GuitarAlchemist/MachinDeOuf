@@ -7,6 +7,7 @@
 
 pub mod aggregate;
 pub mod qa;
+pub mod shapley;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

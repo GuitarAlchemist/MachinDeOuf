@@ -52,6 +52,9 @@ enum Commands {
         /// Output path for findings (JSONL).
         #[arg(long, default_value = "findings.jsonl")]
         output: PathBuf,
+        /// Compute Shapley prompt attribution after QA and append to output.
+        #[arg(long)]
+        shapley: bool,
     },
 }
 
@@ -100,8 +103,9 @@ fn main() {
             fixtures,
             corpus_dir,
             output,
+            shapley,
         } => {
-            std::process::exit(run_qa(&corpus, &fixtures, &corpus_dir, &output));
+            std::process::exit(run_qa(&corpus, &fixtures, &corpus_dir, &output, shapley));
         }
     }
 }
@@ -109,7 +113,7 @@ fn main() {
 /// Run the deterministic QA pipeline over all adversarial prompts.
 ///
 /// Returns 0 if no F/D verdicts, 1 otherwise.
-fn run_qa(corpus_path: &std::path::Path, fixtures_path: &std::path::Path, corpus_dir: &std::path::Path, output_path: &std::path::Path) -> i32 {
+fn run_qa(corpus_path: &std::path::Path, fixtures_path: &std::path::Path, corpus_dir: &std::path::Path, output_path: &std::path::Path, shapley: bool) -> i32 {
     // Load fixtures for stub responses
     let fixture_map = load_fixtures(fixtures_path);
 
@@ -234,6 +238,59 @@ fn run_qa(corpus_path: &std::path::Path, fixtures_path: &std::path::Path, corpus
                     .map(|s| s.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
+            );
+        }
+        println!();
+    }
+
+    // Shapley attribution (post-QA, not in critical path)
+    if shapley && !results.is_empty() {
+        let sample: Vec<QaResult> = if results.len() > 20 {
+            // Sample 20 stratified by category (take first 20 for simplicity)
+            eprintln!(
+                "Shapley: sampling 20 of {} results (exact Shapley capped at 20)",
+                results.len()
+            );
+            results.iter().take(20).cloned().collect()
+        } else {
+            results.clone()
+        };
+
+        let scores = ga_chatbot::shapley::compute_prompt_shapley(&sample);
+
+        // Append shapley_summary to output file
+        let shapley_summary = serde_json::json!({
+            "shapley_summary": {
+                "sample_size": sample.len(),
+                "total_prompts": results.len(),
+                "scores": scores,
+            }
+        });
+        if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(output_path) {
+            writeln!(f, "{}", shapley_summary).ok();
+        }
+
+        // Print top-5 and bottom-5
+        println!("=== Shapley Prompt Attribution ===");
+        println!("Sample size: {} / {}", sample.len(), results.len());
+        println!();
+
+        let top_n = scores.len().min(5);
+        println!("Top-{} most diagnostic prompts:", top_n);
+        for s in scores.iter().take(top_n) {
+            println!(
+                "  {:<25} Shapley={:.4}  category={}  fail_rate={:.1}",
+                s.prompt_id, s.shapley_value, s.category, s.failure_rate
+            );
+        }
+
+        let bottom_n = scores.len().min(5);
+        println!();
+        println!("Bottom-{} least diagnostic (pruning candidates):", bottom_n);
+        for s in scores.iter().rev().take(bottom_n).collect::<Vec<_>>().into_iter().rev() {
+            println!(
+                "  {:<25} Shapley={:.4}  category={}  fail_rate={:.1}",
+                s.prompt_id, s.shapley_value, s.category, s.failure_rate
             );
         }
         println!();
