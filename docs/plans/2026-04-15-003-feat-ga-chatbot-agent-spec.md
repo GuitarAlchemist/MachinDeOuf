@@ -38,11 +38,11 @@ LLM (GPT-4o / Claude) with tool use
 Grounded answer with REAL voicings from GA's engine
 ```
 
-Three layers, clear responsibilities:
+Three brains, clear responsibilities:
 
 1. **LLM** — conversational layer. Translates natural language to tool calls. Formats results. NEVER invents voicings.
-2. **GA MCP server** — music theory layer. Parses chords, computes intervals, generates OPTIC-K embeddings, searches voicing index. The source of truth.
-3. **ix** — validation layer. Adversarial QA verifies GA's answers against the corpus. Governance gates the pipeline. NOT the answer engine.
+2. **GA MCP server** — music theory computation. Parses chords, computes intervals, generates OPTIC-K embeddings, searches voicing index. Knows WHAT a Cmaj7 is.
+3. **IX MCP server** — structural analysis + validation. Clusters voicings into families, maps fretboard topology, computes shortest voice-leading paths, parses progression grammar, attributes significance via Shapley. Knows HOW voicings relate to each other. Also: adversarial QA and governance gating.
 
 ## OPTIC-K Integration
 
@@ -89,31 +89,47 @@ The chatbot calls these via MCP (stdio JSON-RPC), same as Claude Code does today
 
 ## Implementation
 
-### Phase 1: Wire GA MCP to the chatbot (2 days)
+### Phase 1: Wire GA + IX MCP to the chatbot (3 days)
 
-The ga-chatbot Rust HTTP server spawns the GA MCP server as a child process and communicates via stdio JSON-RPC. When the LLM requests a tool call, `execute_tool` sends a JSON-RPC request to the GA child process and returns the result.
+The ga-chatbot Rust HTTP server spawns BOTH MCP servers as child processes and routes tool calls to the right one.
 
 ```
 ga-chatbot HTTP server (Rust, port 7184)
     │
-    ├── OpenAI/Claude API (tool use loop)
+    ├── OpenAI/Claude API (tool use loop, up to 5 rounds)
     │
-    └── GA MCP child process (C#, stdio)
-        ├── GaParseChord
-        ├── GaDiatonicChords
-        ├── GaChordIntervals
-        ├── GaEasierVoicings
-        ├── GetAvailableInstruments
-        ├── GetTuning
-        └── ... (all 40+ GA tools)
+    ├── GA MCP child process (C#, stdio JSON-RPC)
+    │   ├── GaParseChord, GaChordIntervals
+    │   ├── GaDiatonicChords, GaChordSubstitutions
+    │   ├── GaEasierVoicings, GaSearchTabs
+    │   ├── GetAvailableInstruments, GetTuning
+    │   └── ... (40+ GA tools)
+    │
+    └── IX MCP child process (Rust, stdio JSON-RPC)
+        ├── ix_kmeans (voicing clustering)
+        ├── ix_topo (fretboard topology)
+        ├── ix_search (A* voice leading)
+        ├── ix_graph (transition costs)
+        ├── ix_grammar_search (progression parsing)
+        ├── ix_stats (corpus profiling)
+        ├── ix_governance_check (answer validation)
+        └── ... (61 ix tools)
 ```
 
 What to build:
-1. `ga-chatbot serve --http 7184` spawns `dotnet run --project GaMcpServer.csproj` as a child
-2. On startup, sends `tools/list` to discover available tools
-3. Converts GA tool schemas to OpenAI function-calling format
-4. `execute_tool` sends `tools/call` JSON-RPC to the child, returns result
-5. LLM tool-use loop runs up to 5 rounds
+1. `ga-chatbot serve --http 7184` spawns both child processes at startup
+2. Sends `tools/list` to each, merges tool catalogs (prefix: `ga__` / `ix__`)
+3. Converts merged schemas to OpenAI function-calling format
+4. `execute_tool` routes by prefix to the right child process
+5. LLM tool-use loop runs up to 5 rounds, can mix GA + IX calls in one turn
+
+Example flow for "smoothest transition from Dm7 to G7 on guitar":
+1. LLM calls `ga__GaParseChord("Dm7")` → intervals, pitch classes
+2. LLM calls `ga__GaParseChord("G7")` → intervals, pitch classes
+3. LLM calls `ga__GaEasierVoicings("Dm7", instrument="guitar")` → candidate voicings
+4. LLM calls `ga__GaEasierVoicings("G7", instrument="guitar")` → candidate voicings
+5. LLM calls `ix__ix_search(from=Dm7_voicing, to=G7_voicing, cost="finger_movement")` → A* path
+6. LLM formats: "Move from x-5-7-5-6-5 to 3-2-0-0-0-1, total movement cost: 4.2"
 
 ### Phase 2: OPTIC-K voicing search (3 days)
 
@@ -136,27 +152,36 @@ NOW the QA pipeline makes sense — it validates a chatbot that actually works:
 
 The QA tests the LLM's translation accuracy, not its music theory knowledge (GA handles that).
 
-## What ix provides (validation, not answers)
+## What GA provides (music theory computation)
 
-- `ix-sanitize` — input sanitization before LLM
-- `ix-governance` — hexavalent verdict aggregation for QA
-- `ix-game::shapley` — prompt attribution for QA corpus pruning
-- `ix-voicings` corpus — ground truth for cross-checking GA's output
-- `ix-topo` — topology drift detection on voicing relationships
-- Adversarial QA pipeline — CI gate on PRs
+- Chord parsing, interval computation — `GaParseChord`, `GaChordIntervals`
+- OPTIC-K 216-dim embeddings for semantic voicing search
+- Instrument specs (string count, tuning, range) — `GetAvailableInstruments`, `GetTuning`
+- Diatonic analysis, modal interchange — `GaDiatonicChords`, `GetModeChords`
+- Voicing generation and fretboard layout — `GaEasierVoicings`, `GaSearchTabs`
+- Chord substitutions — `GaChordSubstitutions`, `GaSetClassSubs`
 
-## What GA provides (the actual music theory)
+## What IX provides (structural analysis + validation)
 
-- Chord parsing, interval computation, voice leading
-- OPTIC-K embeddings for semantic voicing search
-- Instrument specifications (string count, tuning, range)
-- Diatonic analysis, modal interchange
-- Fretboard visualization data
+| IX tool | Chatbot capability it enables |
+|---------|------------------------------|
+| `ix_kmeans` | "Show me voicings similar to this one" — cluster-based nearest-neighbor |
+| `ix_topo` | "Are these voicings in the same neighborhood?" — persistent homology on fretboard space |
+| `ix_search` (A*) | "Smoothest transition from Dm7 to G7" — minimal finger-movement path |
+| `ix_graph` | "Which chord changes are hardest?" — transition cost graph |
+| `ix_grammar_search` | "Is this a valid jazz progression?" — CFG parse over chord sequences |
+| `ix_game_nash` | "What's the optimal voicing choice here?" — game-theoretic analysis |
+| `ix_stats` | "How common is this voicing pattern?" — statistical profiling of the corpus |
+| `ix_governance_check` | "Is this answer grounded?" — constitutional compliance gate |
+| `ix_sanitize` | Input sanitization before LLM |
+| `ix_adversarial_fgsm` | Adversarial robustness testing of the chatbot |
+
+GA knows WHAT a chord is. IX knows HOW chords relate to each other structurally.
 
 ## What the LLM provides (conversation, not computation)
 
 - Natural language understanding
-- Tool call orchestration
+- Tool call orchestration (decides which GA + IX tools to call)
 - Result formatting and explanation
 - Multi-turn context
 
