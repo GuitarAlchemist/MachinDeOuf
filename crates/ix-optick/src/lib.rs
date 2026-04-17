@@ -1,10 +1,17 @@
 //! # ix-optick
 //!
-//! Memory-mapped OPTIC-K v3 index reader with brute-force cosine search.
+//! Memory-mapped OPTIC-K v4 index reader with brute-force cosine search.
 //!
-//! The OPTK binary format stores pre-scaled, L2-normalized voicing vectors
-//! (228 dimensions) partitioned by instrument (guitar, bass, ukulele).
-//! Since vectors are pre-normalized, cosine similarity reduces to a dot product.
+//! The OPTK v4 binary format stores pre-scaled, L2-normalized voicing vectors
+//! (112 dimensions — search-relevant partitions only) partitioned by instrument
+//! (guitar, bass, ukulele). Since vectors are pre-normalized, cosine similarity
+//! reduces to a dot product.
+//!
+//! ## V4 improvements over v3
+//!
+//! - Dimension reduced 228 → 112 (info-only partitions dropped)
+//! - Per-voicing metadata offset table enables O(1) metadata fetch
+//! - ~55% smaller files, no search-quality regression
 //!
 //! ## Usage
 //!
@@ -16,7 +23,7 @@
 //! println!("Total voicings: {}", index.count());
 //!
 //! // Search across all instruments
-//! let query = vec![0.0f32; 228];
+//! let query = vec![0.0f32; 112];
 //! let results = index.search(&query, None, 5).unwrap();
 //! for r in &results {
 //!     println!("{}: score={:.4}, diagram={}", r.index, r.score, r.metadata.diagram);
@@ -34,17 +41,17 @@ use thiserror::Error;
 // ---------------------------------------------------------------------------
 
 const MAGIC: &[u8; 4] = b"OPTK";
-const SUPPORTED_VERSION: u32 = 3;
+const SUPPORTED_VERSION: u32 = 4;
 const ENDIAN_MARKER: u16 = 0xFEFF;
-const DIMENSION: u32 = 228;
+const DIMENSION: u32 = 112;
 const NUM_INSTRUMENTS: usize = 3;
 
 /// The canonical string whose CRC32 defines the expected schema hash.
-/// This encodes the partition layout so readers can detect format drift.
+/// V4 drops info-only partitions and uses dense (compact) indexing.
 /// MUST match GA's `OptickIndexWriter.PartitionLayout` byte-for-byte.
-const SCHEMA_SEED: &str = "IDENTITY:0-5,STRUCTURE:6-29,MORPHOLOGY:30-53,CONTEXT:54-65,\
-SYMBOLIC:66-77,EXTENSIONS:78-95,SPECTRAL:96-108,MODAL:109-148,\
-HIERARCHY:149-163,ATONAL_MODAL:164-227";
+const SCHEMA_SEED: &str =
+    "optk-v4:STRUCTURE:0-23,MORPHOLOGY:24-47,CONTEXT:48-59,\
+SYMBOLIC:60-71,MODAL:72-111";
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -95,7 +102,7 @@ pub struct InstrumentSlice {
     pub count: u64,
 }
 
-/// Parsed OPTK v3 file header.
+/// Parsed OPTK v4 file header.
 #[derive(Debug, Clone)]
 pub struct OptickHeader {
     pub version: u32,
@@ -105,6 +112,7 @@ pub struct OptickHeader {
     pub count: u64,
     pub instruments: u8,
     pub instrument_slices: [InstrumentSlice; NUM_INSTRUMENTS],
+    pub metadata_offsets_offset: u64,
     pub vectors_offset: u64,
     pub metadata_offset: u64,
     pub metadata_length: u64,
@@ -214,7 +222,7 @@ impl OptickIndex {
         self.header.count
     }
 
-    /// Vector dimensionality (always 228 for OPTK v3).
+    /// Vector dimensionality (always 112 for OPTK v4).
     pub fn dimension(&self) -> u32 {
         self.header.dimension
     }
@@ -226,7 +234,7 @@ impl OptickIndex {
 
     /// Brute-force cosine search (dot product on pre-normalized vectors).
     ///
-    /// - `query`: a 228-dimensional f32 vector (will be L2-normalized internally).
+    /// - `query`: a 112-dimensional f32 vector (will be L2-normalized internally).
     /// - `instrument`: optional filter (`"guitar"`, `"bass"`, or `"ukulele"`).
     /// - `top_k`: number of results to return.
     ///
@@ -253,15 +261,17 @@ impl OptickIndex {
             query.to_vec()
         };
 
-        // Determine scan range
+        // Determine scan range.
+        // V4: instrument byte_offsets are ABSOLUTE (relative to start of file).
+        // Convert to voicing-index by subtracting vectors_offset.
+        let vectors_offset = self.header.vectors_offset;
         let (global_start, scan_count) = match instrument {
             Some(name) => {
                 let idx = instrument_index(name)
                     .ok_or_else(|| OptickError::UnknownInstrument(name.to_string()))?;
                 let slice = &self.header.instrument_slices[idx];
-                // The instrument byte_offset is relative to vectors_offset.
-                // Compute the voicing-index start from the byte offset.
-                let start = (slice.byte_offset / (dim as u64 * 4)) as usize;
+                let rel_bytes = slice.byte_offset.saturating_sub(vectors_offset);
+                let start = (rel_bytes / (dim as u64 * 4)) as usize;
                 (start, slice.count as usize)
             }
             None => (0, self.header.count as usize),
@@ -327,13 +337,13 @@ impl OptickIndex {
     // -----------------------------------------------------------------------
 
     fn parse_header(buf: &[u8]) -> Result<OptickHeader, OptickError> {
-        // Minimum header: magic(4) + version(4) + header_size(4) + schema_hash(4)
+        // V4 header: magic(4) + version(4) + header_size(4) + schema_hash(4)
         // + endian(2) + reserved(2) + dimension(4) + count(8) + instruments(1) + pad(7)
-        // + 3*(8+8) + vectors_offset(8) + metadata_offset(8) + metadata_length(8)
-        // + 228*4 = 4+4+4+4+2+2+4+8+1+7+48+8+8+8+912 = 1024 (approximately)
+        // + 3*(8+8) + metadata_offsets_offset(8) + vectors_offset(8) + metadata_offset(8)
+        // + metadata_length(8) + 112*4 = 4+4+4+4+2+2+4+8+1+7+48+8+8+8+8+448 = 568 bytes
         let min_header = 4 + 4 + 4 + 4 + 2 + 2 + 4 + 8 + 1 + 7
             + NUM_INSTRUMENTS * 16
-            + 8 + 8 + 8
+            + 8 + 8 + 8 + 8
             + DIMENSION as usize * 4;
 
         if buf.len() < min_header {
@@ -402,7 +412,8 @@ impl OptickIndex {
             slot.count = read_u64(buf, &mut off);
         }
 
-        // vectors_offset, metadata_offset, metadata_length
+        // v4: metadata_offsets_offset, then vectors_offset, metadata_offset, metadata_length
+        let metadata_offsets_offset = read_u64(buf, &mut off);
         let vectors_offset = read_u64(buf, &mut off);
         let metadata_offset = read_u64(buf, &mut off);
         let metadata_length = read_u64(buf, &mut off);
@@ -421,6 +432,7 @@ impl OptickIndex {
             count,
             instruments,
             instrument_slices,
+            metadata_offsets_offset,
             vectors_offset,
             metadata_offset,
             metadata_length,
@@ -429,10 +441,31 @@ impl OptickIndex {
     }
 
     /// Read and deserialize the msgpack metadata record at the given voicing index.
+    /// Uses the v4 per-record offset table for O(1) access.
     fn read_metadata(&self, voicing_index: usize) -> Result<VoicingMetadata, OptickError> {
+        let count = self.header.count as usize;
+        if voicing_index >= count {
+            return Err(OptickError::MetadataParseError(format!(
+                "voicing index {voicing_index} out of range (count={count})"
+            )));
+        }
+
+        // Read the relative offset for this voicing from the offset table.
+        let offsets_base = self.header.metadata_offsets_offset as usize;
+        let entry_pos = offsets_base + voicing_index * 8;
+        if entry_pos + 8 > self.mmap.len() {
+            return Err(OptickError::IoError(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "metadata offsets table extends past end of file",
+            )));
+        }
+        let rel_off = u64::from_le_bytes(
+            self.mmap[entry_pos..entry_pos + 8].try_into().unwrap()
+        ) as usize;
+
+        // The msgpack record starts at metadata_offset + rel_off.
         let meta_start = self.header.metadata_offset as usize;
         let meta_end = meta_start + self.header.metadata_length as usize;
-
         if meta_end > self.mmap.len() {
             return Err(OptickError::IoError(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
@@ -440,21 +473,14 @@ impl OptickIndex {
             )));
         }
 
-        let meta_buf = &self.mmap[meta_start..meta_end];
-
-        // msgpack records are concatenated sequentially; skip to the target index.
-        let mut cursor = std::io::Cursor::new(meta_buf);
-        for _ in 0..voicing_index {
-            let _skip: rmp_serde::decode::Error = match rmp_serde::from_read::<_, VoicingMetadata>(&mut cursor) {
-                Ok(_) => continue,
-                Err(e) => {
-                    return Err(OptickError::MetadataParseError(format!(
-                        "failed to skip to index {voicing_index}: {e}"
-                    )));
-                }
-            };
+        let record_start = meta_start + rel_off;
+        if record_start >= meta_end {
+            return Err(OptickError::MetadataParseError(format!(
+                "record offset {rel_off} out of metadata range"
+            )));
         }
 
+        let mut cursor = std::io::Cursor::new(&self.mmap[record_start..meta_end]);
         rmp_serde::from_read::<_, VoicingMetadata>(&mut cursor)
             .map_err(|e| OptickError::MetadataParseError(format!("index {voicing_index}: {e}")))
     }
@@ -505,12 +531,12 @@ impl Ord for OrderedF32 {
 mod tests {
     use super::*;
 
-    const DIM: usize = 228;
+    const DIM: usize = 112;
 
     /// Instrument names for the 3 partitions.
     const INSTRUMENTS: [&str; 3] = ["guitar", "bass", "ukulele"];
 
-    /// Build a synthetic OPTK v3 binary image with `voicings` vectors.
+    /// Build a synthetic OPTK v4 binary image with `voicings` vectors.
     /// Each voicing gets a metadata record with a diagram like "V0", "V1", etc.
     fn build_test_index(voicings: &[[f32; DIM]], instrument_counts: [usize; 3]) -> Vec<u8> {
         assert_eq!(
@@ -520,50 +546,38 @@ mod tests {
         );
 
         let mut buf = Vec::new();
+        let count = voicings.len();
 
         // --- Header ---
-        // magic
-        buf.extend_from_slice(b"OPTK");
-        // version
-        buf.extend_from_slice(&3u32.to_le_bytes());
-        // header_size (placeholder, we patch it later)
+        buf.extend_from_slice(b"OPTK");                          // magic
+        buf.extend_from_slice(&4u32.to_le_bytes());              // version
         let header_size_pos = buf.len();
-        buf.extend_from_slice(&0u32.to_le_bytes());
-        // schema_hash
-        buf.extend_from_slice(&compute_schema_hash().to_le_bytes());
-        // endian marker
-        buf.extend_from_slice(&0xFEFFu16.to_le_bytes());
-        // reserved
-        buf.extend_from_slice(&0u16.to_le_bytes());
-        // dimension
-        buf.extend_from_slice(&(DIM as u32).to_le_bytes());
-        // count
-        buf.extend_from_slice(&(voicings.len() as u64).to_le_bytes());
-        // instruments
-        buf.push(3u8);
-        // pad (7 bytes)
-        buf.extend_from_slice(&[0u8; 7]);
+        buf.extend_from_slice(&0u32.to_le_bytes());              // header_size (patched)
+        buf.extend_from_slice(&compute_schema_hash().to_le_bytes()); // schema_hash
+        buf.extend_from_slice(&0xFEFFu16.to_le_bytes());         // endian marker
+        buf.extend_from_slice(&0u16.to_le_bytes());              // reserved
+        buf.extend_from_slice(&(DIM as u32).to_le_bytes());      // dimension
+        buf.extend_from_slice(&(count as u64).to_le_bytes());    // count
+        buf.push(3u8);                                            // instruments
+        buf.extend_from_slice(&[0u8; 7]);                        // pad
 
-        // instrument offsets: byte_offset relative to vectors start, count
-        let mut running = 0usize;
-        for &c in &instrument_counts {
-            let byte_off = (running * DIM * 4) as u64;
-            buf.extend_from_slice(&byte_off.to_le_bytes());
-            buf.extend_from_slice(&(c as u64).to_le_bytes());
-            running += c;
+        // Instrument offsets — ABSOLUTE byte offsets (patched once we know header size)
+        let inst_offsets_pos = buf.len();
+        for _ in 0..3 {
+            buf.extend_from_slice(&0u64.to_le_bytes());          // byte_offset (patched)
+            buf.extend_from_slice(&0u64.to_le_bytes());          // count (patched)
         }
 
-        // vectors_offset (placeholder)
+        let metadata_offsets_offset_pos = buf.len();
+        buf.extend_from_slice(&0u64.to_le_bytes());              // metadata_offsets_offset (patched)
         let vec_off_pos = buf.len();
-        buf.extend_from_slice(&0u64.to_le_bytes());
-        // metadata_offset (placeholder)
+        buf.extend_from_slice(&0u64.to_le_bytes());              // vectors_offset (patched)
         let meta_off_pos = buf.len();
-        buf.extend_from_slice(&0u64.to_le_bytes());
-        // metadata_length (placeholder)
+        buf.extend_from_slice(&0u64.to_le_bytes());              // metadata_offset (patched)
         let meta_len_pos = buf.len();
-        buf.extend_from_slice(&0u64.to_le_bytes());
+        buf.extend_from_slice(&0u64.to_le_bytes());              // metadata_length (patched)
 
-        // partition_weights (all 1.0 for testing)
+        // partition_weights (all 1.0 for testing — vectors already normalized)
         for _ in 0..DIM {
             buf.extend_from_slice(&1.0f32.to_le_bytes());
         }
@@ -571,6 +585,17 @@ mod tests {
         // Patch header_size
         let header_size = buf.len() as u32;
         buf[header_size_pos..header_size_pos + 4].copy_from_slice(&header_size.to_le_bytes());
+
+        // --- Metadata offsets table ---
+        let metadata_offsets_offset = buf.len() as u64;
+        buf[metadata_offsets_offset_pos..metadata_offsets_offset_pos + 8]
+            .copy_from_slice(&metadata_offsets_offset.to_le_bytes());
+
+        // Reserve space; patch after we compute metadata record offsets.
+        let offsets_table_start = buf.len();
+        for _ in 0..count {
+            buf.extend_from_slice(&0u64.to_le_bytes());
+        }
 
         // --- Vectors ---
         let vectors_offset = buf.len() as u64;
@@ -582,12 +607,24 @@ mod tests {
             }
         }
 
-        // --- Metadata (msgpack) ---
+        // Patch instrument offsets (absolute)
+        let mut running = 0u64;
+        let mut pos = inst_offsets_pos;
+        for &c in &instrument_counts {
+            let byte_off = vectors_offset + running;
+            buf[pos..pos + 8].copy_from_slice(&byte_off.to_le_bytes());
+            buf[pos + 8..pos + 16].copy_from_slice(&(c as u64).to_le_bytes());
+            running += (c * DIM * 4) as u64;
+            pos += 16;
+        }
+
+        // --- Metadata (msgpack) + patch offsets table ---
         let metadata_offset = buf.len() as u64;
         buf[meta_off_pos..meta_off_pos + 8].copy_from_slice(&metadata_offset.to_le_bytes());
 
         let mut inst_idx = 0usize;
         let mut count_in_inst = 0usize;
+        let mut record_rel_offsets = Vec::with_capacity(count);
         for (i, _v) in voicings.iter().enumerate() {
             while inst_idx < 3 && count_in_inst >= instrument_counts[inst_idx] {
                 inst_idx += 1;
@@ -596,19 +633,27 @@ mod tests {
             let inst_name = INSTRUMENTS[inst_idx.min(2)];
             count_in_inst += 1;
 
+            let rel = (buf.len() as u64) - metadata_offset;
+            record_rel_offsets.push(rel);
+
             let meta = serde_json::json!({
                 "diagram": format!("V{i}"),
                 "instrument": inst_name,
                 "midiNotes": [60 + i as i32],
                 "quality_inferred": null,
             });
-            // Serialize to msgpack
             let packed = rmp_serde::to_vec(&meta).unwrap();
             buf.extend_from_slice(&packed);
         }
 
-        let metadata_length = buf.len() as u64 - metadata_offset;
+        let metadata_length = (buf.len() as u64) - metadata_offset;
         buf[meta_len_pos..meta_len_pos + 8].copy_from_slice(&metadata_length.to_le_bytes());
+
+        // Patch the offsets table
+        for (i, rel) in record_rel_offsets.iter().enumerate() {
+            let p = offsets_table_start + i * 8;
+            buf[p..p + 8].copy_from_slice(&rel.to_le_bytes());
+        }
 
         buf
     }
@@ -636,8 +681,8 @@ mod tests {
 
         let index = OptickIndex::from_bytes(data).expect("should parse header");
         assert_eq!(index.count(), 3);
-        assert_eq!(index.dimension(), 228);
-        assert_eq!(index.header().version, 3);
+        assert_eq!(index.dimension(), 112);
+        assert_eq!(index.header().version, 4);
         assert_eq!(index.header().instruments, 3);
     }
 
@@ -710,7 +755,7 @@ mod tests {
         let err = index.search(&bad_query, None, 1).unwrap_err();
         assert!(matches!(
             err,
-            OptickError::QueryDimensionMismatch { got: 100, expected: 228 }
+            OptickError::QueryDimensionMismatch { got: 100, expected: 112 }
         ));
     }
 
