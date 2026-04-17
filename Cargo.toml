@@ -62,6 +62,7 @@ members = [
     "crates/ix-voicings",
     "crates/ix-optick",
     "crates/ix-embedding-diagnostics",
+    "crates/ix-quality-trend",
     "crates/ga-chatbot",
 ]
 
@@ -149,6 +150,7 @@ ix-sanitize = { path = "crates/ix-sanitize", version = "0.1.0" }
 ix-friday-brief = { path = "crates/ix-friday-brief", version = "0.1.0" }
 ix-optick = { path = "crates/ix-optick", version = "0.1.0" }
 ix-embedding-diagnostics = { path = "crates/ix-embedding-diagnostics", version = "0.1.0" }
+ix-quality-trend = { path = "crates/ix-quality-trend", version = "0.1.0" }
 serde_yaml = "0.9"
 parking_lot = "0.12"
 

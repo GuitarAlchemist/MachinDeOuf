@@ -1,0 +1,21 @@
+[package]
+name = "ix-quality-trend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+categories = ["command-line-utilities", "science"]
+keywords = ["quality", "trend", "snapshots", "diagnostics", "reporting"]
+description = "Aggregates quality snapshots (embedding diagnostics, voicing analysis audits, chatbot QA) over time and emits an executive-readable markdown trend report with deltas, regression flags, and sparklines."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+[[bin]]
+name = "ix-quality-trend"
+path = "src/main.rs"
