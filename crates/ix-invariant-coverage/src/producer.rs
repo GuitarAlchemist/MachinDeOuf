@@ -269,8 +269,22 @@ fn check_19_prime_form_self_representative(x: PcSet) -> bool {
     ix_bracelet::bracelet_prime_form(bx).raw() == x.0
 }
 
+/// Catalog invariant #14: Neo-Riemannian P, L, R are involutions on consonant
+/// triads. Fires iff `x` is a consonant triad AND P(P(x)) == x AND L(L(x)) == x
+/// AND R(R(x)) == x. Non-triads silently skip (not a violation, just out of scope).
+fn check_14_plr_involutions(x: PcSet) -> bool {
+    let bx = ix_bracelet::PcSet::new(x.0);
+    let Some(px) = ix_bracelet::p(bx) else { return false };
+    let Some(lx) = ix_bracelet::l(bx) else { return false };
+    let Some(rx) = ix_bracelet::r(bx) else { return false };
+    ix_bracelet::p(px) == Some(bx)
+        && ix_bracelet::l(lx) == Some(bx)
+        && ix_bracelet::r(rx) == Some(bx)
+}
+
 fn checks() -> Vec<Check> {
     vec![
+        Check { id: 14, holds: check_14_plr_involutions },
         Check { id: 16, holds: check_16_t12_identity },
         Check { id: 17, holds: check_17_double_inversion },
         Check { id: 18, holds: check_18_rotate_by_cardinality },
@@ -442,5 +456,20 @@ mod tests {
         let min = PcSet::from_pcs([0, 3, 7]);
         assert!(!check_19_prime_form_self_representative(maj));
         assert!(check_19_prime_form_self_representative(min));
+    }
+
+    #[test]
+    fn plr_involutions_fire_on_consonant_triads_only() {
+        // All 24 consonant triads → fires.
+        for root in 0..12u8 {
+            let maj = PcSet::from_pcs([root, root + 4, root + 7]);
+            let min = PcSet::from_pcs([root, root + 3, root + 7]);
+            assert!(check_14_plr_involutions(maj), "maj at root {root}");
+            assert!(check_14_plr_involutions(min), "min at root {root}");
+        }
+        // Non-triads → skips (returns false because P/L/R are None).
+        assert!(!check_14_plr_involutions(PcSet::from_pcs([0, 4, 8]))); // augmented
+        assert!(!check_14_plr_involutions(PcSet::from_pcs([0, 3, 6, 9]))); // dim7
+        assert!(!check_14_plr_involutions(PcSet::new(0))); // empty
     }
 }
