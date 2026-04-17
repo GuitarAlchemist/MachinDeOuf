@@ -261,11 +261,20 @@ fn check_24_icv_shape(x: PcSet) -> bool {
     v[0] == 0 && sum == expected_sum
 }
 
+/// Catalog invariant #19: `PrimeFormId` is self-representative — `PrimeForm(x) == x`
+/// iff `x` is already in prime form. Delegates to `ix-bracelet` for the canonical
+/// representative. Fires on exemplars whose raw mask equals their D₁₂-orbit minimum.
+fn check_19_prime_form_self_representative(x: PcSet) -> bool {
+    let bx = ix_bracelet::PcSet::new(x.0);
+    ix_bracelet::bracelet_prime_form(bx).raw() == x.0
+}
+
 fn checks() -> Vec<Check> {
     vec![
         Check { id: 16, holds: check_16_t12_identity },
         Check { id: 17, holds: check_17_double_inversion },
         Check { id: 18, holds: check_18_rotate_by_cardinality },
+        Check { id: 19, holds: check_19_prime_form_self_representative },
         Check { id: 20, holds: check_20_icv_inversion_invariant },
         Check { id: 24, holds: check_24_icv_shape },
     ]
@@ -414,10 +423,24 @@ mod tests {
         assert!(!firings.exemplars.is_empty());
         assert!(firings.fired.contains_key(&16));
         assert!(firings.fired.contains_key(&18));
+        assert!(firings.fired.contains_key(&19));
         // Universal #16 should fire on every exemplar.
         assert_eq!(firings.fired[&16].len(), firings.exemplars.len());
         // Discriminator #18 fires on a strict subset.
         assert!(firings.fired[&18].len() < firings.exemplars.len());
         assert!(!firings.fired[&18].is_empty());
+        // Prime-form discriminator #19 fires on a distinct subset — it must include
+        // the minor triad {0,3,7} (canonical Forte 3-11 rep) but NOT the major
+        // triad {0,4,7} (which maps to {0,3,7} under I).
+        assert!(firings.fired[&19].contains("minor-triad-0"));
+        assert!(!firings.fired[&19].contains("major-triad-0"));
+    }
+
+    #[test]
+    fn prime_form_self_rep_distinguishes_major_from_minor_triad() {
+        let maj = PcSet::from_pcs([0, 4, 7]);
+        let min = PcSet::from_pcs([0, 3, 7]);
+        assert!(!check_19_prime_form_self_representative(maj));
+        assert!(check_19_prime_form_self_representative(min));
     }
 }
