@@ -10,10 +10,12 @@
 
 pub mod action;
 pub mod dihedral;
+pub mod orbit;
 pub mod pc_set;
 pub mod prime_form;
 
 pub use action::Action;
 pub use dihedral::{DihedralElement, Group};
+pub use orbit::{all_prime_forms, orbit, orbit_unique};
 pub use pc_set::PcSet;
 pub use prime_form::{bracelet_prime_form, necklace_prime_form};
