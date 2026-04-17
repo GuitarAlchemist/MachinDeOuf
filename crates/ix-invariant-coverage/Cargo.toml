@@ -19,5 +19,9 @@ thiserror = { workspace = true }
 name = "ix-invariant-coverage"
 path = "src/main.rs"
 
+[[bin]]
+name = "ix-invariant-produce"
+path = "src/bin/produce.rs"
+
 [lib]
 path = "src/lib.rs"

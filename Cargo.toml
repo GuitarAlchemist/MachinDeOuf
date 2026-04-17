@@ -64,6 +64,7 @@ members = [
     "crates/ix-embedding-diagnostics",
     "crates/ix-quality-trend",
     "crates/ix-invariant-coverage",
+    "crates/ix-bracelet",
     "crates/ga-chatbot",
 ]
 
@@ -153,6 +154,7 @@ ix-optick = { path = "crates/ix-optick", version = "0.1.0" }
 ix-embedding-diagnostics = { path = "crates/ix-embedding-diagnostics", version = "0.1.0" }
 ix-quality-trend = { path = "crates/ix-quality-trend", version = "0.1.0" }
 ix-invariant-coverage = { path = "crates/ix-invariant-coverage", version = "0.1.0" }
+ix-bracelet = { path = "crates/ix-bracelet", version = "0.1.0" }
 serde_yaml = "0.9"
 parking_lot = "0.12"
 

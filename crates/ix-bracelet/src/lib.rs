@@ -1,0 +1,19 @@
+//! # ix-bracelet
+//!
+//! Dihedral group D₁₂ operator algebra on 12-bit pitch-class sets.
+//!
+//! Unifies transposition (Tₙ) and inversion (I) under a single
+//! [`DihedralElement`] type. Composition lives on the group, not on sets — fold
+//! a pipeline once, apply the result to many sets. [`bracelet_prime_form`]
+//! returns the canonical D₁₂-orbit representative (Forte set class); the
+//! transposition-only analogue is [`necklace_prime_form`].
+
+pub mod action;
+pub mod dihedral;
+pub mod pc_set;
+pub mod prime_form;
+
+pub use action::Action;
+pub use dihedral::{DihedralElement, Group};
+pub use pc_set::PcSet;
+pub use prime_form::{bracelet_prime_form, necklace_prime_form};
